@@ -64,6 +64,47 @@ export async function sendConfirmationEmail(booking: Booking) {
   });
 }
 
+export async function sendBookingNotificationToOrg(booking: Booking) {
+  await resend.emails.send({
+    from: `${config.organizationName} <onboarding@resend.dev>`,
+    to: config.organizationEmail,
+    subject: `Nieuwe boeking: ${booking.band_name} - ${formatDate(booking.slot_date)}`,
+    html: `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>Nieuwe boeking ontvangen</h2>
+        <p>Er is een nieuwe boeking bevestigd en betaald:</p>
+
+        <table style="border-collapse: collapse; width: 100%; margin: 20px 0;">
+          <tr>
+            <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Band</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">${booking.band_name}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Contact</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">${booking.contact_name} (${booking.contact_email})</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Telefoon</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">${booking.contact_phone || "-"}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Datum</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">${formatDate(booking.slot_date)}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Tijd</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">${formatTime(booking.slot_start_time)} - ${formatTime(booking.slot_end_time)}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Betaald</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">${formatPrice(booking.price_cents)}</td>
+          </tr>
+        </table>
+      </div>
+    `,
+  });
+}
+
 export async function sendCancellationNotification(booking: Booking) {
   await resend.emails.send({
     from: `${config.organizationName} <onboarding@resend.dev>`,

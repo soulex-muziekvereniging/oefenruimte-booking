@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { mollie } from "@/lib/mollie";
-import { sendConfirmationEmail } from "@/lib/email";
+import { sendConfirmationEmail, sendBookingNotificationToOrg } from "@/lib/email";
 
 export async function POST(request: NextRequest) {
   const body = await request.formData();
@@ -27,6 +27,7 @@ export async function POST(request: NextRequest) {
 
     if (booking) {
       await sendConfirmationEmail(booking);
+      await sendBookingNotificationToOrg(booking);
     }
   } else if (
     payment.status === "expired" ||
