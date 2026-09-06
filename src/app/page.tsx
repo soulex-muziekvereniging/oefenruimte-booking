@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 type Slot = {
   date: string;
@@ -68,6 +68,7 @@ export default function Home() {
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const dateInputRef = useRef<HTMLInputElement>(null);
 
   const weekEndStr = (() => {
     const d = new Date(weekStart);
@@ -83,6 +84,9 @@ export default function Home() {
   const maxDate = new Date(today);
   maxDate.setDate(maxDate.getDate() + 4 * 7);
   const canGoNext = new Date(weekEndStr + "T00:00:00") < maxDate;
+
+  const todayStr = formatDateStr(today);
+  const maxDateStr = formatDateStr(maxDate);
 
   useEffect(() => {
     let cancelled = false;
@@ -111,6 +115,18 @@ export default function Home() {
     const d = new Date(weekStart);
     d.setDate(d.getDate() + 7);
     setWeekStart(d);
+  }
+
+  function handleDatePick(dateStr: string) {
+    if (!dateStr) return;
+    const picked = new Date(dateStr + "T00:00:00");
+    const newWeekStart = getWeekStart(picked);
+    const earliest = getWeekStart(today);
+    if (newWeekStart < earliest) {
+      setWeekStart(earliest);
+    } else {
+      setWeekStart(newWeekStart);
+    }
   }
 
   function handleSlotClick(slot: Slot, dayLabel: string) {
@@ -156,38 +172,58 @@ export default function Home() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-8">
-      <div className="flex items-center justify-between mb-6">
+    <div className="max-w-5xl mx-auto px-3 sm:px-4 py-4 sm:py-8">
+      {/* Week navigation */}
+      <div className="flex items-center justify-between gap-2 mb-3 sm:mb-6">
         <button
           onClick={handlePrevWeek}
           disabled={!canGoPrev}
-          className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+          className="min-w-[44px] min-h-[44px] px-2 sm:px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed text-sm sm:text-base shrink-0"
         >
-          ← Vorige week
+          <span className="sm:hidden">&larr;</span>
+          <span className="hidden sm:inline">&larr; Vorige week</span>
         </button>
-        <h2 className="text-lg font-semibold text-center">
+        <h2 className="text-sm sm:text-lg font-semibold text-center min-w-0">
           {formatDisplayDate(weekStartStr)} –{" "}
           {formatDisplayDate(weekEndStr)}
         </h2>
         <button
           onClick={handleNextWeek}
           disabled={!canGoNext}
-          className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+          className="min-w-[44px] min-h-[44px] px-2 sm:px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed text-sm sm:text-base shrink-0"
         >
-          Volgende week →
+          <span className="sm:hidden">&rarr;</span>
+          <span className="hidden sm:inline">Volgende week &rarr;</span>
         </button>
+      </div>
+
+      {/* Date picker to jump to a specific week */}
+      <div className="flex items-center justify-center gap-2 mb-4 sm:mb-6">
+        <label htmlFor="datepicker" className="text-sm text-gray-600">
+          Ga naar datum:
+        </label>
+        <input
+          ref={dateInputRef}
+          id="datepicker"
+          type="date"
+          min={todayStr}
+          max={maxDateStr}
+          value={weekStartStr}
+          onChange={(e) => handleDatePick(e.target.value)}
+          className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-h-[44px]"
+        />
       </div>
 
       {loading ? (
         <div className="text-center py-12 text-gray-500">Laden...</div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-2 sm:gap-3">
           {days.map((day) => {
             const isPast = day.date < formatDateStr(new Date());
             return (
               <div
                 key={day.date}
-                className="bg-white rounded-lg border border-gray-200 p-3"
+                className="bg-white rounded-lg border border-gray-200 p-2 sm:p-3"
               >
                 <div className="text-sm font-semibold text-gray-700 mb-2 text-center">
                   {day.dayLabel}
@@ -210,12 +246,12 @@ export default function Home() {
                         key={`${slot.date}-${slot.startTime}`}
                         onClick={() => handleSlotClick(slot, day.dayLabel)}
                         disabled={disabled}
-                        className={`w-full text-xs py-1.5 px-2 rounded transition-colors ${
+                        className={`w-full text-xs sm:text-sm py-2 sm:py-2.5 px-1.5 sm:px-2 rounded transition-colors min-h-[40px] ${
                           isSelected
                             ? "bg-blue-600 text-white"
                             : disabled
                               ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                              : "bg-green-50 text-green-800 border border-green-200 hover:bg-green-100 cursor-pointer"
+                              : "bg-green-50 text-green-800 border border-green-200 hover:bg-green-100 active:bg-green-200 cursor-pointer"
                         }`}
                       >
                         {slot.startTime.slice(0, 5)} –{" "}
@@ -231,7 +267,7 @@ export default function Home() {
       )}
 
       {selectedSlot && (
-        <div className="mt-8 bg-white rounded-lg border border-gray-200 p-6 max-w-lg mx-auto">
+        <div className="mt-6 sm:mt-8 bg-white rounded-lg border border-gray-200 p-4 sm:p-6 max-w-lg mx-auto">
           <h3 className="text-lg font-semibold mb-1">Boeking maken</h3>
           <p className="text-sm text-gray-600 mb-4">
             {selectedSlot.dayLabel} {formatFullDate(selectedSlot.date)},{" "}
@@ -253,7 +289,7 @@ export default function Home() {
                 onChange={(e) =>
                   setFormData({ ...formData, bandName: e.target.value })
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
                 placeholder="Naam van je band"
               />
             </div>
@@ -268,7 +304,7 @@ export default function Home() {
                 onChange={(e) =>
                   setFormData({ ...formData, contactName: e.target.value })
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
                 placeholder="Je naam"
               />
             </div>
@@ -283,7 +319,7 @@ export default function Home() {
                 onChange={(e) =>
                   setFormData({ ...formData, contactEmail: e.target.value })
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
                 placeholder="band@voorbeeld.nl"
               />
             </div>
@@ -297,7 +333,7 @@ export default function Home() {
                 onChange={(e) =>
                   setFormData({ ...formData, contactPhone: e.target.value })
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
                 placeholder="06-12345678"
               />
             </div>
@@ -311,7 +347,7 @@ export default function Home() {
             <button
               type="submit"
               disabled={submitting}
-              className="w-full py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="w-full py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-base"
             >
               {submitting ? "Even geduld..." : "Betalen en boeken →"}
             </button>
