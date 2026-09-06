@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 
 type Slot = {
   date: string;
@@ -69,29 +69,35 @@ export default function Home() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
-  const weekEnd = new Date(weekStart);
-  weekEnd.setDate(weekEnd.getDate() + 6);
+  const weekEndStr = (() => {
+    const d = new Date(weekStart);
+    d.setDate(d.getDate() + 6);
+    return formatDateStr(d);
+  })();
+
+  const weekStartStr = formatDateStr(weekStart);
 
   const today = new Date();
   const canGoPrev = weekStart > getWeekStart(today);
 
   const maxDate = new Date(today);
   maxDate.setDate(maxDate.getDate() + 4 * 7);
-  const canGoNext = weekEnd < maxDate;
-
-  const fetchSlots = useCallback(async () => {
-    setLoading(true);
-    const from = formatDateStr(weekStart);
-    const to = formatDateStr(weekEnd);
-    const res = await fetch(`/api/slots?from=${from}&to=${to}`);
-    const data = await res.json();
-    setDays(data);
-    setLoading(false);
-  }, [weekStart, weekEnd]);
+  const canGoNext = new Date(weekEndStr + "T00:00:00") < maxDate;
 
   useEffect(() => {
-    fetchSlots();
-  }, [fetchSlots]);
+    let cancelled = false;
+    async function load() {
+      setLoading(true);
+      const res = await fetch(`/api/slots?from=${weekStartStr}&to=${weekEndStr}`);
+      const data = await res.json();
+      if (!cancelled) {
+        setDays(data);
+        setLoading(false);
+      }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, [weekStartStr, weekEndStr]);
 
   function handlePrevWeek() {
     if (!canGoPrev) return;
@@ -160,8 +166,8 @@ export default function Home() {
           ← Vorige week
         </button>
         <h2 className="text-lg font-semibold text-center">
-          {formatDisplayDate(formatDateStr(weekStart))} –{" "}
-          {formatDisplayDate(formatDateStr(weekEnd))}
+          {formatDisplayDate(weekStartStr)} –{" "}
+          {formatDisplayDate(weekEndStr)}
         </h2>
         <button
           onClick={handleNextWeek}
