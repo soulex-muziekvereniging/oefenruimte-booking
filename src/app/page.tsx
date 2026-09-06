@@ -131,6 +131,13 @@ export default function Home() {
 
   function handleSlotClick(slot: Slot, dayLabel: string) {
     if (!slot.available) return;
+    if (
+      selectedSlot?.date === slot.date &&
+      selectedSlot?.startTime === slot.startTime
+    ) {
+      setSelectedSlot(null);
+      return;
+    }
     setSelectedSlot({
       date: slot.date,
       startTime: slot.startTime,
@@ -172,7 +179,7 @@ export default function Home() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto px-3 sm:px-4 py-4 sm:py-8">
+    <div className={`max-w-5xl mx-auto px-3 sm:px-4 py-4 sm:py-8 ${selectedSlot ? "pb-[420px] sm:pb-[400px]" : ""}`}>
       {/* Week navigation */}
       <div className="flex items-center justify-between gap-2 mb-3 sm:mb-6">
         <button
@@ -266,92 +273,112 @@ export default function Home() {
         </div>
       )}
 
+      {/* Docked booking panel at bottom of screen */}
       {selectedSlot && (
-        <div className="mt-6 sm:mt-8 bg-white rounded-lg border border-gray-200 p-4 sm:p-6 max-w-lg mx-auto">
-          <h3 className="text-lg font-semibold mb-1">Boeking maken</h3>
-          <p className="text-sm text-gray-600 mb-4">
-            {selectedSlot.dayLabel} {formatFullDate(selectedSlot.date)},{" "}
-            {selectedSlot.startTime.slice(0, 5)} –{" "}
-            {selectedSlot.endTime.slice(0, 5)}
-            {" · "}
-            <span className="font-medium">€20,00</span>
-          </p>
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Bandnaam *
-              </label>
-              <input
-                type="text"
-                required
-                value={formData.bandName}
-                onChange={(e) =>
-                  setFormData({ ...formData, bandName: e.target.value })
-                }
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
-                placeholder="Naam van je band"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Contactpersoon *
-              </label>
-              <input
-                type="text"
-                required
-                value={formData.contactName}
-                onChange={(e) =>
-                  setFormData({ ...formData, contactName: e.target.value })
-                }
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
-                placeholder="Je naam"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                E-mailadres *
-              </label>
-              <input
-                type="email"
-                required
-                value={formData.contactEmail}
-                onChange={(e) =>
-                  setFormData({ ...formData, contactEmail: e.target.value })
-                }
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
-                placeholder="band@voorbeeld.nl"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Telefoonnummer
-              </label>
-              <input
-                type="tel"
-                value={formData.contactPhone}
-                onChange={(e) =>
-                  setFormData({ ...formData, contactPhone: e.target.value })
-                }
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
-                placeholder="06-12345678"
-              />
-            </div>
-
-            {error && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
-                {error}
+        <div className="fixed bottom-0 inset-x-0 bg-white border-t-2 border-gray-200 shadow-[0_-4px_20px_rgba(0,0,0,0.12)] z-50">
+          <div className="max-h-[75vh] overflow-y-auto overscroll-contain">
+            <div className="max-w-lg mx-auto p-4 sm:p-6">
+              <div className="flex items-start justify-between mb-3">
+                <div>
+                  <h3 className="text-lg font-semibold">Boeking maken</h3>
+                  <p className="text-sm text-gray-600">
+                    {selectedSlot.dayLabel} {formatFullDate(selectedSlot.date)},{" "}
+                    {selectedSlot.startTime.slice(0, 5)} –{" "}
+                    {selectedSlot.endTime.slice(0, 5)}
+                    {" · "}
+                    <span className="font-medium">€20,00</span>
+                  </p>
+                </div>
+                <button
+                  onClick={() => setSelectedSlot(null)}
+                  className="ml-4 p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 min-w-[44px] min-h-[44px] flex items-center justify-center shrink-0"
+                  aria-label="Sluiten"
+                >
+                  ✕
+                </button>
               </div>
-            )}
 
-            <button
-              type="submit"
-              disabled={submitting}
-              className="w-full py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-base"
-            >
-              {submitting ? "Even geduld..." : "Betalen en boeken →"}
-            </button>
-          </form>
+              <form onSubmit={handleSubmit} className="space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Bandnaam *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={formData.bandName}
+                      onChange={(e) =>
+                        setFormData({ ...formData, bandName: e.target.value })
+                      }
+                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
+                      placeholder="Naam van je band"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Contactpersoon *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={formData.contactName}
+                      onChange={(e) =>
+                        setFormData({ ...formData, contactName: e.target.value })
+                      }
+                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
+                      placeholder="Je naam"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      E-mailadres *
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      value={formData.contactEmail}
+                      onChange={(e) =>
+                        setFormData({ ...formData, contactEmail: e.target.value })
+                      }
+                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
+                      placeholder="band@voorbeeld.nl"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Telefoonnummer
+                    </label>
+                    <input
+                      type="tel"
+                      value={formData.contactPhone}
+                      onChange={(e) =>
+                        setFormData({ ...formData, contactPhone: e.target.value })
+                      }
+                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
+                      placeholder="06-12345678"
+                    />
+                  </div>
+                </div>
+
+                {error && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                    {error}
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="w-full py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-base"
+                >
+                  {submitting ? "Even geduld..." : "Betalen en boeken →"}
+                </button>
+              </form>
+            </div>
+          </div>
         </div>
       )}
     </div>
