@@ -8,10 +8,11 @@ Online boekingssysteem voor de muziekstichting. Bands kunnen een oefenruimte boe
 Band bezoekt website
        │
        ▼
-Weekoverzicht met beschikbare tijdslots (groen = vrij, grijs = bezet)
+Weekoverzicht met beschikbare tijdslots (groen = vrij, rood = bezet + bandnaam)
+  + datumkiezer om direct naar een specifieke week te springen
        │
-       ▼ klikt op een slot
-Boekingsformulier: bandnaam, contactpersoon, e-mail, telefoon
+       ▼ klikt op een slot (nogmaals klikken = deselecteren)
+Boekingsformulier verschijnt gedockt aan onderkant scherm
        │
        ▼ verstuurt
 Redirect naar Mollie betaalpagina
@@ -21,9 +22,14 @@ Boeking definitief + 2 e-mails:
   1. Bevestigingsmail naar de band (met annuleringslink)
   2. Notificatie naar de organisatie
 
-Annulering:
+Annulering (door band):
   Band klikt annuleringslink in e-mail → bevestigt → automatische refund via Mollie
   → Organisatie krijgt e-mail over de annulering
+
+Annulering (door beheerder):
+  Beheerder gaat naar /admin → logt in met wachtwoord
+  → Ziet alle aankomende boekingen → klikt "Annuleer boeking"
+  → Automatische refund via Mollie + organisatie krijgt e-mail
 ```
 
 ## Tech Stack
@@ -42,15 +48,19 @@ Annulering:
 src/
 ├── config.ts                    ← ALLE configureerbare variabelen (prijs, tijden, etc.)
 ├── app/
-│   ├── page.tsx                 ← Hoofdpagina: weekkalender + boekingsformulier
+│   ├── page.tsx                 ← Hoofdpagina: weekkalender + gedockt boekingsformulier
 │   ├── layout.tsx               ← Layout: header, footer, NL taalinstellingen
+│   ├── admin/
+│   │   └── page.tsx             ← Beheerderspagina: boekingen inzien + annuleren
 │   ├── booking/
 │   │   ├── success/page.tsx     ← Bevestigingspagina na betaling
 │   │   └── cancel/page.tsx      ← Annuleringspagina
 │   └── api/
-│       ├── slots/route.ts       ← GET: beschikbare tijdslots ophalen
+│       ├── slots/route.ts       ← GET: beschikbare tijdslots ophalen (incl. bandnamen)
 │       ├── bookings/route.ts    ← POST: boeking aanmaken + Mollie betaling starten
-│       ├── bookings/[id]/cancel/route.ts ← POST: annulering + refund
+│       ├── bookings/[id]/cancel/route.ts ← POST: annulering + refund (door band)
+│       ├── admin/bookings/route.ts       ← GET: alle boekingen ophalen (admin)
+│       ├── admin/bookings/[id]/cancel/route.ts ← POST: annulering door beheerder
 │       └── webhooks/mollie/route.ts      ← POST: Mollie meldt betaalstatus
 └── lib/
     ├── supabase.ts              ← Database client + types
@@ -111,8 +121,29 @@ Deze staan ingesteld in Vercel (Settings → Environment Variables):
 | `MOLLIE_API_KEY` | Mollie API key | Mollie → Developers → API keys |
 | `RESEND_API_KEY` | Resend API key | Resend → API Keys |
 | `NEXT_PUBLIC_APP_URL` | De URL van de live site | De Vercel deployment URL |
+| `ADMIN_PASSWORD` | Wachtwoord voor de beheerderspagina (`/admin`) | Zelf gekozen bij instellen |
 
 **Let op:** `SUPABASE_SERVICE_ROLE_KEY` is een geheime key met volledige database-toegang. Deel deze nooit publiek.
+
+## Beheerderspagina (`/admin`)
+
+Ga naar `jouw-site.vercel.app/admin` en log in met het `ADMIN_PASSWORD`.
+
+Functies:
+- **Overzicht** van alle aankomende bevestigde en lopende boekingen
+- **Annuleren** van een boeking — het betaalde bedrag wordt automatisch teruggestort via Mollie en de organisatie ontvangt een e-mail
+- **Vernieuwen** om de laatste boekingen op te halen
+
+Het wachtwoord wijzigen: ga naar Vercel → Settings → Environment Variables → wijzig `ADMIN_PASSWORD` → redeploy.
+
+## Kalenderoverzicht
+
+- **Groene slots** = beschikbaar, klik om te boeken
+- **Rode slots** = bezet, met de bandnaam eronder zichtbaar
+- **Datumkiezer** boven het rooster om direct naar een specifieke week te springen
+- **Slot toggle** — klik nogmaals op een geselecteerd (blauw) slot om te deselecteren
+- **Gedockt formulier** — bij selectie verschijnt het boekingsformulier vast aan de onderkant van het scherm
+- **Mobiel-vriendelijk** — werkt goed op smartphones met aanpaste layout en grote knoppen
 
 ---
 
