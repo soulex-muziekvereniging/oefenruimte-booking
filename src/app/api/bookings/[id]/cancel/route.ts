@@ -1,0 +1,54 @@
+import { NextRequest, NextResponse } from "next/server";
+import { supabase } from "@/lib/supabase";
+import { mollie } from "@/lib/mollie";
+import { sendCancellationNotification } from "@/lib/email";
+
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+  const body = await request.json();
+  const { cancelToken } = body;
+
+  if (!cancelToken) {
+    return NextResponse.json(
+      { error: "Ongeldig annuleringsverzoek" },
+      { status: 400 }
+    );
+  }
+
+  const { data: booking, error } = await supabase
+    .from("bookings")
+    .select()
+    .eq("id", id)
+    .eq("cancel_token", cancelToken)
+    .eq("status", "confirmed")
+    .single();
+
+  if (error || !booking) {
+    return NextResponse.json(
+      { error: "Boeking niet gevonden of kan niet worden geannuleerd" },
+      { status: 404 }
+    );
+  }
+
+  if (booking.mollie_payment_id) {
+    await mollie.paymentRefunds.create({
+      paymentId: booking.mollie_payment_id,
+      amount: {
+        currency: "EUR",
+        value: (booking.price_cents / 100).toFixed(2),
+      },
+    });
+  }
+
+  await supabase
+    .from("bookings")
+    .update({ status: "cancelled", updated_at: new Date().toISOString() })
+    .eq("id", id);
+
+  await sendCancellationNotification(booking);
+
+  return NextResponse.json({ success: true });
+}
