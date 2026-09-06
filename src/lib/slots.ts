@@ -6,6 +6,7 @@ export type Slot = {
   startTime: string;
   endTime: string;
   available: boolean;
+  bandName?: string;
 };
 
 export type DaySlots = {
@@ -54,14 +55,14 @@ export async function getSlotsForRange(
 ): Promise<DaySlots[]> {
   const { data: bookings } = await supabase
     .from("bookings")
-    .select("slot_date, slot_start_time, status")
+    .select("slot_date, slot_start_time, band_name, status")
     .gte("slot_date", from)
     .lte("slot_date", to)
     .in("status", ["pending", "confirmed"]);
 
-  const bookedSet = new Set(
-    (bookings as Pick<Booking, "slot_date" | "slot_start_time">[] | null)?.map(
-      (b) => `${b.slot_date}_${b.slot_start_time}`
+  const bookedMap = new Map<string, string>(
+    (bookings as Pick<Booking, "slot_date" | "slot_start_time" | "band_name">[] | null)?.map(
+      (b) => [`${b.slot_date}_${b.slot_start_time}`, b.band_name] as [string, string]
     ) ?? []
   );
 
@@ -71,10 +72,15 @@ export async function getSlotsForRange(
 
   while (current <= end) {
     const dateStr = current.toISOString().split("T")[0];
-    const slots = generateSlotsForDay(dateStr).map((slot) => ({
-      ...slot,
-      available: !bookedSet.has(`${dateStr}_${slot.startTime}:00`),
-    }));
+    const slots = generateSlotsForDay(dateStr).map((slot) => {
+      const key = `${dateStr}_${slot.startTime}:00`;
+      const bandName = bookedMap.get(key);
+      return {
+        ...slot,
+        available: !bandName,
+        ...(bandName ? { bandName } : {}),
+      };
+    });
 
     days.push({
       date: dateStr,

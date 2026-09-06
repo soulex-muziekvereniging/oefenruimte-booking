@@ -7,6 +7,7 @@ type Slot = {
   startTime: string;
   endTime: string;
   available: boolean;
+  bandName?: string;
 };
 
 type DaySlots = {
@@ -256,13 +257,19 @@ export default function Home() {
                         className={`w-full text-xs sm:text-sm py-2 sm:py-2.5 px-1.5 sm:px-2 rounded transition-colors min-h-[40px] ${
                           isSelected
                             ? "bg-blue-600 text-white"
-                            : disabled
-                              ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                              : "bg-green-50 text-green-800 border border-green-200 hover:bg-green-100 active:bg-green-200 cursor-pointer"
+                            : slot.bandName
+                              ? "bg-red-50 text-red-700 border border-red-200 cursor-not-allowed"
+                              : disabled
+                                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                                : "bg-green-50 text-green-800 border border-green-200 hover:bg-green-100 active:bg-green-200 cursor-pointer"
                         }`}
                       >
-                        {slot.startTime.slice(0, 5)} –{" "}
-                        {slot.endTime.slice(0, 5)}
+                        <span>{slot.startTime.slice(0, 5)} – {slot.endTime.slice(0, 5)}</span>
+                        {slot.bandName && (
+                          <span className="block text-[10px] sm:text-xs truncate opacity-75">
+                            {slot.bandName}
+                          </span>
+                        )}
                       </button>
                     );
                   })}
