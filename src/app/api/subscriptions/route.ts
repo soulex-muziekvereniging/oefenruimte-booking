@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { SequenceType } from "@mollie/api-client";
 import { supabase } from "@/lib/supabase";
 import { mollie } from "@/lib/mollie";
 import { config } from "@/config";
@@ -90,11 +91,11 @@ export async function POST(request: NextRequest) {
       amount: { currency: config.currency, value: priceStr },
       description: `${config.roomName} - vaste reservering ${bandName} - eerste maand`,
       customerId: customer.id,
-      sequenceType: "first",
+      sequenceType: SequenceType.first,
       redirectUrl: `${appUrl}/subscription/success?id=${subscription.id}`,
       webhookUrl: `${appUrl}/api/webhooks/mollie-subscription`,
       metadata: { subscriptionId: subscription.id },
-    })) as { id: string; getCheckoutUrl: () => string | null };
+    })) as unknown as { id: string; getCheckoutUrl: () => string | null };
 
     await supabase
       .from("subscriptions")
