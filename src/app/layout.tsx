@@ -21,10 +21,16 @@ export default function RootLayout({
     <html lang="nl" className={`${geist.variable} h-full`}>
       <body className="min-h-full flex flex-col bg-gray-50 text-gray-900 font-[family-name:var(--font-geist)]">
         <header className="bg-white border-b border-gray-200">
-          <div className="max-w-5xl mx-auto px-4 py-4">
+          <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
             <h1 className="text-xl font-bold">
               🎵 Oefenruimte Boeken
             </h1>
+            <a
+              href="/mijn-boekingen"
+              className="text-sm font-medium text-blue-600 hover:text-blue-700"
+            >
+              Mijn boekingen
+            </a>
           </div>
         </header>
         <main className="flex-1">{children}</main>

@@ -258,6 +258,23 @@ export async function sendSubscriptionNotificationToOrg(subscription: Subscripti
   });
 }
 
+export async function sendMyBookingsLinkEmail(email: string, link: string) {
+  await resend.emails.send({
+    from: `${config.organizationName} <onboarding@resend.dev>`,
+    to: email,
+    subject: `Jouw boekingen bij ${config.roomName}`,
+    html: `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>Jouw boekingen</h2>
+        <p>Klik op onderstaande link om je boekingen en vaste reservering te bekijken en te beheren.
+        Deze link is 30 minuten geldig.</p>
+        <p><a href="${link}">Bekijk mijn boekingen</a></p>
+        <p>Met vriendelijke groet,<br>${config.organizationName}</p>
+      </div>
+    `,
+  });
+}
+
 export async function sendSubscriptionCancellationNotification(subscription: Subscription) {
   await resend.emails.send({
     from: `${config.organizationName} <onboarding@resend.dev>`,
