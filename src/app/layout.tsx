@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist } from "next/font/google";
+import { config } from "@/config";
 import "./globals.css";
 
 const geist = Geist({
@@ -36,7 +37,7 @@ export default function RootLayout({
         <main className="flex-1">{children}</main>
         <footer className="bg-white border-t border-gray-200 mt-auto">
           <div className="max-w-5xl mx-auto px-4 py-4 text-sm text-gray-500 text-center">
-            © {new Date().getFullYear()} Muziekstichting
+            © {new Date().getFullYear()} {config.organizationName}
           </div>
         </footer>
       </body>

@@ -57,6 +57,7 @@ function formatFullDate(dateStr: string): string {
 }
 
 export default function Home() {
+  const [mode, setMode] = useState<"once" | "subscription" | null>(null);
   const [weekStart, setWeekStart] = useState<Date>(() =>
     getWeekStart(new Date())
   );
@@ -188,8 +189,76 @@ export default function Home() {
     window.location.href = data.checkoutUrl;
   }
 
+  const cheapestSubscriptionCents = Math.min(
+    ...Object.values(config.subscriptionPricing).map((p) => p.priceCentsPerMonth)
+  );
+
+  if (mode === null) {
+    return (
+      <div className="max-w-3xl mx-auto px-4 py-12 sm:py-20 text-center">
+        <h2 className="text-2xl sm:text-3xl font-bold mb-3">
+          Boek {config.roomName.toLowerCase()}
+        </h2>
+        <p className="text-gray-600 mb-10 max-w-xl mx-auto">
+          Reserveer een dagdeel (Ochtend, Middag of Avond, telkens 4 uur) voor je
+          band, of vraag een vaste wekelijkse of tweewekelijkse reservering aan.
+        </p>
+        <div className="grid sm:grid-cols-2 gap-4 max-w-xl mx-auto">
+          <button
+            onClick={() => setMode("once")}
+            className="text-left bg-white border-2 border-gray-200 rounded-xl p-5 sm:p-6 hover:border-blue-400 hover:shadow-md transition-all"
+          >
+            <span className="block text-lg font-semibold mb-1">
+              Eenmalige boeking
+            </span>
+            <span className="block text-sm text-gray-600 mb-3">
+              Los dagdeel op een datum naar keuze
+            </span>
+            <span className="block text-xl font-bold text-blue-600">
+              €{(config.pricePerSlotCents / 100).toFixed(2).replace(".", ",")}
+            </span>
+          </button>
+          <button
+            onClick={() => setMode("subscription")}
+            className="text-left bg-white border-2 border-gray-200 rounded-xl p-5 sm:p-6 hover:border-blue-400 hover:shadow-md transition-all"
+          >
+            <span className="block text-lg font-semibold mb-1">
+              Vaste reservering
+            </span>
+            <span className="block text-sm text-gray-600 mb-3">
+              Elke week of elke twee weken hetzelfde dagdeel
+            </span>
+            <span className="block text-xl font-bold text-blue-600">
+              vanaf €{(cheapestSubscriptionCents / 100).toFixed(2).replace(".", ",")}/mnd
+            </span>
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (mode === "subscription") {
+    return (
+      <div className="max-w-5xl mx-auto px-3 sm:px-4 py-4 sm:py-8">
+        <button
+          onClick={() => setMode(null)}
+          className="text-sm text-blue-600 hover:text-blue-700 mb-4"
+        >
+          ← Andere optie kiezen
+        </button>
+        <SubscriptionSection />
+      </div>
+    );
+  }
+
   return (
     <div className={`max-w-5xl mx-auto px-3 sm:px-4 py-4 sm:py-8 ${selectedSlot ? "pb-[420px] sm:pb-[400px]" : ""}`}>
+      <button
+        onClick={() => setMode(null)}
+        className="text-sm text-blue-600 hover:text-blue-700 mb-4"
+      >
+        ← Andere optie kiezen
+      </button>
       {/* Week navigation */}
       <div className="flex items-center justify-between gap-2 mb-3 sm:mb-6">
         <button
@@ -295,8 +364,6 @@ export default function Home() {
           })}
         </div>
       )}
-
-      <SubscriptionSection />
 
       {/* Docked booking panel at bottom of screen */}
       {selectedSlot && (
