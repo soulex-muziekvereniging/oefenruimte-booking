@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { mollie } from "@/lib/mollie";
 import { sendCancellationNotification } from "@/lib/email";
+import { hoursUntilSlot } from "@/lib/date";
+import { config } from "@/config";
 
 export async function POST(
   request: NextRequest,
@@ -30,6 +32,15 @@ export async function POST(
     return NextResponse.json(
       { error: "Boeking niet gevonden of kan niet worden geannuleerd" },
       { status: 404 }
+    );
+  }
+
+  if (hoursUntilSlot(booking.slot_date, booking.slot_start_time) < config.cancellationCutoffHours) {
+    return NextResponse.json(
+      {
+        error: `Annuleren kan niet meer, dit moet uiterlijk ${config.cancellationCutoffHours} uur van tevoren. Neem contact op met ${config.organizationName}.`,
+      },
+      { status: 400 }
     );
   }
 

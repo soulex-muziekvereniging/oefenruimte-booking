@@ -75,18 +75,27 @@ Alle instellingen staan in één bestand: **`src/config.ts`**
 
 ```ts
 export const config = {
-  roomName: "Oefenruimte",              // Naam van de ruimte
-  pricePerSlotCents: 2000,               // Prijs per slot in centen (€20,00)
-  slotDurationMinutes: 120,              // Duur per slot (2 uur)
-  operatingHours: { start: 10, end: 22 },  // Openingstijden (10:00 - 22:00)
+  roomName: "Oefenruimte",
+  pricePerSlotCents: 4000,               // Prijs voor een losse dagdeel-boeking (€40,00)
+  slotDurationMinutes: 240,              // Duur per dagdeel (4 uur)
+  dagdelen: [                            // De 3 vaste dagdelen die geboekt kunnen worden
+    { id: "ochtend", label: "Ochtend", startHour: 9 },
+    { id: "middag", label: "Middag", startHour: 14 },
+    { id: "avond", label: "Avond", startHour: 19 },
+  ],
   operatingDays: [0, 1, 2, 3, 4, 5, 6],    // Beschikbare dagen (0=zo t/m 6=za)
   maxWeeksAhead: 4,                      // Hoeveel weken vooruit boeken
   organizationEmail: "info@soulex.nl",   // E-mail voor notificaties aan organisatie
-  organizationName: "Muziekstichting",   // Naam organisatie (in e-mails)
+  organizationName: "Muziekvereniging Soulex", // Naam organisatie (in e-mails)
   currency: "EUR",                       // Valuta
   pendingExpiryMinutes: 15,              // Hoe lang een onbetaalde boeking geldig is
+  cancellationCutoffHours: 48,           // Tot hoe lang van tevoren gratis annuleren mag
 };
 ```
+
+Dit dekt alleen de **losse eenmalige boeking** (€40 per dagdeel). De vaste maandelijkse
+reserveringen (€110/€55 per maand) volgen in een aparte `subscriptions`-tabel — zie
+[BESTUUR.md](BESTUUR.md) voor de uitleg van het hele proces.
 
 Na het wijzigen: commit + push naar GitHub → Vercel deployed automatisch.
 

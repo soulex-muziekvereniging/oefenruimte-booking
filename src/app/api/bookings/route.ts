@@ -14,6 +14,22 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const { data: member } = await supabase
+    .from("members")
+    .select("id")
+    .eq("email", contactEmail.toLowerCase().trim())
+    .eq("active", true)
+    .maybeSingle();
+
+  if (!member) {
+    return NextResponse.json(
+      {
+        error: `Dit e-mailadres staat niet geregistreerd als lid van ${config.organizationName}. Neem contact op om lid te worden voordat je kan boeken.`,
+      },
+      { status: 403 }
+    );
+  }
+
   const startHour = parseInt(slotStartTime.split(":")[0], 10);
   const endHour = startHour + config.slotDurationMinutes / 60;
   const endTime = `${endHour.toString().padStart(2, "0")}:00`;
@@ -50,18 +66,28 @@ export async function POST(request: NextRequest) {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL!;
   const priceStr = (config.pricePerSlotCents / 100).toFixed(2);
 
-  const payment = (await mollie.payments.create({
-    amount: { currency: config.currency, value: priceStr },
-    description: `${config.roomName} - ${slotDate} ${slotStartTime}-${endTime} - ${bandName}`,
-    redirectUrl: `${appUrl}/booking/success?id=${booking.id}`,
-    webhookUrl: `${appUrl}/api/webhooks/mollie`,
-    metadata: { bookingId: booking.id },
-  })) as { id: string; getCheckoutUrl: () => string | null };
+  try {
+    const payment = (await mollie.payments.create({
+      amount: { currency: config.currency, value: priceStr },
+      description: `${config.roomName} - ${slotDate} ${slotStartTime}-${endTime} - ${bandName}`,
+      redirectUrl: `${appUrl}/booking/success?id=${booking.id}`,
+      webhookUrl: `${appUrl}/api/webhooks/mollie`,
+      metadata: { bookingId: booking.id },
+    })) as { id: string; getCheckoutUrl: () => string | null };
 
-  await supabase
-    .from("bookings")
-    .update({ mollie_payment_id: payment.id })
-    .eq("id", booking.id);
+    await supabase
+      .from("bookings")
+      .update({ mollie_payment_id: payment.id })
+      .eq("id", booking.id);
 
-  return NextResponse.json({ checkoutUrl: payment.getCheckoutUrl() });
+    return NextResponse.json({ checkoutUrl: payment.getCheckoutUrl() });
+  } catch (err) {
+    console.error("Mollie payment creation failed:", err);
+    // Betaling kon niet gestart worden - laat het slot niet als bezet achter.
+    await supabase.from("bookings").delete().eq("id", booking.id);
+    return NextResponse.json(
+      { error: "Kon de betaling niet starten, probeer het later opnieuw" },
+      { status: 500 }
+    );
+  }
 }

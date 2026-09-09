@@ -1,8 +1,11 @@
 import { config } from "@/config";
-import { supabase, Booking } from "./supabase";
+import { supabase, Booking, Subscription } from "./supabase";
+import { toLocalDateStr } from "./date";
 
 export type Slot = {
   date: string;
+  dagdeelId: string;
+  dagdeelLabel: string;
   startTime: string;
   endTime: string;
   available: boolean;
@@ -29,40 +32,57 @@ function formatTime(hours: number): string {
   return `${hours.toString().padStart(2, "0")}:00`;
 }
 
+
 function generateSlotsForDay(date: string): Slot[] {
   const dayOfWeek = new Date(date + "T00:00:00").getDay();
   if (!config.operatingDays.includes(dayOfWeek)) return [];
 
-  const slots: Slot[] = [];
-  const { start, end } = config.operatingHours;
   const durationHours = config.slotDurationMinutes / 60;
 
-  for (let hour = start; hour + durationHours <= end; hour += durationHours) {
-    slots.push({
-      date,
-      startTime: formatTime(hour),
-      endTime: formatTime(hour + durationHours),
-      available: true,
-    });
-  }
-
-  return slots;
+  return config.dagdelen.map((dagdeel) => ({
+    date,
+    dagdeelId: dagdeel.id,
+    dagdeelLabel: dagdeel.label,
+    startTime: formatTime(dagdeel.startHour),
+    endTime: formatTime(dagdeel.startHour + durationHours),
+    available: true,
+  }));
 }
 
 export async function getSlotsForRange(
   from: string,
   to: string
 ): Promise<DaySlots[]> {
-  const { data: bookings } = await supabase
+  const { data: bookings, error } = await supabase
     .from("bookings")
     .select("slot_date, slot_start_time, band_name, status")
     .gte("slot_date", from)
     .lte("slot_date", to)
     .in("status", ["pending", "confirmed"]);
 
+  if (error) {
+    // Nooit stilzwijgend doorgaan alsof alles vrij is - dat riskeert dubbele boekingen.
+    throw new Error(`Kon boekingen niet ophalen: ${error.message}`);
+  }
+
+  const { data: subscriptions, error: subscriptionsError } = await supabase
+    .from("subscriptions")
+    .select("weekday, dagdeel_id, band_name")
+    .eq("status", "active");
+
+  if (subscriptionsError) {
+    throw new Error(`Kon vaste reserveringen niet ophalen: ${subscriptionsError.message}`);
+  }
+
   const bookedMap = new Map<string, string>(
     (bookings as Pick<Booking, "slot_date" | "slot_start_time" | "band_name">[] | null)?.map(
       (b) => [`${b.slot_date}_${b.slot_start_time}`, b.band_name] as [string, string]
+    ) ?? []
+  );
+
+  const subscribedMap = new Map<string, string>(
+    (subscriptions as Pick<Subscription, "weekday" | "dagdeel_id" | "band_name">[] | null)?.map(
+      (s) => [`${s.weekday}_${s.dagdeel_id}`, s.band_name] as [string, string]
     ) ?? []
   );
 
@@ -71,10 +91,12 @@ export async function getSlotsForRange(
   const end = new Date(to + "T00:00:00");
 
   while (current <= end) {
-    const dateStr = current.toISOString().split("T")[0];
+    const dateStr = toLocalDateStr(current);
+    const weekday = current.getDay();
     const slots = generateSlotsForDay(dateStr).map((slot) => {
       const key = `${dateStr}_${slot.startTime}:00`;
-      const bandName = bookedMap.get(key);
+      const bandName =
+        bookedMap.get(key) ?? subscribedMap.get(`${weekday}_${slot.dagdeelId}`);
       return {
         ...slot,
         available: !bandName,

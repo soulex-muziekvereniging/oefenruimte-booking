@@ -1,9 +1,13 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { config } from "@/config";
+import { toLocalDateStr } from "@/lib/date";
+import SubscriptionSection from "./SubscriptionSection";
 
 type Slot = {
   date: string;
+  dagdeelLabel: string;
   startTime: string;
   endTime: string;
   available: boolean;
@@ -18,9 +22,9 @@ type DaySlots = {
 
 type SelectedSlot = {
   date: string;
+  dagdeelLabel: string;
   startTime: string;
   endTime: string;
-  dayLabel: string;
 };
 
 function getWeekStart(date: Date): Date {
@@ -31,9 +35,7 @@ function getWeekStart(date: Date): Date {
   return d;
 }
 
-function formatDateStr(date: Date): string {
-  return date.toISOString().split("T")[0];
-}
+const formatDateStr = toLocalDateStr;
 
 function formatDisplayDate(dateStr: string): string {
   const date = new Date(dateStr + "T00:00:00");
@@ -60,6 +62,7 @@ export default function Home() {
   );
   const [days, setDays] = useState<DaySlots[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [selectedSlot, setSelectedSlot] = useState<SelectedSlot | null>(null);
   const [formData, setFormData] = useState({
     bandName: "",
@@ -93,10 +96,16 @@ export default function Home() {
     let cancelled = false;
     async function load() {
       setLoading(true);
+      setLoadError("");
       const res = await fetch(`/api/slots?from=${weekStartStr}&to=${weekEndStr}`);
       const data = await res.json();
       if (!cancelled) {
-        setDays(data);
+        if (!res.ok) {
+          setLoadError(data.error || "Kon beschikbare tijdslots niet ophalen");
+          setDays([]);
+        } else {
+          setDays(data);
+        }
         setLoading(false);
       }
     }
@@ -130,7 +139,7 @@ export default function Home() {
     }
   }
 
-  function handleSlotClick(slot: Slot, dayLabel: string) {
+  function handleSlotClick(slot: Slot) {
     if (!slot.available) return;
     if (
       selectedSlot?.date === slot.date &&
@@ -141,9 +150,9 @@ export default function Home() {
     }
     setSelectedSlot({
       date: slot.date,
+      dagdeelLabel: slot.dagdeelLabel,
       startTime: slot.startTime,
       endTime: slot.endTime,
-      dayLabel,
     });
     setError("");
   }
@@ -224,6 +233,10 @@ export default function Home() {
 
       {loading ? (
         <div className="text-center py-12 text-gray-500">Laden...</div>
+      ) : loadError ? (
+        <div className="text-center py-12 text-red-700 bg-red-50 border border-red-200 rounded-lg">
+          {loadError}
+        </div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-2 sm:gap-3">
           {days.map((day) => {
@@ -252,7 +265,7 @@ export default function Home() {
                     return (
                       <button
                         key={`${slot.date}-${slot.startTime}`}
-                        onClick={() => handleSlotClick(slot, day.dayLabel)}
+                        onClick={() => handleSlotClick(slot)}
                         disabled={disabled}
                         className={`w-full text-xs sm:text-sm py-2 sm:py-2.5 px-1.5 sm:px-2 rounded transition-colors min-h-[40px] ${
                           isSelected
@@ -264,7 +277,10 @@ export default function Home() {
                                 : "bg-green-50 text-green-800 border border-green-200 hover:bg-green-100 active:bg-green-200 cursor-pointer"
                         }`}
                       >
-                        <span>{slot.startTime.slice(0, 5)} – {slot.endTime.slice(0, 5)}</span>
+                        <span className="block font-medium">{slot.dagdeelLabel}</span>
+                        <span className="block text-[10px] sm:text-xs opacity-75">
+                          {slot.startTime.slice(0, 5)} – {slot.endTime.slice(0, 5)}
+                        </span>
                         {slot.bandName && (
                           <span className="block text-[10px] sm:text-xs truncate opacity-75">
                             {slot.bandName}
@@ -280,6 +296,8 @@ export default function Home() {
         </div>
       )}
 
+      <SubscriptionSection />
+
       {/* Docked booking panel at bottom of screen */}
       {selectedSlot && (
         <div className="fixed bottom-0 inset-x-0 bg-white border-t-2 border-gray-200 shadow-[0_-4px_20px_rgba(0,0,0,0.12)] z-50">
@@ -289,11 +307,13 @@ export default function Home() {
                 <div>
                   <h3 className="text-lg font-semibold">Boeking maken</h3>
                   <p className="text-sm text-gray-600">
-                    {selectedSlot.dayLabel} {formatFullDate(selectedSlot.date)},{" "}
+                    {selectedSlot.dagdeelLabel} · {formatFullDate(selectedSlot.date)},{" "}
                     {selectedSlot.startTime.slice(0, 5)} –{" "}
                     {selectedSlot.endTime.slice(0, 5)}
                     {" · "}
-                    <span className="font-medium">€20,00</span>
+                    <span className="font-medium">
+                      €{(config.pricePerSlotCents / 100).toFixed(2).replace(".", ",")}
+                    </span>
                   </p>
                 </div>
                 <button

@@ -13,6 +13,13 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const slots = await getSlotsForRange(from, to);
-  return NextResponse.json(slots);
+  try {
+    const slots = await getSlotsForRange(from, to);
+    return NextResponse.json(slots);
+  } catch {
+    return NextResponse.json(
+      { error: "Kon beschikbare tijdslots niet ophalen, probeer het later opnieuw" },
+      { status: 500 }
+    );
+  }
 }

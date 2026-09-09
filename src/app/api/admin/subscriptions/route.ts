@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
-import { toLocalDateStr } from "@/lib/date";
 
 export async function GET(request: NextRequest) {
   const password = request.headers.get("x-admin-password");
@@ -9,15 +8,16 @@ export async function GET(request: NextRequest) {
   }
 
   const { data, error } = await supabase
-    .from("bookings")
+    .from("subscriptions")
     .select("*")
-    .in("status", ["confirmed", "pending"])
-    .gte("slot_date", toLocalDateStr(new Date()))
-    .order("slot_date", { ascending: true })
-    .order("slot_start_time", { ascending: true });
+    .order("status", { ascending: true })
+    .order("weekday", { ascending: true });
 
   if (error) {
-    return NextResponse.json({ error: "Kon boekingen niet ophalen" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Kon vaste reserveringen niet ophalen" },
+      { status: 500 }
+    );
   }
 
   return NextResponse.json(data);

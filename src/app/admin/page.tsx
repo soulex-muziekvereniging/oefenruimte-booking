@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { config } from "@/config";
 
 type Booking = {
   id: string;
@@ -16,6 +17,36 @@ type Booking = {
   created_at: string;
 };
 
+type Member = {
+  id: string;
+  name: string;
+  email: string;
+  active: boolean;
+};
+
+type Subscription = {
+  id: string;
+  band_name: string;
+  contact_name: string;
+  contact_email: string;
+  contact_phone: string | null;
+  weekday: number;
+  dagdeel_id: string;
+  frequency: "weekly" | "biweekly";
+  price_cents: number;
+  status: "pending_first_payment" | "active" | "cancelled";
+};
+
+const DAY_NAMES_NL = [
+  "Zondag",
+  "Maandag",
+  "Dinsdag",
+  "Woensdag",
+  "Donderdag",
+  "Vrijdag",
+  "Zaterdag",
+];
+
 function formatDate(dateStr: string): string {
   return new Date(dateStr + "T00:00:00").toLocaleDateString("nl-NL", {
     weekday: "short",
@@ -29,13 +60,35 @@ function formatTime(timeStr: string): string {
   return timeStr.slice(0, 5);
 }
 
+function formatWeekdayDagdeel(subscription: Subscription): string {
+  const dagdeel = config.dagdelen.find((d) => d.id === subscription.dagdeel_id);
+  return `${DAY_NAMES_NL[subscription.weekday]} ${dagdeel?.label ?? subscription.dagdeel_id}`;
+}
+
+function formatPrice(cents: number): string {
+  return `€${(cents / 100).toFixed(2).replace(".", ",")}`;
+}
+
 export default function AdminPage() {
   const [password, setPassword] = useState("");
   const [loggedIn, setLoggedIn] = useState(false);
+  const [view, setView] = useState<"bookings" | "members" | "subscriptions">("bookings");
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [cancelling, setCancelling] = useState<string | null>(null);
+
+  const [members, setMembers] = useState<Member[]>([]);
+  const [membersLoading, setMembersLoading] = useState(false);
+  const [memberError, setMemberError] = useState("");
+  const [newMemberName, setNewMemberName] = useState("");
+  const [newMemberEmail, setNewMemberEmail] = useState("");
+  const [addingMember, setAddingMember] = useState(false);
+  const [togglingMember, setTogglingMember] = useState<string | null>(null);
+
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+  const [subscriptionsLoading, setSubscriptionsLoading] = useState(false);
+  const [cancellingSubscription, setCancellingSubscription] = useState<string | null>(null);
 
   async function fetchBookings(pw: string) {
     setLoading(true);
@@ -44,7 +97,12 @@ export default function AdminPage() {
       headers: { "x-admin-password": pw },
     });
     if (!res.ok) {
-      setError("Ongeldig wachtwoord");
+      const data = await res.json().catch(() => ({}));
+      setError(
+        res.status === 401
+          ? "Ongeldig wachtwoord"
+          : data.error || "Er ging iets mis bij het laden van de boekingen"
+      );
       setLoading(false);
       return false;
     }
@@ -54,10 +112,97 @@ export default function AdminPage() {
     return true;
   }
 
+  async function fetchMembers(pw: string) {
+    setMembersLoading(true);
+    setMemberError("");
+    const res = await fetch("/api/admin/members", {
+      headers: { "x-admin-password": pw },
+    });
+    if (res.ok) {
+      setMembers(await res.json());
+    }
+    setMembersLoading(false);
+  }
+
+  async function fetchSubscriptions(pw: string) {
+    setSubscriptionsLoading(true);
+    const res = await fetch("/api/admin/subscriptions", {
+      headers: { "x-admin-password": pw },
+    });
+    if (res.ok) {
+      setSubscriptions(await res.json());
+    }
+    setSubscriptionsLoading(false);
+  }
+
+  async function handleCancelSubscription(subscription: Subscription) {
+    if (
+      !confirm(
+        `Weet je zeker dat je de vaste reservering van "${subscription.band_name}" wilt opzeggen? De maandelijkse incasso stopt.`
+      )
+    ) {
+      return;
+    }
+
+    setCancellingSubscription(subscription.id);
+    const res = await fetch(`/api/admin/subscriptions/${subscription.id}/cancel`, {
+      method: "POST",
+      headers: { "x-admin-password": password },
+    });
+
+    if (!res.ok) {
+      const data = await res.json();
+      alert(data.error || "Er ging iets mis bij het opzeggen");
+      setCancellingSubscription(null);
+      return;
+    }
+
+    await fetchSubscriptions(password);
+    setCancellingSubscription(null);
+  }
+
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     const ok = await fetchBookings(password);
     if (ok) setLoggedIn(true);
+  }
+
+  async function handleAddMember(e: React.FormEvent) {
+    e.preventDefault();
+    setAddingMember(true);
+    setMemberError("");
+    const res = await fetch("/api/admin/members", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-admin-password": password,
+      },
+      body: JSON.stringify({ name: newMemberName, email: newMemberEmail }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      setMemberError(data.error || "Kon lid niet toevoegen");
+      setAddingMember(false);
+      return;
+    }
+    setNewMemberName("");
+    setNewMemberEmail("");
+    setAddingMember(false);
+    await fetchMembers(password);
+  }
+
+  async function handleToggleMember(member: Member) {
+    setTogglingMember(member.id);
+    await fetch(`/api/admin/members/${member.id}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        "x-admin-password": password,
+      },
+      body: JSON.stringify({ active: !member.active }),
+    });
+    await fetchMembers(password);
+    setTogglingMember(null);
   }
 
   async function handleCancel(bookingId: string, bandName: string) {
@@ -121,6 +266,200 @@ export default function AdminPage() {
 
   return (
     <div className="max-w-4xl mx-auto px-3 sm:px-4 py-4 sm:py-8">
+      <div className="flex items-center gap-2 mb-6 border-b border-gray-200">
+        <button
+          onClick={() => setView("bookings")}
+          className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${
+            view === "bookings"
+              ? "border-blue-600 text-blue-600"
+              : "border-transparent text-gray-500 hover:text-gray-700"
+          }`}
+        >
+          Boekingen
+        </button>
+        <button
+          onClick={() => {
+            setView("members");
+            if (members.length === 0) fetchMembers(password);
+          }}
+          className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${
+            view === "members"
+              ? "border-blue-600 text-blue-600"
+              : "border-transparent text-gray-500 hover:text-gray-700"
+          }`}
+        >
+          Leden
+        </button>
+        <button
+          onClick={() => {
+            setView("subscriptions");
+            if (subscriptions.length === 0) fetchSubscriptions(password);
+          }}
+          className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${
+            view === "subscriptions"
+              ? "border-blue-600 text-blue-600"
+              : "border-transparent text-gray-500 hover:text-gray-700"
+          }`}
+        >
+          Abonnementen
+        </button>
+      </div>
+
+      {view === "subscriptions" ? (
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold">Vaste reserveringen</h2>
+            <button
+              onClick={() => fetchSubscriptions(password)}
+              disabled={subscriptionsLoading}
+              className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-sm disabled:opacity-50"
+            >
+              {subscriptionsLoading ? "Laden..." : "Vernieuwen"}
+            </button>
+          </div>
+
+          {subscriptions.length === 0 ? (
+            <div className="text-center py-12 text-gray-500 bg-white rounded-lg border border-gray-200">
+              Geen vaste reserveringen gevonden.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {subscriptions.map((subscription) => (
+                <div
+                  key={subscription.id}
+                  className="bg-white rounded-lg border border-gray-200 p-4 sm:p-5"
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="font-semibold text-lg truncate">
+                          {subscription.band_name}
+                        </h3>
+                        <span
+                          className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium shrink-0 ${
+                            subscription.status === "active"
+                              ? "bg-green-100 text-green-800"
+                              : subscription.status === "pending_first_payment"
+                                ? "bg-yellow-100 text-yellow-800"
+                                : "bg-gray-100 text-gray-500"
+                          }`}
+                        >
+                          {subscription.status === "active"
+                            ? "Actief"
+                            : subscription.status === "pending_first_payment"
+                              ? "Wacht op eerste betaling"
+                              : "Opgezegd"}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-700">
+                        Elke {formatWeekdayDagdeel(subscription)} ·{" "}
+                        {config.subscriptionPricing[subscription.frequency].label} ·{" "}
+                        {formatPrice(subscription.price_cents)}/mnd
+                      </p>
+                      <p className="text-sm text-gray-500 mt-1">
+                        {subscription.contact_name} · {subscription.contact_email}
+                        {subscription.contact_phone ? ` · ${subscription.contact_phone}` : ""}
+                      </p>
+                    </div>
+
+                    {subscription.status === "active" && (
+                      <button
+                        onClick={() => handleCancelSubscription(subscription)}
+                        disabled={cancellingSubscription === subscription.id}
+                        className="px-4 py-2.5 bg-red-50 text-red-700 border border-red-200 rounded-lg hover:bg-red-100 disabled:opacity-50 text-sm font-medium shrink-0 min-h-[44px] transition-colors"
+                      >
+                        {cancellingSubscription === subscription.id
+                          ? "Opzeggen..."
+                          : "Zeg op"}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : view === "members" ? (
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold">Ledenlijst</h2>
+            <button
+              onClick={() => fetchMembers(password)}
+              disabled={membersLoading}
+              className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-sm disabled:opacity-50"
+            >
+              {membersLoading ? "Laden..." : "Vernieuwen"}
+            </button>
+          </div>
+
+          <form
+            onSubmit={handleAddMember}
+            className="bg-white rounded-lg border border-gray-200 p-4 mb-4 flex flex-col sm:flex-row gap-3"
+          >
+            <input
+              type="text"
+              required
+              value={newMemberName}
+              onChange={(e) => setNewMemberName(e.target.value)}
+              placeholder="Naam"
+              className="flex-1 px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
+            />
+            <input
+              type="email"
+              required
+              value={newMemberEmail}
+              onChange={(e) => setNewMemberEmail(e.target.value)}
+              placeholder="E-mailadres"
+              className="flex-1 px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
+            />
+            <button
+              type="submit"
+              disabled={addingMember}
+              className="px-4 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 text-sm shrink-0"
+            >
+              {addingMember ? "Toevoegen..." : "Lid toevoegen"}
+            </button>
+          </form>
+
+          {memberError && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm mb-4">
+              {memberError}
+            </div>
+          )}
+
+          {members.length === 0 ? (
+            <div className="text-center py-12 text-gray-500 bg-white rounded-lg border border-gray-200">
+              Nog geen leden toegevoegd.
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {members.map((member) => (
+                <div
+                  key={member.id}
+                  className="bg-white rounded-lg border border-gray-200 p-3 sm:p-4 flex items-center justify-between gap-3"
+                >
+                  <div className="min-w-0">
+                    <p className="font-medium truncate">{member.name}</p>
+                    <p className="text-sm text-gray-500 truncate">{member.email}</p>
+                  </div>
+                  <button
+                    onClick={() => handleToggleMember(member)}
+                    disabled={togglingMember === member.id}
+                    className={`px-3 py-2 rounded-lg text-sm font-medium shrink-0 min-h-[40px] disabled:opacity-50 ${
+                      member.active
+                        ? "bg-green-50 text-green-800 border border-green-200 hover:bg-green-100"
+                        : "bg-gray-100 text-gray-500 border border-gray-200 hover:bg-gray-200"
+                    }`}
+                  >
+                    {member.active ? "Actief lid" : "Inactief"}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : (
+        <>
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-xl font-bold">Boekingen beheren</h2>
         <button
@@ -183,6 +522,8 @@ export default function AdminPage() {
             </div>
           ))}
         </div>
+      )}
+        </>
       )}
     </div>
   );

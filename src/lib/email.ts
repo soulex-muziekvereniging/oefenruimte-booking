@@ -1,6 +1,6 @@
 import { Resend } from "resend";
 import { config } from "@/config";
-import { Booking } from "./supabase";
+import { Booking, Subscription } from "./supabase";
 
 const resend = new Resend(process.env.RESEND_API_KEY!);
 
@@ -20,6 +20,25 @@ function formatTime(timeStr: string): string {
 
 function formatPrice(cents: number): string {
   return `€${(cents / 100).toFixed(2).replace(".", ",")}`;
+}
+
+const DAY_NAMES_NL = [
+  "zondag",
+  "maandag",
+  "dinsdag",
+  "woensdag",
+  "donderdag",
+  "vrijdag",
+  "zaterdag",
+];
+
+function formatWeekdayDagdeel(subscription: Subscription): string {
+  const dagdeel = config.dagdelen.find((d) => d.id === subscription.dagdeel_id);
+  return `${DAY_NAMES_NL[subscription.weekday]} ${dagdeel?.label.toLowerCase() ?? subscription.dagdeel_id}`;
+}
+
+function formatFrequency(frequency: Subscription["frequency"]): string {
+  return config.subscriptionPricing[frequency].label.toLowerCase();
 }
 
 export async function sendConfirmationEmail(booking: Booking) {
@@ -55,7 +74,7 @@ export async function sendConfirmationEmail(booking: Booking) {
           </tr>
         </table>
 
-        <p>Moet je annuleren? Klik dan op onderstaande link:</p>
+        <p>Moet je annuleren? Dat kan tot uiterlijk ${config.cancellationCutoffHours} uur van tevoren via onderstaande link:</p>
         <p><a href="${cancelUrl}">Boeking annuleren</a></p>
 
         <p>Met vriendelijke groet,<br>${config.organizationName}</p>
@@ -139,6 +158,123 @@ export async function sendCancellationNotification(booking: Booking) {
         </table>
 
         <p>De refund wordt automatisch verwerkt via Mollie.</p>
+      </div>
+    `,
+  });
+}
+
+export async function sendSubscriptionConfirmationEmail(subscription: Subscription) {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL!;
+  const cancelUrl = `${appUrl}/subscription/cancel?id=${subscription.id}&token=${subscription.cancel_token}`;
+
+  await resend.emails.send({
+    from: `${config.organizationName} <onboarding@resend.dev>`,
+    to: subscription.contact_email,
+    subject: `Vaste reservering bevestigd: ${config.roomName} elke ${formatWeekdayDagdeel(subscription)}`,
+    html: `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>Vaste reservering bevestigd!</h2>
+        <p>Hallo ${subscription.contact_name},</p>
+        <p>De vaste reservering voor <strong>${subscription.band_name}</strong> is bevestigd. Vanaf nu is
+        elke <strong>${formatWeekdayDagdeel(subscription)}</strong> (${formatFrequency(subscription.frequency)})
+        gereserveerd, totdat je opzegt.</p>
+
+        <table style="border-collapse: collapse; width: 100%; margin: 20px 0;">
+          <tr>
+            <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Ruimte</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">${config.roomName}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Dagdeel</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">Elke ${formatWeekdayDagdeel(subscription)}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Frequentie</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">${formatFrequency(subscription.frequency)}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Bedrag per maand</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">${formatPrice(subscription.price_cents)}, automatisch geïncasseerd</td>
+          </tr>
+        </table>
+
+        <p>Let op: de eenmalige borg voor de sleutel wordt apart geregeld, zie
+        <a href="mailto:${config.organizationEmail}">${config.organizationEmail}</a>.</p>
+
+        <p>Wil je de vaste reservering stopzetten? Klik dan op onderstaande link:</p>
+        <p><a href="${cancelUrl}">Vaste reservering opzeggen</a></p>
+
+        <p>Met vriendelijke groet,<br>${config.organizationName}</p>
+      </div>
+    `,
+  });
+}
+
+export async function sendSubscriptionNotificationToOrg(subscription: Subscription) {
+  await resend.emails.send({
+    from: `${config.organizationName} <onboarding@resend.dev>`,
+    to: config.organizationEmail,
+    subject: `Nieuwe vaste reservering: ${subscription.band_name} - elke ${formatWeekdayDagdeel(subscription)}`,
+    html: `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>Nieuwe vaste reservering</h2>
+        <p>Er is een nieuwe vaste reservering bevestigd en de eerste betaling is gelukt:</p>
+
+        <table style="border-collapse: collapse; width: 100%; margin: 20px 0;">
+          <tr>
+            <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Band</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">${subscription.band_name}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Contact</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">${subscription.contact_name} (${subscription.contact_email})</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Telefoon</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">${subscription.contact_phone || "-"}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Dagdeel</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">Elke ${formatWeekdayDagdeel(subscription)} (${formatFrequency(subscription.frequency)})</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Bedrag per maand</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">${formatPrice(subscription.price_cents)}</td>
+          </tr>
+        </table>
+
+        <p>Denk aan de sleuteloverdracht en borg (buiten dit systeem om, zie BESTUUR.md).</p>
+      </div>
+    `,
+  });
+}
+
+export async function sendSubscriptionCancellationNotification(subscription: Subscription) {
+  await resend.emails.send({
+    from: `${config.organizationName} <onboarding@resend.dev>`,
+    to: config.organizationEmail,
+    subject: `Vaste reservering opgezegd: ${subscription.band_name} - elke ${formatWeekdayDagdeel(subscription)}`,
+    html: `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>Vaste reservering opgezegd</h2>
+        <p>De volgende vaste reservering is opgezegd. De maandelijkse incasso stopt vanaf nu.</p>
+
+        <table style="border-collapse: collapse; width: 100%; margin: 20px 0;">
+          <tr>
+            <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Band</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">${subscription.band_name}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Contact</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">${subscription.contact_name} (${subscription.contact_email})</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Dagdeel</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">Elke ${formatWeekdayDagdeel(subscription)}</td>
+          </tr>
+        </table>
+
+        <p>Denk aan het terugkrijgen van de sleutel en het verrekenen van de borg (buiten dit systeem om).</p>
       </div>
     `,
   });
