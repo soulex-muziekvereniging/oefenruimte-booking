@@ -49,7 +49,11 @@ export async function POST(request: NextRequest) {
       .eq("id", subscriptionId)
       .single();
 
-    if (!subscription || !payment.mandateId) {
+    // Alleen doorzetten als de aanvraag nog echt op de eerste betaling wacht - anders
+    // kan een vertraagde of dubbele webhook-aflevering een inmiddels opgezegde
+    // reservering heractiveren, of zelfs een dubbel doorlopend Mollie-abonnement
+    // aanmaken (met echte maandelijkse incasso tot gevolg).
+    if (!subscription || subscription.status !== "pending_first_payment" || !payment.mandateId) {
       return NextResponse.json({ received: true });
     }
 
@@ -75,6 +79,7 @@ export async function POST(request: NextRequest) {
         updated_at: new Date().toISOString(),
       })
       .eq("id", subscriptionId)
+      .eq("status", "pending_first_payment")
       .select()
       .single();
 

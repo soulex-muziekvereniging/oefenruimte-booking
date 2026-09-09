@@ -63,9 +63,14 @@ function OverzichtContent() {
   const token = searchParams.get("token");
   const [bookings, setBookings] = useState<Booking[] | null>(null);
   const [subscriptions, setSubscriptions] = useState<Subscription[] | null>(null);
+  const [bandName, setBandName] = useState<string | null>(null);
+  const [bandMembers, setBandMembers] = useState<string[]>([]);
   const [error, setError] = useState("");
+  const [newEmail, setNewEmail] = useState("");
+  const [addingEmail, setAddingEmail] = useState(false);
+  const [addEmailError, setAddEmailError] = useState("");
 
-  useEffect(() => {
+  function loadOverzicht() {
     if (!token) {
       setError("Deze link is ongeldig.");
       return;
@@ -80,9 +85,36 @@ function OverzichtContent() {
         }
         setBookings(data.bookings);
         setSubscriptions(data.subscriptions);
+        setBandName(data.bandName);
+        setBandMembers(data.bandMembers ?? []);
       })
       .catch(() => setError("Er ging iets mis bij het ophalen van je boekingen"));
-  }, [token]);
+  }
+
+  useEffect(loadOverzicht, [token]);
+
+  async function handleAddBandMember(e: React.FormEvent) {
+    e.preventDefault();
+    setAddingEmail(true);
+    setAddEmailError("");
+
+    const res = await fetch("/api/mijn-boekingen/bandleden", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token, newEmail }),
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      setAddEmailError(data.error || "Kon e-mailadres niet toevoegen");
+      setAddingEmail(false);
+      return;
+    }
+
+    setNewEmail("");
+    setAddingEmail(false);
+    loadOverzicht();
+  }
 
   if (error) {
     return (
@@ -173,6 +205,45 @@ function OverzichtContent() {
           </div>
         )}
       </div>
+
+      {bandName && (
+        <div>
+          <h3 className="font-semibold text-gray-700 mb-2">Bandleden - {bandName}</h3>
+          <div className="bg-white rounded-lg border border-gray-200 p-4">
+            <p className="text-sm text-gray-600 mb-3">
+              Deze e-mailadressen kunnen namens {bandName} boeken en beheren:
+            </p>
+            <ul className="space-y-1 mb-4">
+              {bandMembers.map((m) => (
+                <li key={m} className="text-sm text-gray-700">
+                  {m}
+                </li>
+              ))}
+            </ul>
+
+            <form onSubmit={handleAddBandMember} className="flex flex-col sm:flex-row gap-2">
+              <input
+                type="email"
+                required
+                value={newEmail}
+                onChange={(e) => setNewEmail(e.target.value)}
+                placeholder="E-mailadres van bandlid"
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+              />
+              <button
+                type="submit"
+                disabled={addingEmail}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm font-medium shrink-0"
+              >
+                {addingEmail ? "Toevoegen..." : "Toevoegen"}
+              </button>
+            </form>
+            {addEmailError && (
+              <p className="text-sm text-red-600 mt-2">{addEmailError}</p>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -19,10 +19,14 @@ export async function POST(request: NextRequest) {
   const bookingId = payment.metadata.bookingId;
 
   if (payment.status === "paid") {
+    // Alleen bijwerken als de boeking nog "pending" is - anders overschrijft een
+    // vertraagde of dubbele webhook-aflevering een boeking die inmiddels al
+    // geannuleerd is, en komt hij ongewild weer als bevestigd terug.
     const { data: booking } = await supabase
       .from("bookings")
       .update({ status: "confirmed", updated_at: new Date().toISOString() })
       .eq("id", bookingId)
+      .eq("status", "pending")
       .select()
       .single();
 

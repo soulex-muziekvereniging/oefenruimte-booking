@@ -30,8 +30,30 @@ export async function GET(request: NextRequest) {
     .ilike("contact_email", email)
     .in("status", ["pending_first_payment", "active"]);
 
+  const { data: member } = await supabase
+    .from("members")
+    .select("name")
+    .ilike("email", email)
+    .eq("active", true)
+    .maybeSingle();
+
+  let bandName: string | null = null;
+  let bandMembers: string[] = [];
+
+  if (member) {
+    bandName = member.name;
+    const { data: sameNameMembers } = await supabase
+      .from("members")
+      .select("email")
+      .ilike("name", member.name)
+      .eq("active", true);
+    bandMembers = (sameNameMembers ?? []).map((m) => m.email);
+  }
+
   return NextResponse.json({
     bookings: bookings ?? [],
     subscriptions: subscriptions ?? [],
+    bandName,
+    bandMembers,
   });
 }
