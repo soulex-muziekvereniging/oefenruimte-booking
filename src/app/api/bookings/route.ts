@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { mollie } from "@/lib/mollie";
 import { config } from "@/config";
+import { expireStalePendingBookings } from "@/lib/expire";
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
@@ -13,6 +14,8 @@ export async function POST(request: NextRequest) {
       { status: 400 }
     );
   }
+
+  await expireStalePendingBookings();
 
   const { data: member } = await supabase
     .from("members")

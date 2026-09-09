@@ -1,6 +1,7 @@
 import { config } from "@/config";
 import { supabase, Booking, Subscription } from "./supabase";
 import { toLocalDateStr } from "./date";
+import { expireStalePendingBookings } from "./expire";
 
 export type Slot = {
   date: string;
@@ -53,6 +54,8 @@ export async function getSlotsForRange(
   from: string,
   to: string
 ): Promise<DaySlots[]> {
+  await expireStalePendingBookings();
+
   const { data: bookings, error } = await supabase
     .from("bookings")
     .select("slot_date, slot_start_time, band_name, status")

@@ -3,6 +3,7 @@ import { SequenceType } from "@mollie/api-client";
 import { supabase } from "@/lib/supabase";
 import { mollie } from "@/lib/mollie";
 import { config } from "@/config";
+import { expireStalePendingSubscriptions } from "@/lib/expire";
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
@@ -30,6 +31,8 @@ export async function POST(request: NextRequest) {
   if (!(frequency in config.subscriptionPricing)) {
     return NextResponse.json({ error: "Ongeldige frequentie" }, { status: 400 });
   }
+
+  await expireStalePendingSubscriptions();
 
   const { data: member } = await supabase
     .from("members")
