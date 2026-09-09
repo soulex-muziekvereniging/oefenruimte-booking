@@ -41,13 +41,16 @@ function formatFrequency(frequency: Subscription["frequency"]): string {
   return config.subscriptionPricing[frequency].label.toLowerCase();
 }
 
-export async function sendConfirmationEmail(booking: Booking) {
+export async function sendConfirmationEmail(booking: Booking, extraRecipients: string[] = []) {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL!;
   const cancelUrl = `${appUrl}/booking/cancel?id=${booking.id}&token=${booking.cancel_token}`;
+  const recipients = Array.from(
+    new Set([booking.contact_email, ...extraRecipients])
+  );
 
   await resend.emails.send({
     from: `${config.organizationName} <onboarding@resend.dev>`,
-    to: booking.contact_email,
+    to: recipients,
     subject: `Bevestiging: ${config.roomName} op ${formatDate(booking.slot_date)}`,
     html: `
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
@@ -163,13 +166,19 @@ export async function sendCancellationNotification(booking: Booking) {
   });
 }
 
-export async function sendSubscriptionConfirmationEmail(subscription: Subscription) {
+export async function sendSubscriptionConfirmationEmail(
+  subscription: Subscription,
+  extraRecipients: string[] = []
+) {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL!;
   const cancelUrl = `${appUrl}/subscription/cancel?id=${subscription.id}&token=${subscription.cancel_token}`;
+  const recipients = Array.from(
+    new Set([subscription.contact_email, ...extraRecipients])
+  );
 
   await resend.emails.send({
     from: `${config.organizationName} <onboarding@resend.dev>`,
-    to: subscription.contact_email,
+    to: recipients,
     subject: `Vaste reservering bevestigd: ${config.roomName} elke ${formatWeekdayDagdeel(subscription)}`,
     html: `
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">

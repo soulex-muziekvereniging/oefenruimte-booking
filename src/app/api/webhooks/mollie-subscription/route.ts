@@ -6,6 +6,7 @@ import {
   sendSubscriptionConfirmationEmail,
   sendSubscriptionNotificationToOrg,
 } from "@/lib/email";
+import { getActiveMemberEmails } from "@/lib/members";
 
 export async function POST(request: NextRequest) {
   const body = await request.formData();
@@ -78,7 +79,8 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (updated) {
-      await sendSubscriptionConfirmationEmail(updated);
+      const bandEmails = await getActiveMemberEmails(updated.band_name);
+      await sendSubscriptionConfirmationEmail(updated, bandEmails);
       await sendSubscriptionNotificationToOrg(updated);
     }
   } else if (

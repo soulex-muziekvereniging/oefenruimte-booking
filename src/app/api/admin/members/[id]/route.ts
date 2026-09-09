@@ -31,3 +31,22 @@ export async function PATCH(
 
   return NextResponse.json(data);
 }
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+  const password = request.headers.get("x-admin-password");
+  if (!password || password !== process.env.ADMIN_PASSWORD) {
+    return NextResponse.json({ error: "Ongeldig wachtwoord" }, { status: 401 });
+  }
+
+  const { error } = await supabase.from("members").delete().eq("id", id);
+
+  if (error) {
+    return NextResponse.json({ error: "Kon lid niet verwijderen" }, { status: 500 });
+  }
+
+  return NextResponse.json({ success: true });
+}

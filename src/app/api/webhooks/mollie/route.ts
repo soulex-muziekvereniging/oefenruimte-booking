@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { mollie } from "@/lib/mollie";
 import { sendConfirmationEmail, sendBookingNotificationToOrg } from "@/lib/email";
+import { getActiveMemberEmails } from "@/lib/members";
 
 export async function POST(request: NextRequest) {
   const body = await request.formData();
@@ -26,7 +27,8 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (booking) {
-      await sendConfirmationEmail(booking);
+      const bandEmails = await getActiveMemberEmails(booking.band_name);
+      await sendConfirmationEmail(booking, bandEmails);
       await sendBookingNotificationToOrg(booking);
     }
   } else if (

@@ -85,6 +85,9 @@ export default function AdminPage() {
   const [newMemberEmail, setNewMemberEmail] = useState("");
   const [addingMember, setAddingMember] = useState(false);
   const [togglingMember, setTogglingMember] = useState<string | null>(null);
+  const [deletingMember, setDeletingMember] = useState<string | null>(null);
+  const [newEmailByBand, setNewEmailByBand] = useState<Record<string, string>>({});
+  const [addingEmailFor, setAddingEmailFor] = useState<string | null>(null);
 
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [subscriptionsLoading, setSubscriptionsLoading] = useState(false);
@@ -203,6 +206,45 @@ export default function AdminPage() {
     });
     await fetchMembers(password);
     setTogglingMember(null);
+  }
+
+  async function handleDeleteMember(member: Member) {
+    if (
+      !confirm(`Weet je zeker dat je ${member.email} wilt verwijderen uit "${member.name}"?`)
+    ) {
+      return;
+    }
+    setDeletingMember(member.id);
+    await fetch(`/api/admin/members/${member.id}`, {
+      method: "DELETE",
+      headers: { "x-admin-password": password },
+    });
+    await fetchMembers(password);
+    setDeletingMember(null);
+  }
+
+  async function handleAddEmailToBand(bandName: string) {
+    const email = (newEmailByBand[bandName] || "").trim();
+    if (!email) return;
+    setAddingEmailFor(bandName);
+    setMemberError("");
+    const res = await fetch("/api/admin/members", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-admin-password": password,
+      },
+      body: JSON.stringify({ name: bandName, email }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      setMemberError(data.error || "Kon e-mailadres niet toevoegen");
+      setAddingEmailFor(null);
+      return;
+    }
+    setNewEmailByBand((prev) => ({ ...prev, [bandName]: "" }));
+    setAddingEmailFor(null);
+    await fetchMembers(password);
   }
 
   async function handleCancel(bookingId: string, bandName: string) {
@@ -401,7 +443,7 @@ export default function AdminPage() {
               required
               value={newMemberName}
               onChange={(e) => setNewMemberName(e.target.value)}
-              placeholder="Naam"
+              placeholder="Bandnaam"
               className="flex-1 px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
             />
             <input
@@ -417,9 +459,13 @@ export default function AdminPage() {
               disabled={addingMember}
               className="px-4 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 text-sm shrink-0"
             >
-              {addingMember ? "Toevoegen..." : "Lid toevoegen"}
+              {addingMember ? "Toevoegen..." : "Band toevoegen"}
             </button>
           </form>
+          <p className="text-xs text-gray-500 mb-4 -mt-2">
+            Bestaat de band al? Vul dezelfde bandnaam in met een ander e-mailadres om een extra
+            bandlid te autoriseren - iedereen in de band krijgt dan de bevestigingsmail.
+          </p>
 
           {memberError && (
             <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm mb-4">
@@ -432,29 +478,72 @@ export default function AdminPage() {
               Nog geen leden toegevoegd.
             </div>
           ) : (
-            <div className="space-y-2">
-              {members.map((member) => (
-                <div
-                  key={member.id}
-                  className="bg-white rounded-lg border border-gray-200 p-3 sm:p-4 flex items-center justify-between gap-3"
-                >
-                  <div className="min-w-0">
-                    <p className="font-medium truncate">{member.name}</p>
-                    <p className="text-sm text-gray-500 truncate">{member.email}</p>
-                  </div>
-                  <button
-                    onClick={() => handleToggleMember(member)}
-                    disabled={togglingMember === member.id}
-                    className={`px-3 py-2 rounded-lg text-sm font-medium shrink-0 min-h-[40px] disabled:opacity-50 ${
-                      member.active
-                        ? "bg-green-50 text-green-800 border border-green-200 hover:bg-green-100"
-                        : "bg-gray-100 text-gray-500 border border-gray-200 hover:bg-gray-200"
-                    }`}
+            <div className="space-y-3">
+              {Object.entries(
+                members.reduce<Record<string, Member[]>>((acc, m) => {
+                  (acc[m.name] ??= []).push(m);
+                  return acc;
+                }, {})
+              )
+                .sort(([a], [b]) => a.localeCompare(b))
+                .map(([bandName, bandMembers]) => (
+                  <div
+                    key={bandName}
+                    className="bg-white rounded-lg border border-gray-200 p-3 sm:p-4"
                   >
-                    {member.active ? "Actief lid" : "Inactief"}
-                  </button>
-                </div>
-              ))}
+                    <p className="font-medium mb-2">{bandName}</p>
+                    <div className="space-y-2 mb-3">
+                      {bandMembers.map((member) => (
+                        <div
+                          key={member.id}
+                          className="flex items-center justify-between gap-2 pl-3 border-l-2 border-gray-100"
+                        >
+                          <p className="text-sm text-gray-600 truncate min-w-0">
+                            {member.email}
+                          </p>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <button
+                              onClick={() => handleToggleMember(member)}
+                              disabled={togglingMember === member.id}
+                              className={`px-3 py-1.5 rounded-lg text-xs font-medium min-h-[36px] disabled:opacity-50 ${
+                                member.active
+                                  ? "bg-green-50 text-green-800 border border-green-200 hover:bg-green-100"
+                                  : "bg-gray-100 text-gray-500 border border-gray-200 hover:bg-gray-200"
+                              }`}
+                            >
+                              {member.active ? "Actief lid" : "Inactief"}
+                            </button>
+                            <button
+                              onClick={() => handleDeleteMember(member)}
+                              disabled={deletingMember === member.id}
+                              className="px-3 py-1.5 rounded-lg text-xs font-medium min-h-[36px] bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 disabled:opacity-50"
+                            >
+                              Verwijder
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex gap-2 pl-3">
+                      <input
+                        type="email"
+                        value={newEmailByBand[bandName] || ""}
+                        onChange={(e) =>
+                          setNewEmailByBand((prev) => ({ ...prev, [bandName]: e.target.value }))
+                        }
+                        placeholder="Extra e-mailadres voor deze band"
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                      />
+                      <button
+                        onClick={() => handleAddEmailToBand(bandName)}
+                        disabled={addingEmailFor === bandName}
+                        className="px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-sm disabled:opacity-50 shrink-0"
+                      >
+                        {addingEmailFor === bandName ? "Toevoegen..." : "Toevoegen"}
+                      </button>
+                    </div>
+                  </div>
+                ))}
             </div>
           )}
         </div>
