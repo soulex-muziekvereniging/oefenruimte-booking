@@ -5,6 +5,7 @@ import { config } from "@/config";
 import { toLocalDateStr } from "@/lib/date";
 import SubscriptionSection from "./SubscriptionSection";
 import MembershipRequestPrompt from "./MembershipRequestPrompt";
+import JoinRequestForm from "./JoinRequestForm";
 
 type Slot = {
   date: string;
@@ -57,7 +58,7 @@ function formatFullDate(dateStr: string): string {
 }
 
 export default function Home() {
-  const [mode, setMode] = useState<"once" | "subscription" | null>(null);
+  const [mode, setMode] = useState<"once" | "subscription" | "join" | null>(null);
   const [weekStart, setWeekStart] = useState<Date>(() =>
     getWeekStart(new Date())
   );
@@ -236,8 +237,18 @@ export default function Home() {
             </span>
           </button>
         </div>
+        <button
+          onClick={() => setMode("join")}
+          className="mt-6 text-sm text-blue-600 hover:text-blue-700"
+        >
+          Nog geen lid? Vraag hier toegang aan →
+        </button>
       </div>
     );
+  }
+
+  if (mode === "join") {
+    return <JoinRequestForm onBack={() => setMode(null)} />;
   }
 
   if (mode === "subscription") {
