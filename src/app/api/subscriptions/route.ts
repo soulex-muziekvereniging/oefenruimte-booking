@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { SequenceType } from "@mollie/api-client";
+import { PaymentMethod, SequenceType } from "@mollie/api-client";
 import { supabase } from "@/lib/supabase";
 import { mollie } from "@/lib/mollie";
 import { config } from "@/config";
@@ -95,6 +95,10 @@ export async function POST(request: NextRequest) {
       description: `${config.roomName} - vaste reservering ${bandName} - eerste maand`,
       customerId: customer.id,
       sequenceType: SequenceType.first,
+      // Alleen methodes die een machtiging (mandaat) voor de maandelijkse incasso kunnen
+      // vastleggen - iDEAL en de meeste andere methodes kunnen dat niet, ook al zou Mollie
+      // ze zonder deze restrictie soms toch tonen in de betaalmethode-selectie.
+      method: [PaymentMethod.creditcard, PaymentMethod.directdebit],
       redirectUrl: `${appUrl}/subscription/success?id=${subscription.id}`,
       webhookUrl: `${appUrl}/api/webhooks/mollie-subscription`,
       metadata: { subscriptionId: subscription.id },
