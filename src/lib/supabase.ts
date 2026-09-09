@@ -9,6 +9,17 @@ export type Member = {
   updated_at: string;
 };
 
+export type MembershipRequest = {
+  id: string;
+  band_name: string;
+  contact_name: string;
+  contact_email: string;
+  contact_phone: string | null;
+  status: "pending" | "approved" | "rejected";
+  created_at: string;
+  updated_at: string;
+};
+
 export type Booking = {
   id: string;
   band_name: string;

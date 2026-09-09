@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { config } from "@/config";
+import MembershipRequestPrompt from "./MembershipRequestPrompt";
 
 const DAY_NAMES_NL = [
   "Zondag",
@@ -16,7 +17,6 @@ const DAY_NAMES_NL = [
 type Availability = {
   weekday: number;
   dagdeel_id: string;
-  band_name: string;
 };
 
 export default function SubscriptionSection() {
@@ -32,6 +32,7 @@ export default function SubscriptionSection() {
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [notAMember, setNotAMember] = useState(false);
 
   useEffect(() => {
     fetch("/api/subscriptions/availability")
@@ -50,6 +51,7 @@ export default function SubscriptionSection() {
 
     setSubmitting(true);
     setError("");
+    setNotAMember(false);
 
     const res = await fetch("/api/subscriptions", {
       method: "POST",
@@ -69,6 +71,7 @@ export default function SubscriptionSection() {
 
     if (!res.ok) {
       setError(data.error || "Er ging iets mis");
+      setNotAMember(res.status === 403);
       setSubmitting(false);
       return;
     }
@@ -122,7 +125,7 @@ export default function SubscriptionSection() {
 
         {taken ? (
           <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
-            Dit weekdag + dagdeel is al vast gereserveerd door {taken.band_name}.
+            Dit weekdag + dagdeel is al vast gereserveerd door een andere band.
             Kies een andere combinatie.
           </div>
         ) : (
@@ -216,6 +219,15 @@ export default function SubscriptionSection() {
           <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
             {error}
           </div>
+        )}
+
+        {notAMember && (
+          <MembershipRequestPrompt
+            bandName={formData.bandName}
+            contactName={formData.contactName}
+            contactEmail={formData.contactEmail}
+            contactPhone={formData.contactPhone}
+          />
         )}
 
         <button

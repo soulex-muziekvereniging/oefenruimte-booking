@@ -1,0 +1,38 @@
+import { NextRequest, NextResponse } from "next/server";
+import { supabase } from "@/lib/supabase";
+import { sendMembershipRequestNotificationToOrg } from "@/lib/email";
+
+export async function POST(request: NextRequest) {
+  const body = await request.json();
+  const { bandName, contactName, contactEmail, contactPhone } = body;
+
+  if (!bandName || !contactName || !contactEmail) {
+    return NextResponse.json(
+      { error: "Vul bandnaam, contactpersoon en e-mailadres in" },
+      { status: 400 }
+    );
+  }
+
+  const { data: request_, error } = await supabase
+    .from("membership_requests")
+    .insert({
+      band_name: bandName,
+      contact_name: contactName,
+      contact_email: contactEmail,
+      contact_phone: contactPhone || null,
+      status: "pending",
+    })
+    .select()
+    .single();
+
+  if (error) {
+    return NextResponse.json(
+      { error: "Kon het verzoek niet versturen, probeer het later opnieuw" },
+      { status: 500 }
+    );
+  }
+
+  await sendMembershipRequestNotificationToOrg(request_);
+
+  return NextResponse.json({ success: true });
+}

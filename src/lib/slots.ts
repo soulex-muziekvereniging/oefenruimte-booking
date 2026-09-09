@@ -10,7 +10,6 @@ export type Slot = {
   startTime: string;
   endTime: string;
   available: boolean;
-  bandName?: string;
 };
 
 export type DaySlots = {
@@ -58,7 +57,7 @@ export async function getSlotsForRange(
 
   const { data: bookings, error } = await supabase
     .from("bookings")
-    .select("slot_date, slot_start_time, band_name, status")
+    .select("slot_date, slot_start_time, status")
     .gte("slot_date", from)
     .lte("slot_date", to)
     .in("status", ["pending", "confirmed"]);
@@ -70,22 +69,24 @@ export async function getSlotsForRange(
 
   const { data: subscriptions, error: subscriptionsError } = await supabase
     .from("subscriptions")
-    .select("weekday, dagdeel_id, band_name")
+    .select("weekday, dagdeel_id")
     .eq("status", "active");
 
   if (subscriptionsError) {
     throw new Error(`Kon vaste reserveringen niet ophalen: ${subscriptionsError.message}`);
   }
 
-  const bookedMap = new Map<string, string>(
-    (bookings as Pick<Booking, "slot_date" | "slot_start_time" | "band_name">[] | null)?.map(
-      (b) => [`${b.slot_date}_${b.slot_start_time}`, b.band_name] as [string, string]
+  // Alleen bezet/vrij naar buiten geven - de bandnaam achter een geboekt slot is
+  // niet bedoeld voor anonieme bezoekers van de publieke kalender.
+  const bookedSet = new Set<string>(
+    (bookings as Pick<Booking, "slot_date" | "slot_start_time">[] | null)?.map(
+      (b) => `${b.slot_date}_${b.slot_start_time}`
     ) ?? []
   );
 
-  const subscribedMap = new Map<string, string>(
-    (subscriptions as Pick<Subscription, "weekday" | "dagdeel_id" | "band_name">[] | null)?.map(
-      (s) => [`${s.weekday}_${s.dagdeel_id}`, s.band_name] as [string, string]
+  const subscribedSet = new Set<string>(
+    (subscriptions as Pick<Subscription, "weekday" | "dagdeel_id">[] | null)?.map(
+      (s) => `${s.weekday}_${s.dagdeel_id}`
     ) ?? []
   );
 
@@ -98,12 +99,11 @@ export async function getSlotsForRange(
     const weekday = current.getDay();
     const slots = generateSlotsForDay(dateStr).map((slot) => {
       const key = `${dateStr}_${slot.startTime}:00`;
-      const bandName =
-        bookedMap.get(key) ?? subscribedMap.get(`${weekday}_${slot.dagdeelId}`);
+      const occupied =
+        bookedSet.has(key) || subscribedSet.has(`${weekday}_${slot.dagdeelId}`);
       return {
         ...slot,
-        available: !bandName,
-        ...(bandName ? { bandName } : {}),
+        available: !occupied,
       };
     });
 

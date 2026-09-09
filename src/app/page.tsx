@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { config } from "@/config";
 import { toLocalDateStr } from "@/lib/date";
 import SubscriptionSection from "./SubscriptionSection";
+import MembershipRequestPrompt from "./MembershipRequestPrompt";
 
 type Slot = {
   date: string;
@@ -11,7 +12,6 @@ type Slot = {
   startTime: string;
   endTime: string;
   available: boolean;
-  bandName?: string;
 };
 
 type DaySlots = {
@@ -73,6 +73,7 @@ export default function Home() {
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [notAMember, setNotAMember] = useState(false);
   const dateInputRef = useRef<HTMLInputElement>(null);
 
   const weekEndStr = (() => {
@@ -164,6 +165,7 @@ export default function Home() {
 
     setSubmitting(true);
     setError("");
+    setNotAMember(false);
 
     const res = await fetch("/api/bookings", {
       method: "POST",
@@ -182,6 +184,7 @@ export default function Home() {
 
     if (!res.ok) {
       setError(data.error || "Er ging iets mis");
+      setNotAMember(res.status === 403);
       setSubmitting(false);
       return;
     }
@@ -339,7 +342,7 @@ export default function Home() {
                         className={`w-full text-xs sm:text-sm py-2 sm:py-2.5 px-1.5 sm:px-2 rounded transition-colors min-h-[40px] ${
                           isSelected
                             ? "bg-blue-600 text-white"
-                            : slot.bandName
+                            : !slot.available
                               ? "bg-red-50 text-red-700 border border-red-200 cursor-not-allowed"
                               : disabled
                                 ? "bg-gray-100 text-gray-400 cursor-not-allowed"
@@ -350,9 +353,9 @@ export default function Home() {
                         <span className="block text-[10px] sm:text-xs opacity-75">
                           {slot.startTime.slice(0, 5)} – {slot.endTime.slice(0, 5)}
                         </span>
-                        {slot.bandName && (
-                          <span className="block text-[10px] sm:text-xs truncate opacity-75">
-                            {slot.bandName}
+                        {!slot.available && (
+                          <span className="block text-[10px] sm:text-xs opacity-75">
+                            Bezet
                           </span>
                         )}
                       </button>
@@ -461,6 +464,15 @@ export default function Home() {
                   <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
                     {error}
                   </div>
+                )}
+
+                {notAMember && (
+                  <MembershipRequestPrompt
+                    bandName={formData.bandName}
+                    contactName={formData.contactName}
+                    contactEmail={formData.contactEmail}
+                    contactPhone={formData.contactPhone}
+                  />
                 )}
 
                 <button

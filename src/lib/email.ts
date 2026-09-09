@@ -1,6 +1,6 @@
 import { Resend } from "resend";
 import { config } from "@/config";
-import { Booking, Subscription } from "./supabase";
+import { Booking, Subscription, MembershipRequest } from "./supabase";
 
 const resend = new Resend(process.env.RESEND_API_KEY!);
 
@@ -253,6 +253,39 @@ export async function sendSubscriptionNotificationToOrg(subscription: Subscripti
         </table>
 
         <p>Denk aan de sleuteloverdracht en borg (buiten dit systeem om, zie BESTUUR.md).</p>
+      </div>
+    `,
+  });
+}
+
+export async function sendMembershipRequestNotificationToOrg(
+  request: MembershipRequest
+) {
+  await resend.emails.send({
+    from: `${config.organizationName} <onboarding@resend.dev>`,
+    to: config.organizationEmail,
+    subject: `Nieuw lidmaatschapsverzoek: ${request.band_name}`,
+    html: `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>Nieuw lidmaatschapsverzoek</h2>
+        <p>Een band die nog geen lid is, wil kunnen boeken:</p>
+
+        <table style="border-collapse: collapse; width: 100%; margin: 20px 0;">
+          <tr>
+            <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Band</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">${request.band_name}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Contact</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">${request.contact_name} (${request.contact_email})</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Telefoon</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">${request.contact_phone || "-"}</td>
+          </tr>
+        </table>
+
+        <p>Beoordeel dit verzoek in het beheerpaneel onder "Aanvragen".</p>
       </div>
     `,
   });

@@ -37,6 +37,16 @@ type Subscription = {
   status: "pending_first_payment" | "active" | "cancelled";
 };
 
+type MembershipRequest = {
+  id: string;
+  band_name: string;
+  contact_name: string;
+  contact_email: string;
+  contact_phone: string | null;
+  status: "pending" | "approved" | "rejected";
+  created_at: string;
+};
+
 const DAY_NAMES_NL = [
   "Zondag",
   "Maandag",
@@ -72,7 +82,9 @@ function formatPrice(cents: number): string {
 export default function AdminPage() {
   const [password, setPassword] = useState("");
   const [loggedIn, setLoggedIn] = useState(false);
-  const [view, setView] = useState<"bookings" | "members" | "subscriptions">("bookings");
+  const [view, setView] = useState<"bookings" | "members" | "subscriptions" | "requests">(
+    "bookings"
+  );
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -92,6 +104,10 @@ export default function AdminPage() {
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [subscriptionsLoading, setSubscriptionsLoading] = useState(false);
   const [cancellingSubscription, setCancellingSubscription] = useState<string | null>(null);
+
+  const [requests, setRequests] = useState<MembershipRequest[]>([]);
+  const [requestsLoading, setRequestsLoading] = useState(false);
+  const [handlingRequest, setHandlingRequest] = useState<string | null>(null);
 
   async function fetchBookings(pw: string) {
     setLoading(true);
@@ -138,6 +154,44 @@ export default function AdminPage() {
     setSubscriptionsLoading(false);
   }
 
+  async function fetchRequests(pw: string) {
+    setRequestsLoading(true);
+    const res = await fetch("/api/admin/membership-requests", {
+      headers: { "x-admin-password": pw },
+    });
+    if (res.ok) {
+      setRequests(await res.json());
+    }
+    setRequestsLoading(false);
+  }
+
+  async function handleApproveRequest(request: MembershipRequest) {
+    setHandlingRequest(request.id);
+    const res = await fetch(`/api/admin/membership-requests/${request.id}/approve`, {
+      method: "POST",
+      headers: { "x-admin-password": password },
+    });
+    if (!res.ok) {
+      const data = await res.json();
+      alert(data.error || "Er ging iets mis bij het goedkeuren");
+      setHandlingRequest(null);
+      return;
+    }
+    await fetchRequests(password);
+    setHandlingRequest(null);
+  }
+
+  async function handleRejectRequest(request: MembershipRequest) {
+    if (!confirm(`Verzoek van "${request.band_name}" afwijzen?`)) return;
+    setHandlingRequest(request.id);
+    await fetch(`/api/admin/membership-requests/${request.id}/reject`, {
+      method: "POST",
+      headers: { "x-admin-password": password },
+    });
+    await fetchRequests(password);
+    setHandlingRequest(null);
+  }
+
   async function handleCancelSubscription(subscription: Subscription) {
     if (
       !confirm(
@@ -167,7 +221,10 @@ export default function AdminPage() {
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     const ok = await fetchBookings(password);
-    if (ok) setLoggedIn(true);
+    if (ok) {
+      setLoggedIn(true);
+      fetchRequests(password);
+    }
   }
 
   async function handleAddMember(e: React.FormEvent) {
@@ -345,9 +402,101 @@ export default function AdminPage() {
         >
           Abonnementen
         </button>
+        <button
+          onClick={() => {
+            setView("requests");
+            fetchRequests(password);
+          }}
+          className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px flex items-center gap-1.5 ${
+            view === "requests"
+              ? "border-blue-600 text-blue-600"
+              : "border-transparent text-gray-500 hover:text-gray-700"
+          }`}
+        >
+          Aanvragen
+          {requests.filter((r) => r.status === "pending").length > 0 && (
+            <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold">
+              {requests.filter((r) => r.status === "pending").length}
+            </span>
+          )}
+        </button>
       </div>
 
-      {view === "subscriptions" ? (
+      {view === "requests" ? (
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold">Lidmaatschapsverzoeken</h2>
+            <button
+              onClick={() => fetchRequests(password)}
+              disabled={requestsLoading}
+              className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-sm disabled:opacity-50"
+            >
+              {requestsLoading ? "Laden..." : "Vernieuwen"}
+            </button>
+          </div>
+
+          {requests.length === 0 ? (
+            <div className="text-center py-12 text-gray-500 bg-white rounded-lg border border-gray-200">
+              Geen aanvragen gevonden.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {requests.map((r) => (
+                <div
+                  key={r.id}
+                  className="bg-white rounded-lg border border-gray-200 p-4 sm:p-5"
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="font-semibold text-lg truncate">{r.band_name}</h3>
+                        <span
+                          className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium shrink-0 ${
+                            r.status === "pending"
+                              ? "bg-yellow-100 text-yellow-800"
+                              : r.status === "approved"
+                                ? "bg-green-100 text-green-800"
+                                : "bg-gray-100 text-gray-500"
+                          }`}
+                        >
+                          {r.status === "pending"
+                            ? "Nieuw"
+                            : r.status === "approved"
+                              ? "Toegevoegd"
+                              : "Afgewezen"}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-500">
+                        {r.contact_name} · {r.contact_email}
+                        {r.contact_phone ? ` · ${r.contact_phone}` : ""}
+                      </p>
+                    </div>
+
+                    {r.status === "pending" && (
+                      <div className="flex gap-2 shrink-0">
+                        <button
+                          onClick={() => handleRejectRequest(r)}
+                          disabled={handlingRequest === r.id}
+                          className="px-4 py-2.5 bg-gray-100 text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-200 disabled:opacity-50 text-sm font-medium min-h-[44px]"
+                        >
+                          Afwijzen
+                        </button>
+                        <button
+                          onClick={() => handleApproveRequest(r)}
+                          disabled={handlingRequest === r.id}
+                          className="px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm font-medium min-h-[44px]"
+                        >
+                          {handlingRequest === r.id ? "Bezig..." : "Toevoegen als lid"}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : view === "subscriptions" ? (
         <div>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-bold">Vaste reserveringen</h2>
