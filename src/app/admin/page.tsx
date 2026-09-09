@@ -2,6 +2,15 @@
 
 import { useState } from "react";
 import { config } from "@/config";
+import { toLocalDateStr } from "@/lib/date";
+
+function getWeekStart(date: Date): Date {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  d.setDate(d.getDate() + diff);
+  return d;
+}
 
 type Booking = {
   id: string;
@@ -57,19 +66,6 @@ const DAY_NAMES_NL = [
   "Zaterdag",
 ];
 
-function formatDate(dateStr: string): string {
-  return new Date(dateStr + "T00:00:00").toLocaleDateString("nl-NL", {
-    weekday: "short",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
-}
-
-function formatTime(timeStr: string): string {
-  return timeStr.slice(0, 5);
-}
-
 function formatWeekdayDagdeel(subscription: Subscription): string {
   const dagdeel = config.dagdelen.find((d) => d.id === subscription.dagdeel_id);
   return `${DAY_NAMES_NL[subscription.weekday]} ${dagdeel?.label ?? subscription.dagdeel_id}`;
@@ -108,6 +104,8 @@ export default function AdminPage() {
   const [requests, setRequests] = useState<MembershipRequest[]>([]);
   const [requestsLoading, setRequestsLoading] = useState(false);
   const [handlingRequest, setHandlingRequest] = useState<string | null>(null);
+
+  const [calWeekStart, setCalWeekStart] = useState<Date>(() => getWeekStart(new Date()));
 
   async function fetchBookings(pw: string) {
     setLoading(true);
@@ -224,6 +222,7 @@ export default function AdminPage() {
     if (ok) {
       setLoggedIn(true);
       fetchRequests(password);
+      fetchSubscriptions(password);
     }
   }
 
@@ -701,7 +700,10 @@ export default function AdminPage() {
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-xl font-bold">Boekingen beheren</h2>
         <button
-          onClick={() => fetchBookings(password)}
+          onClick={() => {
+            fetchBookings(password);
+            fetchSubscriptions(password);
+          }}
           disabled={loading}
           className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-sm disabled:opacity-50"
         >
@@ -709,58 +711,161 @@ export default function AdminPage() {
         </button>
       </div>
 
-      {bookings.length === 0 ? (
-        <div className="text-center py-12 text-gray-500 bg-white rounded-lg border border-gray-200">
-          Geen aankomende boekingen gevonden.
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {bookings.map((booking) => (
-            <div
-              key={booking.id}
-              className="bg-white rounded-lg border border-gray-200 p-4 sm:p-5"
-            >
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <h3 className="font-semibold text-lg truncate">
-                      {booking.band_name}
-                    </h3>
-                    <span
-                      className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium shrink-0 ${
-                        booking.status === "confirmed"
-                          ? "bg-green-100 text-green-800"
-                          : "bg-yellow-100 text-yellow-800"
-                      }`}
-                    >
-                      {booking.status === "confirmed" ? "Bevestigd" : "In afwachting"}
-                    </span>
-                  </div>
-                  <p className="text-sm text-gray-700">
-                    {formatDate(booking.slot_date)},{" "}
-                    {formatTime(booking.slot_start_time)} –{" "}
-                    {formatTime(booking.slot_end_time)}
-                  </p>
-                  <p className="text-sm text-gray-500 mt-1">
-                    {booking.contact_name} · {booking.contact_email}
-                    {booking.contact_phone ? ` · ${booking.contact_phone}` : ""}
-                  </p>
-                </div>
+      {(() => {
+        const weekEnd = new Date(calWeekStart);
+        weekEnd.setDate(weekEnd.getDate() + 6);
+        const days: Date[] = Array.from({ length: 7 }, (_, i) => {
+          const d = new Date(calWeekStart);
+          d.setDate(d.getDate() + i);
+          return d;
+        });
 
-                {booking.status === "confirmed" && (
-                  <button
-                    onClick={() => handleCancel(booking.id, booking.band_name)}
-                    disabled={cancelling === booking.id}
-                    className="px-4 py-2.5 bg-red-50 text-red-700 border border-red-200 rounded-lg hover:bg-red-100 disabled:opacity-50 text-sm font-medium shrink-0 min-h-[44px] transition-colors"
-                  >
-                    {cancelling === booking.id ? "Annuleren..." : "Annuleer boeking"}
-                  </button>
-                )}
-              </div>
+        return (
+          <>
+            <div className="flex items-center justify-between gap-2 mb-4">
+              <button
+                onClick={() => {
+                  const d = new Date(calWeekStart);
+                  d.setDate(d.getDate() - 7);
+                  setCalWeekStart(d);
+                }}
+                className="px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-sm"
+              >
+                &larr; Vorige week
+              </button>
+              <h3 className="text-sm sm:text-base font-semibold text-center">
+                {calWeekStart.toLocaleDateString("nl-NL", { day: "numeric", month: "short" })}
+                {" – "}
+                {weekEnd.toLocaleDateString("nl-NL", { day: "numeric", month: "short" })}
+              </h3>
+              <button
+                onClick={() => {
+                  const d = new Date(calWeekStart);
+                  d.setDate(d.getDate() + 7);
+                  setCalWeekStart(d);
+                }}
+                className="px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-sm"
+              >
+                Volgende week &rarr;
+              </button>
             </div>
-          ))}
-        </div>
-      )}
+
+            <div className="flex items-center gap-4 mb-4 text-xs text-gray-500">
+              <span className="flex items-center gap-1">
+                <span className="inline-block w-3 h-3 rounded-sm bg-green-100 border border-green-300" />
+                Bevestigd
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="inline-block w-3 h-3 rounded-sm bg-yellow-100 border border-yellow-300" />
+                In afwachting
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="inline-block w-3 h-3 rounded-sm bg-blue-100 border border-blue-300" />
+                Vaste reservering
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-2 sm:gap-3">
+              {days.map((day) => {
+                const dateStr = toLocalDateStr(day);
+                const weekday = day.getDay();
+                return (
+                  <div
+                    key={dateStr}
+                    className="bg-white rounded-lg border border-gray-200 p-2 sm:p-3"
+                  >
+                    <div className="text-sm font-semibold text-gray-700 mb-2 text-center">
+                      {DAY_NAMES_NL[weekday]}
+                      <br />
+                      <span className="text-xs text-gray-500">
+                        {day.toLocaleDateString("nl-NL", { day: "numeric", month: "short" })}
+                      </span>
+                    </div>
+                    <div className="space-y-1.5">
+                      {config.dagdelen.map((dagdeel) => {
+                        const startTime = `${dagdeel.startHour.toString().padStart(2, "0")}:00`;
+                        const endHour = dagdeel.startHour + config.slotDurationMinutes / 60;
+                        const endTime = `${endHour.toString().padStart(2, "0")}:00`;
+
+                        const booking = bookings.find(
+                          (b) =>
+                            b.slot_date === dateStr &&
+                            b.slot_start_time.slice(0, 5) === startTime
+                        );
+                        const subscription = subscriptions.find(
+                          (s) =>
+                            s.status === "active" &&
+                            s.weekday === weekday &&
+                            s.dagdeel_id === dagdeel.id
+                        );
+
+                        if (booking) {
+                          return (
+                            <button
+                              key={dagdeel.id}
+                              onClick={() =>
+                                booking.status === "confirmed" &&
+                                handleCancel(booking.id, booking.band_name)
+                              }
+                              disabled={
+                                booking.status !== "confirmed" || cancelling === booking.id
+                              }
+                              title={`${booking.contact_name} · ${booking.contact_email}${booking.contact_phone ? " · " + booking.contact_phone : ""}`}
+                              className={`w-full text-left text-xs sm:text-sm py-2 sm:py-2.5 px-1.5 sm:px-2 rounded border ${
+                                booking.status === "confirmed"
+                                  ? "bg-green-100 border-green-300 hover:bg-green-200 cursor-pointer"
+                                  : "bg-yellow-100 border-yellow-300 cursor-default"
+                              }`}
+                            >
+                              <span className="block font-medium">{dagdeel.label}</span>
+                              <span className="block text-[10px] sm:text-xs opacity-75">
+                                {startTime} – {endTime}
+                              </span>
+                              <span className="block text-[10px] sm:text-xs truncate font-medium">
+                                {booking.band_name}
+                              </span>
+                            </button>
+                          );
+                        }
+
+                        if (subscription) {
+                          return (
+                            <div
+                              key={dagdeel.id}
+                              title={`${subscription.contact_name} · ${subscription.contact_email}${subscription.contact_phone ? " · " + subscription.contact_phone : ""}`}
+                              className="w-full text-left text-xs sm:text-sm py-2 sm:py-2.5 px-1.5 sm:px-2 rounded border bg-blue-100 border-blue-300"
+                            >
+                              <span className="block font-medium">{dagdeel.label}</span>
+                              <span className="block text-[10px] sm:text-xs opacity-75">
+                                {startTime} – {endTime} · Vast
+                              </span>
+                              <span className="block text-[10px] sm:text-xs truncate font-medium">
+                                {subscription.band_name}
+                              </span>
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <div
+                            key={dagdeel.id}
+                            className="w-full text-xs sm:text-sm py-2 sm:py-2.5 px-1.5 sm:px-2 rounded border bg-gray-50 border-gray-200 text-gray-400"
+                          >
+                            <span className="block font-medium">{dagdeel.label}</span>
+                            <span className="block text-[10px] sm:text-xs opacity-75">
+                              {startTime} – {endTime}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        );
+      })()}
         </>
       )}
     </div>
