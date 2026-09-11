@@ -47,13 +47,31 @@ export type Subscription = {
   dagdeel_id: string;
   frequency: "weekly" | "biweekly";
   price_cents: number;
-  status: "pending_first_payment" | "active" | "cancelled";
+  status: "pending_first_payment" | "active" | "lapsed" | "cancelled";
   mollie_customer_id: string | null;
-  mollie_mandate_id: string | null;
-  mollie_subscription_id: string | null;
   mollie_first_payment_id: string | null;
   cancel_token: string;
   cancelled_at: string | null;
+  term_start_date: string | null;
+  term_end_date: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type SubscriptionPayment = {
+  id: string;
+  subscription_id: string;
+  period_month: string;
+  amount_cents: number;
+  due_date: string;
+  grace_until: string;
+  status: "unpaid" | "paid" | "waived";
+  mollie_payment_id: string | null;
+  pay_token: string;
+  paid_at: string | null;
+  invoice_sent_at: string | null;
+  reminder_sent_at: string | null;
+  warning_sent_at: string | null;
   created_at: string;
   updated_at: string;
 };

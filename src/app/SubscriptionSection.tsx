@@ -91,7 +91,9 @@ export default function SubscriptionSection() {
       <h2 className="text-lg font-semibold mb-1">Vaste reservering aanvragen</h2>
       <p className="text-sm text-gray-600 mb-4">
         Claim structureel hetzelfde weekdag + dagdeel, elke week of elke twee
-        weken. Wordt maandelijks automatisch geïncasseerd totdat je opzegt.
+        weken. Zolang je op tijd betaalt blijft dat tijdslot het hele jaar van
+        jullie - elke maand krijg je hiervoor een apart betaalverzoek per e-mail,
+        er wordt niets automatisch afgeschreven.
       </p>
 
       <form onSubmit={handleSubmit} className="space-y-3">

@@ -1,0 +1,153 @@
+"use client";
+
+import { useSearchParams } from "next/navigation";
+import { useEffect, useState, Suspense } from "react";
+
+type PeriodInfo = {
+  status: "unpaid" | "paid" | "waived";
+  amountCents: number;
+  periodMonth: string;
+  dueDate: string;
+  graceUntil: string;
+  bandName: string;
+  weekdayDagdeel: string;
+  subscriptionStatus: string;
+};
+
+function formatMonth(dateStr: string): string {
+  return new Date(dateStr + "T00:00:00").toLocaleDateString("nl-NL", {
+    month: "long",
+    year: "numeric",
+  });
+}
+
+function formatDate(dateStr: string): string {
+  return new Date(dateStr + "T00:00:00").toLocaleDateString("nl-NL", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+function formatPrice(cents: number): string {
+  return `€${(cents / 100).toFixed(2).replace(".", ",")}`;
+}
+
+function BetalenContent() {
+  const searchParams = useSearchParams();
+  const token = searchParams.get("token");
+  const [info, setInfo] = useState<PeriodInfo | null>(null);
+  const [error, setError] = useState("");
+  const [paying, setPaying] = useState(false);
+
+  useEffect(() => {
+    if (!token) {
+      setError("Deze link is ongeldig.");
+      return;
+    }
+    fetch(`/api/subscriptions/payments/${encodeURIComponent(token)}`)
+      .then(async (res) => {
+        const data = await res.json();
+        if (!res.ok) {
+          setError(data.error || "Kon deze betaalperiode niet vinden");
+          return;
+        }
+        setInfo(data);
+      })
+      .catch(() => setError("Kon deze betaalperiode niet vinden"));
+  }, [token]);
+
+  async function handlePay() {
+    setPaying(true);
+    setError("");
+    const res = await fetch(`/api/subscriptions/payments/${encodeURIComponent(token!)}/pay`, {
+      method: "POST",
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      setError(data.error || "Er ging iets mis");
+      setPaying(false);
+      return;
+    }
+    window.location.href = data.checkoutUrl;
+  }
+
+  if (error) {
+    return (
+      <div className="max-w-lg mx-auto px-4 py-16 text-center">
+        <div className="bg-white rounded-lg border border-gray-200 p-8">
+          <h2 className="text-xl font-bold mb-2">Kan deze periode niet tonen</h2>
+          <p className="text-gray-600">{error}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!info) {
+    return (
+      <div className="max-w-lg mx-auto px-4 py-16 text-center text-gray-500">Laden...</div>
+    );
+  }
+
+  return (
+    <div className="max-w-lg mx-auto px-4 py-16">
+      <div className="bg-white rounded-lg border border-gray-200 p-8">
+        <h2 className="text-xl font-bold mb-1">
+          {info.bandName} - {formatMonth(info.periodMonth)}
+        </h2>
+        <p className="text-gray-600 mb-6">Elke {info.weekdayDagdeel}</p>
+
+        {info.status === "paid" ? (
+          <p className="text-green-700 bg-green-50 border border-green-200 rounded-lg p-4">
+            Deze periode is al betaald. Bedankt!
+          </p>
+        ) : info.status === "waived" ? (
+          <p className="text-blue-700 bg-blue-50 border border-blue-200 rounded-lg p-4">
+            Voor deze periode hoeft niet betaald te worden - het tijdslot blijft gewoon van
+            jullie.
+          </p>
+        ) : info.subscriptionStatus !== "active" ? (
+          <p className="text-gray-600 bg-gray-50 border border-gray-200 rounded-lg p-4">
+            Deze vaste reservering is niet meer actief.
+          </p>
+        ) : (
+          <>
+            <p className="text-gray-700 mb-1">
+              Te betalen: <span className="font-semibold">{formatPrice(info.amountCents)}</span>
+            </p>
+            <p className="text-sm text-gray-500 mb-6">
+              Betaal vóór {formatDate(info.dueDate)} om het tijdslot zonder gedoe te behouden
+              (coulance tot en met {formatDate(info.graceUntil)}).
+            </p>
+
+            {error && (
+              <div className="p-3 mb-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                {error}
+              </div>
+            )}
+
+            <button
+              onClick={handlePay}
+              disabled={paying}
+              className="w-full py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+            >
+              {paying ? "Even geduld..." : `Periode betalen — ${formatPrice(info.amountCents)}`}
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default function BetalenPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="max-w-lg mx-auto px-4 py-16 text-center text-gray-500">Laden...</div>
+      }
+    >
+      <BetalenContent />
+    </Suspense>
+  );
+}

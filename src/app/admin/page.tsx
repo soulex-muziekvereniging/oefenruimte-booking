@@ -33,6 +33,15 @@ type Member = {
   active: boolean;
 };
 
+type SubscriptionPeriod = {
+  id: string;
+  period_month: string;
+  amount_cents: number;
+  due_date: string;
+  grace_until: string;
+  status: "unpaid" | "paid" | "waived";
+};
+
 type Subscription = {
   id: string;
   band_name: string;
@@ -43,8 +52,16 @@ type Subscription = {
   dagdeel_id: string;
   frequency: "weekly" | "biweekly";
   price_cents: number;
-  status: "pending_first_payment" | "active" | "cancelled";
+  status: "pending_first_payment" | "active" | "lapsed" | "cancelled";
+  currentPeriod: SubscriptionPeriod | null;
 };
+
+function formatShortDate(dateStr: string): string {
+  return new Date(dateStr + "T00:00:00").toLocaleDateString("nl-NL", {
+    day: "numeric",
+    month: "long",
+  });
+}
 
 type MembershipRequest = {
   id: string;
@@ -198,7 +215,7 @@ export default function AdminPage() {
   async function handleCancelSubscription(subscription: Subscription) {
     if (
       !confirm(
-        `Weet je zeker dat je de vaste reservering van "${subscription.band_name}" wilt opzeggen? De maandelijkse incasso stopt.`
+        `Weet je zeker dat je de vaste reservering van "${subscription.band_name}" wilt opzeggen? Er worden geen betaalverzoeken meer verstuurd.`
       )
     ) {
       return;
@@ -217,6 +234,33 @@ export default function AdminPage() {
       return;
     }
 
+    await fetchSubscriptions(password);
+    setCancellingSubscription(null);
+  }
+
+  async function handleWaivePeriod(periodId: string) {
+    if (
+      !confirm(
+        "Deze periode kwijtschelden? De band hoeft dan niet te betalen en het tijdslot blijft gewoon staan."
+      )
+    ) {
+      return;
+    }
+    setCancellingSubscription(periodId);
+    await fetch(`/api/admin/subscription-payments/${periodId}/waive`, {
+      method: "POST",
+      headers: { "x-admin-password": password },
+    });
+    await fetchSubscriptions(password);
+    setCancellingSubscription(null);
+  }
+
+  async function handleExtendGrace(periodId: string) {
+    setCancellingSubscription(periodId);
+    await fetch(`/api/admin/subscription-payments/${periodId}/extend-grace`, {
+      method: "POST",
+      headers: { "x-admin-password": password },
+    });
     await fetchSubscriptions(password);
     setCancellingSubscription(null);
   }
@@ -541,14 +585,18 @@ export default function AdminPage() {
                               ? "bg-green-100 text-green-800"
                               : subscription.status === "pending_first_payment"
                                 ? "bg-yellow-100 text-yellow-800"
-                                : "bg-gray-100 text-gray-500"
+                                : subscription.status === "lapsed"
+                                  ? "bg-red-100 text-red-700"
+                                  : "bg-gray-100 text-gray-500"
                           }`}
                         >
                           {subscription.status === "active"
                             ? "Actief"
                             : subscription.status === "pending_first_payment"
                               ? "Wacht op eerste betaling"
-                              : "Opgezegd"}
+                              : subscription.status === "lapsed"
+                                ? "Vervallen (niet betaald)"
+                                : "Opgezegd"}
                         </span>
                       </div>
                       <p className="text-sm text-gray-700">
@@ -560,19 +608,58 @@ export default function AdminPage() {
                         {subscription.contact_name} · {subscription.contact_email}
                         {subscription.contact_phone ? ` · ${subscription.contact_phone}` : ""}
                       </p>
+                      {subscription.status === "active" && subscription.currentPeriod && (
+                        <p className="text-sm mt-2">
+                          {subscription.currentPeriod.status === "paid" ? (
+                            <span className="text-green-700">
+                              Periode {formatShortDate(subscription.currentPeriod.period_month)}: betaald
+                            </span>
+                          ) : subscription.currentPeriod.status === "waived" ? (
+                            <span className="text-blue-700">
+                              Periode {formatShortDate(subscription.currentPeriod.period_month)}: kwijtgescholden
+                            </span>
+                          ) : (
+                            <span className="text-amber-700">
+                              Periode {formatShortDate(subscription.currentPeriod.period_month)}: nog niet
+                              betaald · coulance tot {formatShortDate(subscription.currentPeriod.grace_until)}
+                            </span>
+                          )}
+                        </p>
+                      )}
                     </div>
 
-                    {subscription.status === "active" && (
-                      <button
-                        onClick={() => handleCancelSubscription(subscription)}
-                        disabled={cancellingSubscription === subscription.id}
-                        className="px-4 py-2.5 bg-red-50 text-red-700 border border-red-200 rounded-lg hover:bg-red-100 disabled:opacity-50 text-sm font-medium shrink-0 min-h-[44px] transition-colors"
-                      >
-                        {cancellingSubscription === subscription.id
-                          ? "Opzeggen..."
-                          : "Zeg op"}
-                      </button>
-                    )}
+                    <div className="flex gap-2 shrink-0">
+                      {subscription.status === "active" &&
+                        subscription.currentPeriod?.status === "unpaid" && (
+                          <>
+                            <button
+                              onClick={() => handleExtendGrace(subscription.currentPeriod!.id)}
+                              disabled={cancellingSubscription === subscription.currentPeriod!.id}
+                              className="px-3 py-2.5 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 text-sm font-medium min-h-[44px]"
+                            >
+                              Coulance +14d
+                            </button>
+                            <button
+                              onClick={() => handleWaivePeriod(subscription.currentPeriod!.id)}
+                              disabled={cancellingSubscription === subscription.currentPeriod!.id}
+                              className="px-3 py-2.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-100 disabled:opacity-50 text-sm font-medium min-h-[44px]"
+                            >
+                              Kwijtschelden
+                            </button>
+                          </>
+                        )}
+                      {(subscription.status === "active" || subscription.status === "lapsed") && (
+                        <button
+                          onClick={() => handleCancelSubscription(subscription)}
+                          disabled={cancellingSubscription === subscription.id}
+                          className="px-4 py-2.5 bg-red-50 text-red-700 border border-red-200 rounded-lg hover:bg-red-100 disabled:opacity-50 text-sm font-medium min-h-[44px] transition-colors"
+                        >
+                          {cancellingSubscription === subscription.id
+                            ? "Opzeggen..."
+                            : "Zeg op"}
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}

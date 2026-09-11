@@ -1,13 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { mollie } from "@/lib/mollie";
-import { config } from "@/config";
 import {
   sendSubscriptionConfirmationEmail,
   sendSubscriptionNotificationToOrg,
+  sendPeriodPaymentConfirmationEmail,
 } from "@/lib/email";
 import { getActiveMemberEmails } from "@/lib/members";
 
+// Deze webhook verwerkt betalingen voor een periode (kalendermaand) van een vaste
+// reservering - zowel de allereerste betaling als elke latere maandelijkse betaling.
+// Er is geen Mollie-mandaat/customerSubscription meer: elke maand is gewoon een losse
+// betaling met een eigen /api/subscriptions/payments/[token]-link (zie /lib/cron).
 export async function POST(request: NextRequest) {
   const body = await request.formData();
   const paymentId = body.get("id") as string;
@@ -18,85 +22,85 @@ export async function POST(request: NextRequest) {
 
   const payment = (await mollie.payments.get(paymentId)) as {
     status: string;
-    sequenceType: string;
-    mandateId?: string;
-    customerId: string;
-    metadata: { subscriptionId: string };
+    metadata: { subscriptionId: string; periodPaymentId: string };
   };
-  const subscriptionId = payment.metadata.subscriptionId;
-
-  // Alleen de allereerste betaling activeert de vaste reservering. Latere maandelijkse
-  // incasso's van de Mollie-subscription komen ook via deze webhook binnen (sequenceType
-  // "recurring") en hoeven verder niets te doen - Mollie regelt de herhaling zelf.
-  if (payment.sequenceType !== "first") {
-    if (payment.status === "failed") {
-      const { data: subscription } = await supabase
-        .from("subscriptions")
-        .select("*")
-        .eq("id", subscriptionId)
-        .single();
-      if (subscription) {
-        await sendSubscriptionNotificationToOrg(subscription);
-      }
-    }
-    return NextResponse.json({ received: true });
-  }
+  const { subscriptionId, periodPaymentId } = payment.metadata;
 
   if (payment.status === "paid") {
+    // Conditionele update: een vertraagde of dubbele webhook-aflevering mag een al
+    // verwerkte periode niet nogmaals activeren of dubbele mails versturen.
+    const { data: periodPayment } = await supabase
+      .from("subscription_payments")
+      .update({ status: "paid", paid_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+      .eq("id", periodPaymentId)
+      .eq("status", "unpaid")
+      .select()
+      .single();
+
+    if (!periodPayment) {
+      return NextResponse.json({ received: true });
+    }
+
     const { data: subscription } = await supabase
       .from("subscriptions")
       .select("*")
       .eq("id", subscriptionId)
       .single();
 
-    // Alleen doorzetten als de aanvraag nog echt op de eerste betaling wacht - anders
-    // kan een vertraagde of dubbele webhook-aflevering een inmiddels opgezegde
-    // reservering heractiveren, of zelfs een dubbel doorlopend Mollie-abonnement
-    // aanmaken (met echte maandelijkse incasso tot gevolg).
-    if (!subscription || subscription.status !== "pending_first_payment" || !payment.mandateId) {
+    if (!subscription) {
       return NextResponse.json({ received: true });
     }
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL!;
-    const priceStr = (subscription.price_cents / 100).toFixed(2);
+    if (subscription.status === "pending_first_payment") {
+      const { data: activated } = await supabase
+        .from("subscriptions")
+        .update({
+          status: "active",
+          term_start_date: periodPayment.period_month,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", subscriptionId)
+        .eq("status", "pending_first_payment")
+        .select()
+        .single();
 
-    const mollieSubscription = await mollie.customerSubscriptions.create({
-      customerId: payment.customerId,
-      mandateId: payment.mandateId,
-      amount: { currency: config.currency, value: priceStr },
-      interval: "1 month",
-      description: `${config.roomName} - vaste reservering ${subscription.band_name}`,
-      webhookUrl: `${appUrl}/api/webhooks/mollie-subscription`,
-      metadata: { subscriptionId: subscription.id },
-    });
-
-    const { data: updated } = await supabase
-      .from("subscriptions")
-      .update({
-        status: "active",
-        mollie_mandate_id: payment.mandateId,
-        mollie_subscription_id: mollieSubscription.id,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", subscriptionId)
-      .eq("status", "pending_first_payment")
-      .select()
-      .single();
-
-    if (updated) {
-      const bandEmails = await getActiveMemberEmails(updated.band_name);
-      await sendSubscriptionConfirmationEmail(updated, bandEmails);
-      await sendSubscriptionNotificationToOrg(updated);
+      if (activated) {
+        const bandEmails = await getActiveMemberEmails(activated.band_name);
+        await sendSubscriptionConfirmationEmail(activated, bandEmails);
+        await sendSubscriptionNotificationToOrg(activated);
+      }
+    } else if (subscription.status === "active") {
+      const bandEmails = await getActiveMemberEmails(subscription.band_name);
+      await sendPeriodPaymentConfirmationEmail(subscription, periodPayment, bandEmails);
+    } else {
+      // Betaling voor een inmiddels opgezegde/vervallen reservering (zeldzame race
+      // conditie) - geld is binnen, maar dit vergt een handmatige check door het bestuur.
+      console.error(
+        `Betaling ${paymentId} ontvangen voor subscription ${subscriptionId} met status "${subscription.status}" - handmatig controleren.`
+      );
     }
   } else if (
     payment.status === "expired" ||
     payment.status === "failed" ||
     payment.status === "canceled"
   ) {
-    await supabase
+    // Alleen de allereerste betaling annuleert de hele aanvraag en geeft het
+    // weekdag+dagdeel vrij. Een mislukte latere maandbetaling laat de al actieve
+    // reservering gewoon staan - de cron stuurt herinneringen en bewaakt de coulance.
+    const { data: subscription } = await supabase
       .from("subscriptions")
-      .update({ status: "cancelled", updated_at: new Date().toISOString() })
-      .eq("id", subscriptionId);
+      .select("*")
+      .eq("id", subscriptionId)
+      .eq("status", "pending_first_payment")
+      .single();
+
+    if (subscription) {
+      await supabase
+        .from("subscriptions")
+        .update({ status: "cancelled", updated_at: new Date().toISOString() })
+        .eq("id", subscriptionId)
+        .eq("status", "pending_first_payment");
+    }
   }
 
   return NextResponse.json({ received: true });

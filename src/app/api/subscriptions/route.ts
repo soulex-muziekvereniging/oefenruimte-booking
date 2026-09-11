@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { PaymentMethod, SequenceType } from "@mollie/api-client";
 import { supabase } from "@/lib/supabase";
 import { mollie } from "@/lib/mollie";
 import { config } from "@/config";
 import { expireStalePendingSubscriptions } from "@/lib/expire";
+import { firstOfMonthStr, addDaysStr } from "@/lib/periods";
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
@@ -81,38 +81,59 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // Eerste betaalperiode = de huidige kalendermaand. Latere maanden worden door de
+  // dagelijkse cron aangemaakt (zie /api/cron/subscriptions).
+  const periodMonth = firstOfMonthStr(new Date());
+  const dueDate = firstOfMonthStr(new Date());
+  const graceUntil = addDaysStr(dueDate, config.subscriptionGraceDays);
+
+  const { data: periodPayment, error: periodError } = await supabase
+    .from("subscription_payments")
+    .insert({
+      subscription_id: subscription.id,
+      period_month: periodMonth,
+      amount_cents: priceCents,
+      due_date: dueDate,
+      grace_until: graceUntil,
+      status: "unpaid",
+    })
+    .select()
+    .single();
+
+  if (periodError || !periodPayment) {
+    await supabase.from("subscriptions").delete().eq("id", subscription.id);
+    return NextResponse.json(
+      { error: "Er ging iets mis bij het aanmaken van de vaste reservering" },
+      { status: 500 }
+    );
+  }
+
   const appUrl = process.env.NEXT_PUBLIC_APP_URL!;
   const priceStr = (priceCents / 100).toFixed(2);
 
   try {
-    const customer = await mollie.customers.create({
-      name: contactName,
-      email: contactEmail,
-    });
-
+    // Gewone eenmalige betaling, geen mandaat/incasso meer - dus ook gewoon weer
+    // iDEAL en andere methodes beschikbaar, niet alleen creditcard.
     const payment = (await mollie.payments.create({
       amount: { currency: config.currency, value: priceStr },
-      description: `${config.roomName} - vaste reservering ${bandName} - eerste maand`,
-      customerId: customer.id,
-      sequenceType: SequenceType.first,
-      // Alleen methodes die een machtiging (mandaat) voor de maandelijkse incasso kunnen
-      // vastleggen - iDEAL en de meeste andere methodes kunnen dat niet, ook al zou Mollie
-      // ze zonder deze restrictie soms toch tonen in de betaalmethode-selectie.
-      method: [PaymentMethod.creditcard, PaymentMethod.directdebit],
+      description: `${config.roomName} - vaste reservering ${bandName} - ${periodMonth}`,
       redirectUrl: `${appUrl}/subscription/success?id=${subscription.id}`,
       webhookUrl: `${appUrl}/api/webhooks/mollie-subscription`,
-      metadata: { subscriptionId: subscription.id },
-    })) as unknown as { id: string; getCheckoutUrl: () => string | null };
+      metadata: { subscriptionId: subscription.id, periodPaymentId: periodPayment.id },
+    })) as { id: string; getCheckoutUrl: () => string | null };
 
     await supabase
-      .from("subscriptions")
-      .update({ mollie_customer_id: customer.id, mollie_first_payment_id: payment.id })
-      .eq("id", subscription.id);
+      .from("subscription_payments")
+      .update({ mollie_payment_id: payment.id })
+      .eq("id", periodPayment.id);
 
     return NextResponse.json({ checkoutUrl: payment.getCheckoutUrl() });
   } catch (err) {
     console.error("Mollie subscription first payment creation failed:", err);
     // Betaling kon niet gestart worden - laat het weekdag+dagdeel niet als bezet achter.
+    // Eerst de periode verwijderen, anders blokkeert de foreign key het verwijderen
+    // van de subscription.
+    await supabase.from("subscription_payments").delete().eq("id", periodPayment.id);
     await supabase.from("subscriptions").delete().eq("id", subscription.id);
     return NextResponse.json(
       { error: "Kon de betaling niet starten, probeer het later opnieuw" },

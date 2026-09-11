@@ -52,8 +52,8 @@ function CancelContent() {
           <div className="text-5xl mb-4">🔄</div>
           <h2 className="text-2xl font-bold mb-2">Vaste reservering opgezegd</h2>
           <p className="text-gray-600 mb-6">
-            Je vaste reservering is opgezegd. Er wordt geen nieuwe maandelijkse
-            incasso meer gedaan.
+            Je vaste reservering is opgezegd. Er worden geen betaalverzoeken
+            meer verstuurd.
           </p>
           <a
             href="/"
@@ -72,8 +72,8 @@ function CancelContent() {
         <div className="text-5xl mb-4">⚠️</div>
         <h2 className="text-2xl font-bold mb-2">Vaste reservering opzeggen</h2>
         <p className="text-gray-600 mb-6">
-          Weet je zeker dat je deze vaste reservering wilt opzeggen? Er wordt
-          daarna geen nieuwe maandelijkse incasso meer gedaan.
+          Weet je zeker dat je deze vaste reservering wilt opzeggen? Er worden
+          daarna geen betaalverzoeken meer verstuurd.
         </p>
 
         {status === "error" && (

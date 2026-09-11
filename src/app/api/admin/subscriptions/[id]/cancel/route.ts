@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
-import { mollie } from "@/lib/mollie";
 import { sendSubscriptionCancellationNotification } from "@/lib/email";
 
 export async function POST(
@@ -23,21 +22,11 @@ export async function POST(
     return NextResponse.json({ error: "Vaste reservering niet gevonden" }, { status: 404 });
   }
 
-  if (subscription.status !== "active") {
+  if (subscription.status !== "active" && subscription.status !== "lapsed") {
     return NextResponse.json(
-      { error: "Alleen actieve vaste reserveringen kunnen opgezegd worden" },
+      { error: "Alleen actieve of vervallen vaste reserveringen kunnen opgezegd worden" },
       { status: 400 }
     );
-  }
-
-  if (subscription.mollie_subscription_id && subscription.mollie_customer_id) {
-    try {
-      await mollie.customerSubscriptions.cancel(subscription.mollie_subscription_id, {
-        customerId: subscription.mollie_customer_id,
-      });
-    } catch (err) {
-      console.error("Mollie subscription cancel (admin) failed:", err);
-    }
   }
 
   await supabase

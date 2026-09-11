@@ -16,6 +16,15 @@ type Booking = {
   cancel_token: string;
 };
 
+type SubscriptionPeriod = {
+  period_month: string;
+  amount_cents: number;
+  due_date: string;
+  grace_until: string;
+  status: "unpaid" | "paid" | "waived";
+  pay_token: string;
+};
+
 type Subscription = {
   id: string;
   band_name: string;
@@ -23,8 +32,9 @@ type Subscription = {
   dagdeel_id: string;
   frequency: "weekly" | "biweekly";
   price_cents: number;
-  status: "pending_first_payment" | "active";
+  status: "pending_first_payment" | "active" | "lapsed";
   cancel_token: string;
+  currentPeriod: SubscriptionPeriod | null;
 };
 
 const DAY_NAMES_NL = [
@@ -52,6 +62,13 @@ function formatTime(timeStr: string): string {
 
 function formatPrice(cents: number): string {
   return `€${(cents / 100).toFixed(2).replace(".", ",")}`;
+}
+
+function formatMonth(dateStr: string): string {
+  return new Date(dateStr + "T00:00:00").toLocaleDateString("nl-NL", {
+    month: "long",
+    year: "numeric",
+  });
 }
 
 function formatWeekdayDagdeel(subscription: Subscription): string {
@@ -160,9 +177,41 @@ function OverzichtContent() {
                   {config.subscriptionPricing[s.frequency].label} ·{" "}
                   {formatPrice(s.price_cents)}/mnd
                 </p>
-                <p className="text-sm text-gray-500 mb-3">
-                  {s.status === "active" ? "Actief" : "Wacht op eerste betaling"}
+                <p className="text-sm text-gray-500 mb-2">
+                  {s.status === "active"
+                    ? "Actief"
+                    : s.status === "lapsed"
+                      ? "Vervallen (niet op tijd betaald)"
+                      : "Wacht op eerste betaling"}
                 </p>
+
+                {s.status === "active" && s.currentPeriod && (
+                  <div className="mb-3">
+                    {s.currentPeriod.status === "paid" ? (
+                      <p className="text-sm text-green-700">
+                        Periode {formatMonth(s.currentPeriod.period_month)} betaald.
+                      </p>
+                    ) : s.currentPeriod.status === "waived" ? (
+                      <p className="text-sm text-blue-700">
+                        Periode {formatMonth(s.currentPeriod.period_month)}: kwijtgescholden, tijdslot blijft van jullie.
+                      </p>
+                    ) : (
+                      <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                        <p className="text-sm text-amber-800 mb-2">
+                          Betaal vóór {new Date(s.currentPeriod.due_date + "T00:00:00").toLocaleDateString("nl-NL", { day: "numeric", month: "long" })}{" "}
+                          om het tijdslot te behouden ({formatPrice(s.currentPeriod.amount_cents)}).
+                        </p>
+                        <a
+                          href={`/vaste-reservering/betalen?token=${s.currentPeriod.pay_token}`}
+                          className="inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
+                        >
+                          Periode betalen
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {s.status === "active" && (
                   <a
                     href={`/subscription/cancel?id=${s.id}&token=${s.cancel_token}`}

@@ -14,11 +14,19 @@ oefenruimte boeken, zonder in te hoeven loggen. Twee soorten boekingen:
 1. **Losse boeking** — eenmalig een vrij dagdeel huren, prijs €40, direct afgerekend via Mollie
    (iDEAL e.d.). Bevestiging per e-mail met een unieke link om te annuleren.
 2. **Vaste reservering** — een band claimt structureel hetzelfde dagdeel op dezelfde weekdag
-   (bijv. elke donderdagavond), wekelijks (€110/mnd) of tweewekelijks (€55/mnd). Bij het
-   aangaan doet de band één keer een betaling; daarmee legt Mollie een machtiging (mandaat)
-   vast waarmee **automatisch elke maand wordt geïncasseerd**, zonder dat het bestuur iets
-   hoeft te doen. Opzeggen kan de band zelf via een unieke link in hun bevestigingsmail
-   (geen inloggen nodig) — dit stopt de volgende incasso's.
+   (bijv. elke donderdagavond), wekelijks (€110/mnd) of tweewekelijks (€55/mnd). Er is **geen
+   automatische incasso**: elke kalendermaand krijgt de band (en alle bekende bandleden) een
+   apart betaalverzoek per e-mail met een eigen betaallink, dat ze zelf moeten afrekenen.
+   Zolang ze op tijd betalen blijft het tijdslot het hele jaar van hen. Betalen ze een keer
+   niet, dan blijft het tijdslot nog **14 dagen coulant** staan; daarna vervalt het recht op
+   dat tijdslot voor de rest van het jaar en komt het vrij voor een andere band. Opzeggen kan
+   de band zelf via een unieke link in hun bevestigingsmail (geen inloggen nodig).
+
+   Dit draait op één dagelijkse achtergrondtaak (Vercel Cron, `/api/cron/subscriptions`) die
+   nieuwe periodes klaarzet, herinneringen stuurt en vervallen tijdsloten vrijgeeft. In het
+   admin-scherm kan een bestuurslid een periode **kwijtschelden** (bijv. bij vakantie, geen
+   betaling nodig maar tijdslot blijft staan) of de **coulance met 14 dagen verlengen** (bij
+   een goed verhaal) — bewust handmatige hendels, geen automatische regels.
 
 Een dagdeel is "bezet" in de kalender zodra er óf een losse boeking op die datum staat, óf een
 actieve vaste reservering die structureel die weekdag+dagdeel claimt.

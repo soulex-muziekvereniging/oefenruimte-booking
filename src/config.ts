@@ -21,6 +21,9 @@ export const config = {
   currency: "EUR" as const,
   pendingExpiryMinutes: 15,
   cancellationCutoffHours: 48,
+  // Aantal dagen na de betaaldatum dat een band nog mag betalen voordat het recht op
+  // het vaste tijdslot voor de rest van het jaar vervalt. Besluit bestuur 2026-09-11.
+  subscriptionGraceDays: 14,
 };
 
 export type Config = typeof config;
