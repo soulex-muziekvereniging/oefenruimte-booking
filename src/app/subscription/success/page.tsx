@@ -13,9 +13,10 @@ function SuccessContent() {
         <div className="text-5xl mb-4">✅</div>
         <h2 className="text-2xl font-bold mb-2">Vaste reservering bevestigd!</h2>
         <p className="text-gray-600 mb-6">
-          Je eerste betaling is ontvangen en de vaste reservering is definitief.
-          Je ontvangt een bevestigingsmail met alle details en een opzeglink.
-          Vanaf nu wordt maandelijks automatisch geïncasseerd, totdat je opzegt.
+          Je eerste betaling is ontvangen en het tijdslot is van jullie. Je ontvangt
+          een bevestigingsmail met alle details en een opzeglink. Elke maand krijg je
+          hiervoor een apart betaalverzoek per e-mail - er wordt niets automatisch
+          afgeschreven.
         </p>
         {subscriptionId && (
           <p className="text-xs text-gray-400 mb-6">
