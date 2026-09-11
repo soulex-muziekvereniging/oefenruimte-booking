@@ -3,6 +3,7 @@
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState, Suspense } from "react";
 import { config } from "@/config";
+import { hoursUntilSlot } from "@/lib/date";
 
 type Booking = {
   id: string;
@@ -192,14 +193,21 @@ function OverzichtContent() {
                 <p className="text-sm text-gray-500 mb-3">
                   {b.status === "confirmed" ? "Bevestigd" : "In afwachting"}
                 </p>
-                {b.status === "confirmed" && (
-                  <a
-                    href={`/booking/cancel?id=${b.id}&token=${b.cancel_token}`}
-                    className="inline-block px-4 py-2 bg-red-50 text-red-700 border border-red-200 rounded-lg hover:bg-red-100 text-sm font-medium"
-                  >
-                    Annuleren
-                  </a>
-                )}
+                {b.status === "confirmed" &&
+                  (hoursUntilSlot(b.slot_date, b.slot_start_time) >=
+                  config.cancellationCutoffHours ? (
+                    <a
+                      href={`/booking/cancel?id=${b.id}&token=${b.cancel_token}`}
+                      className="inline-block px-4 py-2 bg-red-50 text-red-700 border border-red-200 rounded-lg hover:bg-red-100 text-sm font-medium"
+                    >
+                      Annuleren
+                    </a>
+                  ) : (
+                    <p className="text-xs text-gray-400">
+                      Annuleren kan niet meer (uiterlijk {config.cancellationCutoffHours} uur
+                      van tevoren)
+                    </p>
+                  ))}
               </div>
             ))}
           </div>

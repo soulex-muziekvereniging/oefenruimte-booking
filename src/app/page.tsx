@@ -92,8 +92,11 @@ export default function Home() {
   maxDate.setDate(maxDate.getDate() + 4 * 7);
   const canGoNext = new Date(weekEndStr + "T00:00:00") < maxDate;
 
-  const todayStr = formatDateStr(today);
   const maxDateStr = formatDateStr(maxDate);
+  // De datepicker toont altijd de maandag van de weergegeven week, dus min moet
+  // de maandag van deze week zijn - todayStr zou op elke dag na maandag al vóór
+  // de weergegeven waarde liggen en de input ongeldig maken.
+  const earliestWeekStartStr = formatDateStr(getWeekStart(today));
 
   useEffect(() => {
     let cancelled = false;
@@ -140,6 +143,13 @@ export default function Home() {
     } else {
       setWeekStart(newWeekStart);
     }
+  }
+
+  async function handleEmailBlur(email: string) {
+    if (!email || !email.includes("@")) return;
+    const res = await fetch(`/api/members/check?email=${encodeURIComponent(email)}`);
+    const data = await res.json();
+    setNotAMember(!data.isMember);
   }
 
   function handleSlotClick(slot: Slot) {
@@ -306,7 +316,7 @@ export default function Home() {
           ref={dateInputRef}
           id="datepicker"
           type="date"
-          min={todayStr}
+          min={earliestWeekStartStr}
           max={maxDateStr}
           value={weekStartStr}
           onChange={(e) => handleDatePick(e.target.value)}
@@ -448,9 +458,11 @@ export default function Home() {
                       type="email"
                       required
                       value={formData.contactEmail}
-                      onChange={(e) =>
-                        setFormData({ ...formData, contactEmail: e.target.value })
-                      }
+                      onChange={(e) => {
+                        setFormData({ ...formData, contactEmail: e.target.value });
+                        setNotAMember(false);
+                      }}
+                      onBlur={(e) => handleEmailBlur(e.target.value)}
                       className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
                       placeholder="band@voorbeeld.nl"
                     />
