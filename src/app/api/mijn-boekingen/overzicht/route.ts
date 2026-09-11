@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
+import { config } from "@/config";
 import { verifyMagicLinkToken } from "@/lib/magicLink";
+import { toLocalDateStr } from "@/lib/date";
 
 export async function GET(request: NextRequest) {
   const token = request.nextUrl.searchParams.get("token");
@@ -62,10 +64,75 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  const subscriptionsWithPeriod = (subscriptions ?? []).map((s) => ({
-    ...s,
-    currentPeriod: latestPeriodBySubscription.get(s.id) ?? null,
-  }));
+  type Swap = {
+    subscription_id: string;
+    period_month: string;
+    original_date: string;
+    new_date: string;
+    new_dagdeel_id: string;
+  };
+
+  const swaps: Swap[] =
+    activeIds.length > 0
+      ? ((await supabase.from("subscription_swaps").select("*").in("subscription_id", activeIds))
+          .data ?? [])
+      : [];
+
+  const today = toLocalDateStr(new Date());
+
+  type SubscriptionRow = {
+    id: string;
+    band_name: string;
+    weekday: number;
+    dagdeel_id: string;
+    frequency: "weekly" | "biweekly";
+    price_cents: number;
+    status: string;
+    cancel_token: string;
+  };
+
+  function occurrencesFor(subscription: SubscriptionRow) {
+    const period = latestPeriodBySubscription.get(subscription.id);
+    if (!period) return { occurrences: [], swapsUsed: 0 };
+
+    const periodMonth = period.period_month;
+    const [y, m] = periodMonth.split("-").map(Number);
+    const monthEnd = new Date(y, m, 0); // laatste dag van de maand
+    const start = new Date(Math.max(new Date(periodMonth + "T00:00:00").getTime(), new Date(today + "T00:00:00").getTime()));
+
+    const dates: string[] = [];
+    const d = new Date(start);
+    while (d <= monthEnd) {
+      if (d.getDay() === subscription.weekday) dates.push(toLocalDateStr(d));
+      d.setDate(d.getDate() + 1);
+    }
+
+    const swapsThisPeriod = swaps.filter(
+      (s) => s.subscription_id === subscription.id && s.period_month === periodMonth
+    );
+    const swapByOriginalDate = new Map(swapsThisPeriod.map((s) => [s.original_date, s]));
+
+    const occurrences = dates.map((date) => {
+      const swap = swapByOriginalDate.get(date);
+      return {
+        date,
+        swappedTo: swap ? { date: swap.new_date, dagdeelId: swap.new_dagdeel_id } : null,
+      };
+    });
+
+    return { occurrences, swapsUsed: swapsThisPeriod.length };
+  }
+
+  const subscriptionsWithPeriod = (subscriptions ?? []).map((s) => {
+    const { occurrences, swapsUsed } = occurrencesFor(s);
+    return {
+      ...s,
+      currentPeriod: latestPeriodBySubscription.get(s.id) ?? null,
+      occurrences,
+      swapsUsed,
+      swapsAllowed: config.subscriptionMaxSwapsPerPeriod,
+    };
+  });
 
   const { data: member } = await supabase
     .from("members")

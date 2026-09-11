@@ -2,6 +2,10 @@ import { Resend } from "resend";
 import { config } from "@/config";
 import { Booking, Subscription, MembershipRequest, SubscriptionPayment } from "./supabase";
 
+function dagdeelLabel(dagdeelId: string): string {
+  return config.dagdelen.find((d) => d.id === dagdeelId)?.label.toLowerCase() ?? dagdeelId;
+}
+
 const resend = new Resend(process.env.RESEND_API_KEY!);
 
 function formatDate(dateStr: string): string {
@@ -470,6 +474,53 @@ export async function sendPeriodLapsedNotificationToOrg(subscription: Subscripti
         ${formatWeekdayDagdeel(subscription)} is vrijgegeven en weer beschikbaar.</p>
         <p>De eenmalige borg blijft ongewijzigd staan (hoort bij het lidmaatschap, niet bij dit
         tijdslot) - alleen relevant als deze band de vereniging helemaal verlaat.</p>
+      </div>
+    `,
+  });
+}
+
+export async function sendSwapConfirmationEmail(
+  subscription: Subscription,
+  originalDate: string,
+  newDate: string,
+  newDagdeelId: string,
+  extraRecipients: string[] = []
+) {
+  const recipients = Array.from(new Set([subscription.contact_email, ...extraRecipients]));
+
+  await resend.emails.send({
+    from: `${config.organizationName} <onboarding@resend.dev>`,
+    to: recipients,
+    subject: `Repetitie verplaatst: ${subscription.band_name}`,
+    html: `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>Repetitie verplaatst</h2>
+        <p>Hoi ${subscription.contact_name},</p>
+        <p>Jullie repetitie op <strong>${formatDate(originalDate)}</strong> is verplaatst naar
+        <strong>${formatDate(newDate)} (${dagdeelLabel(newDagdeelId)})</strong>. Jullie vaste
+        ${formatWeekdayDagdeel(subscription)} blijft verder gewoon van jullie.</p>
+        <p>Met vriendelijke groet,<br>${config.organizationName}</p>
+      </div>
+    `,
+  });
+}
+
+export async function sendSwapNotificationToOrg(
+  subscription: Subscription,
+  originalDate: string,
+  newDate: string,
+  newDagdeelId: string
+) {
+  await resend.emails.send({
+    from: `${config.organizationName} <onboarding@resend.dev>`,
+    to: config.organizationEmail,
+    subject: `Repetitie verplaatst: ${subscription.band_name}`,
+    html: `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>Repetitie verplaatst</h2>
+        <p><strong>${subscription.band_name}</strong> heeft de repetitie van
+        ${formatDate(originalDate)} verplaatst naar
+        ${formatDate(newDate)} (${dagdeelLabel(newDagdeelId)}).</p>
       </div>
     `,
   });

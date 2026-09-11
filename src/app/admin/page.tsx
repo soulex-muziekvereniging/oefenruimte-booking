@@ -63,6 +63,14 @@ function formatShortDate(dateStr: string): string {
   });
 }
 
+type SubscriptionSwap = {
+  id: string;
+  subscription_id: string;
+  original_date: string;
+  new_date: string;
+  new_dagdeel_id: string;
+};
+
 type MembershipRequest = {
   id: string;
   band_name: string;
@@ -117,6 +125,7 @@ export default function AdminPage() {
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [subscriptionsLoading, setSubscriptionsLoading] = useState(false);
   const [cancellingSubscription, setCancellingSubscription] = useState<string | null>(null);
+  const [swaps, setSwaps] = useState<SubscriptionSwap[]>([]);
 
   const [requests, setRequests] = useState<MembershipRequest[]>([]);
   const [requestsLoading, setRequestsLoading] = useState(false);
@@ -167,6 +176,15 @@ export default function AdminPage() {
       setSubscriptions(await res.json());
     }
     setSubscriptionsLoading(false);
+  }
+
+  async function fetchSwaps(pw: string) {
+    const res = await fetch("/api/admin/subscription-swaps", {
+      headers: { "x-admin-password": pw },
+    });
+    if (res.ok) {
+      setSwaps(await res.json());
+    }
   }
 
   async function fetchRequests(pw: string) {
@@ -272,6 +290,7 @@ export default function AdminPage() {
       setLoggedIn(true);
       fetchRequests(password);
       fetchSubscriptions(password);
+      fetchSwaps(password);
     }
   }
 
@@ -800,6 +819,7 @@ export default function AdminPage() {
           onClick={() => {
             fetchBookings(password);
             fetchSubscriptions(password);
+            fetchSwaps(password);
           }}
           disabled={loading}
           className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-sm disabled:opacity-50"
@@ -895,6 +915,17 @@ export default function AdminPage() {
                             s.weekday === weekday &&
                             s.dagdeel_id === dagdeel.id
                         );
+                        const swappedAway =
+                          subscription &&
+                          swaps.some(
+                            (sw) => sw.subscription_id === subscription.id && sw.original_date === dateStr
+                          );
+                        const swappedIn = swaps.find(
+                          (sw) => sw.new_date === dateStr && sw.new_dagdeel_id === dagdeel.id
+                        );
+                        const swappedInSubscription = swappedIn
+                          ? subscriptions.find((s) => s.id === swappedIn.subscription_id)
+                          : undefined;
 
                         if (booking) {
                           return (
@@ -925,7 +956,25 @@ export default function AdminPage() {
                           );
                         }
 
-                        if (subscription) {
+                        if (swappedInSubscription) {
+                          return (
+                            <div
+                              key={dagdeel.id}
+                              title={`${swappedInSubscription.contact_name} · ${swappedInSubscription.contact_email}${swappedInSubscription.contact_phone ? " · " + swappedInSubscription.contact_phone : ""}`}
+                              className="w-full text-left text-xs sm:text-sm py-2 sm:py-2.5 px-1.5 sm:px-2 rounded border bg-blue-100 border-blue-300"
+                            >
+                              <span className="block font-medium">{dagdeel.label}</span>
+                              <span className="block text-[10px] sm:text-xs opacity-75">
+                                {startTime} – {endTime} · Vast (geruild)
+                              </span>
+                              <span className="block text-[10px] sm:text-xs truncate font-medium">
+                                {swappedInSubscription.band_name}
+                              </span>
+                            </div>
+                          );
+                        }
+
+                        if (subscription && !swappedAway) {
                           return (
                             <div
                               key={dagdeel.id}

@@ -24,6 +24,9 @@ export const config = {
   // Aantal dagen na de betaaldatum dat een band nog mag betalen voordat het recht op
   // het vaste tijdslot voor de rest van het jaar vervalt. Besluit bestuur 2026-09-11.
   subscriptionGraceDays: 14,
+  // Hoe vaak een band per (kalendermaand-)periode een repetitie mag verplaatsen naar een
+  // ander vrij dagdeel. Besluit bestuur 2026-09-11.
+  subscriptionMaxSwapsPerPeriod: 2,
 };
 
 export type Config = typeof config;

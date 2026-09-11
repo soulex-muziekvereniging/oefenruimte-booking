@@ -25,6 +25,11 @@ type SubscriptionPeriod = {
   pay_token: string;
 };
 
+type Occurrence = {
+  date: string;
+  swappedTo: { date: string; dagdeelId: string } | null;
+};
+
 type Subscription = {
   id: string;
   band_name: string;
@@ -35,7 +40,43 @@ type Subscription = {
   status: "pending_first_payment" | "active" | "lapsed";
   cancel_token: string;
   currentPeriod: SubscriptionPeriod | null;
+  occurrences: Occurrence[];
+  swapsUsed: number;
+  swapsAllowed: number;
 };
+
+type SwapOption = {
+  date: string;
+  dagdeelId: string;
+  dagdeelLabel: string;
+};
+
+function getWeekStart(date: Date): Date {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  d.setDate(d.getDate() + diff);
+  return d;
+}
+
+function toLocalDateStr(date: Date): string {
+  const y = date.getFullYear();
+  const m = (date.getMonth() + 1).toString().padStart(2, "0");
+  const day = date.getDate().toString().padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function dagdeelLabelFor(dagdeelId: string): string {
+  return config.dagdelen.find((d) => d.id === dagdeelId)?.label ?? dagdeelId;
+}
+
+function formatShortDate(dateStr: string): string {
+  return new Date(dateStr + "T00:00:00").toLocaleDateString("nl-NL", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  });
+}
 
 const DAY_NAMES_NL = [
   "Zondag",
@@ -87,6 +128,13 @@ function OverzichtContent() {
   const [newEmail, setNewEmail] = useState("");
   const [addingEmail, setAddingEmail] = useState(false);
   const [addEmailError, setAddEmailError] = useState("");
+  const [swapPanelFor, setSwapPanelFor] = useState<{ subscriptionId: string; date: string } | null>(
+    null
+  );
+  const [swapOptions, setSwapOptions] = useState<SwapOption[] | null>(null);
+  const [swapOptionsLoading, setSwapOptionsLoading] = useState(false);
+  const [swapSubmitting, setSwapSubmitting] = useState(false);
+  const [swapError, setSwapError] = useState("");
 
   function loadOverzicht() {
     if (!token) {
@@ -131,6 +179,63 @@ function OverzichtContent() {
 
     setNewEmail("");
     setAddingEmail(false);
+    loadOverzicht();
+  }
+
+  async function openSwapPanel(subscriptionId: string, date: string) {
+    setSwapPanelFor({ subscriptionId, date });
+    setSwapOptions(null);
+    setSwapError("");
+    setSwapOptionsLoading(true);
+
+    const weekStart = getWeekStart(new Date(date + "T00:00:00"));
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekEnd.getDate() + 6);
+    const periodMonth = date.slice(0, 7);
+
+    const res = await fetch(
+      `/api/slots?from=${toLocalDateStr(weekStart)}&to=${toLocalDateStr(weekEnd)}`
+    );
+    const data = await res.json();
+
+    const options: SwapOption[] = [];
+    if (res.ok) {
+      for (const day of data as {
+        date: string;
+        slots: { dagdeelId: string; startTime: string; available: boolean }[];
+      }[]) {
+        if (day.date.slice(0, 7) !== periodMonth) continue;
+        for (const slot of day.slots) {
+          if (slot.available && hoursUntilSlot(day.date, slot.startTime) >= config.cancellationCutoffHours) {
+            options.push({ date: day.date, dagdeelId: slot.dagdeelId, dagdeelLabel: dagdeelLabelFor(slot.dagdeelId) });
+          }
+        }
+      }
+    }
+
+    setSwapOptions(options);
+    setSwapOptionsLoading(false);
+  }
+
+  async function handleSwapSubmit(subscriptionId: string, originalDate: string, newDate: string, newDagdeelId: string) {
+    setSwapSubmitting(true);
+    setSwapError("");
+
+    const res = await fetch(`/api/mijn-boekingen/subscriptions/${subscriptionId}/swap`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token, originalDate, newDate, newDagdeelId }),
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      setSwapError(data.error || "Kon niet verplaatsen");
+      setSwapSubmitting(false);
+      return;
+    }
+
+    setSwapSubmitting(false);
+    setSwapPanelFor(null);
     loadOverzicht();
   }
 
@@ -207,6 +312,85 @@ function OverzichtContent() {
                         >
                           Periode betalen
                         </a>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {s.status === "active" && s.occurrences.length > 0 && (
+                  <div className="mb-3">
+                    <p className="text-sm font-medium text-gray-700 mb-2">
+                      Repetities deze periode ({s.swapsUsed}/{s.swapsAllowed} keer geschoven)
+                    </p>
+                    <ul className="space-y-1.5">
+                      {s.occurrences.map((occ) => (
+                        <li
+                          key={occ.date}
+                          className="flex items-center justify-between gap-2 text-sm bg-gray-50 rounded-lg px-3 py-2"
+                        >
+                          <span>
+                            {occ.swappedTo ? (
+                              <>
+                                <span className="line-through text-gray-400">
+                                  {formatShortDate(occ.date)}
+                                </span>{" "}
+                                → {formatShortDate(occ.swappedTo.date)} (
+                                {dagdeelLabelFor(occ.swappedTo.dagdeelId)})
+                              </>
+                            ) : (
+                              formatShortDate(occ.date)
+                            )}
+                          </span>
+                          {!occ.swappedTo && s.swapsUsed < s.swapsAllowed && (
+                            <button
+                              onClick={() => openSwapPanel(s.id, occ.date)}
+                              className="text-blue-600 hover:text-blue-700 text-xs font-medium shrink-0"
+                            >
+                              Kan niet →
+                            </button>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+
+                    {swapPanelFor?.subscriptionId === s.id && (
+                      <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                        <p className="text-sm text-blue-900 mb-2">
+                          Kies een ander moment in dezelfde week als{" "}
+                          {formatShortDate(swapPanelFor.date)}. Je ruilt in, je betaalt niets
+                          extra.
+                        </p>
+                        {swapOptionsLoading ? (
+                          <p className="text-sm text-gray-500">Laden...</p>
+                        ) : swapOptions && swapOptions.length > 0 ? (
+                          <div className="flex flex-wrap gap-2">
+                            {swapOptions.map((opt) => (
+                              <button
+                                key={`${opt.date}-${opt.dagdeelId}`}
+                                onClick={() =>
+                                  handleSwapSubmit(s.id, swapPanelFor.date, opt.date, opt.dagdeelId)
+                                }
+                                disabled={swapSubmitting}
+                                className="px-3 py-2 bg-white border border-blue-300 rounded-lg text-sm hover:bg-blue-100 disabled:opacity-50"
+                              >
+                                {formatShortDate(opt.date)} {opt.dagdeelLabel}
+                              </button>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-gray-500">
+                            Geen vrije dagdelen deze week binnen deze periode.
+                          </p>
+                        )}
+                        {swapError && (
+                          <p className="text-sm text-red-600 mt-2">{swapError}</p>
+                        )}
+                        <button
+                          onClick={() => setSwapPanelFor(null)}
+                          className="mt-2 text-xs text-gray-500 hover:text-gray-700"
+                        >
+                          Annuleren
+                        </button>
                       </div>
                     )}
                   </div>

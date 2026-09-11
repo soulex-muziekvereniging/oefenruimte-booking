@@ -76,6 +76,16 @@ export type SubscriptionPayment = {
   updated_at: string;
 };
 
+export type SubscriptionSwap = {
+  id: string;
+  subscription_id: string;
+  period_month: string;
+  original_date: string;
+  new_date: string | null;
+  new_dagdeel_id: string | null;
+  created_at: string;
+};
+
 export const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
