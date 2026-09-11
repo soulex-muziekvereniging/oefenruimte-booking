@@ -164,6 +164,11 @@ export default function AdminPage() {
   }
 
   async function handleApproveRequest(request: MembershipRequest) {
+    const checklistOk = confirm(
+      `Voordat je "${request.band_name}" toevoegt als lid:\n\n☐ Contract getekend?\n☐ Borg ontvangen?\n\nKlik OK als beide zijn afgehandeld.`
+    );
+    if (!checklistOk) return;
+
     setHandlingRequest(request.id);
     const res = await fetch(`/api/admin/membership-requests/${request.id}/approve`, {
       method: "POST",
@@ -469,6 +474,11 @@ export default function AdminPage() {
                         {r.contact_name} · {r.contact_email}
                         {r.contact_phone ? ` · ${r.contact_phone}` : ""}
                       </p>
+                      {r.status === "pending" && (
+                        <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1 mt-2 inline-block">
+                          Eerst: contract getekend + borg ontvangen, voordat je toevoegt
+                        </p>
+                      )}
                     </div>
 
                     {r.status === "pending" && (
