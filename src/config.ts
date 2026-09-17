@@ -15,8 +15,10 @@ export const config = {
     weekly: { label: "Wekelijks", priceCentsPerMonth: 11000 },
     biweekly: { label: "Tweewekelijks", priceCentsPerMonth: 5500 },
   },
-  // TODO: bevestigen welk mailadres boekingsnotificaties moet ontvangen (info@soulex.nl of kimberly@soulex.nl)
-  organizationEmail: "info@soulex.nl",
+  // Echte mailbox (aangemaakt door Kimberly, sep 2026) - zowel het adres waar
+  // boekingsnotificaties naartoe gaan als het afzenderadres van alle systeemmails.
+  organizationEmail: "beheer@soulex.nl",
+  senderEmail: "beheer@soulex.nl",
   organizationName: "Muziekvereniging Soulex",
   currency: "EUR" as const,
   pendingExpiryMinutes: 15,

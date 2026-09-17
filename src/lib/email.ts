@@ -60,7 +60,7 @@ export async function sendConfirmationEmail(booking: Booking, extraRecipients: s
   );
 
   await resend.emails.send({
-    from: `${config.organizationName} <onboarding@resend.dev>`,
+    from: `${config.organizationName} <${config.senderEmail}>`,
     to: recipients,
     subject: `Bevestiging: ${config.roomName} op ${formatDate(booking.slot_date)}`,
     html: `
@@ -99,7 +99,7 @@ export async function sendConfirmationEmail(booking: Booking, extraRecipients: s
 
 export async function sendBookingNotificationToOrg(booking: Booking) {
   await resend.emails.send({
-    from: `${config.organizationName} <onboarding@resend.dev>`,
+    from: `${config.organizationName} <${config.senderEmail}>`,
     to: config.organizationEmail,
     subject: `Nieuwe boeking: ${booking.band_name} - ${formatDate(booking.slot_date)}`,
     html: `
@@ -140,7 +140,7 @@ export async function sendBookingNotificationToOrg(booking: Booking) {
 
 export async function sendCancellationNotification(booking: Booking) {
   await resend.emails.send({
-    from: `${config.organizationName} <onboarding@resend.dev>`,
+    from: `${config.organizationName} <${config.senderEmail}>`,
     to: config.organizationEmail,
     subject: `Annulering: ${booking.band_name} - ${formatDate(booking.slot_date)}`,
     html: `
@@ -188,7 +188,7 @@ export async function sendSubscriptionConfirmationEmail(
   );
 
   await resend.emails.send({
-    from: `${config.organizationName} <onboarding@resend.dev>`,
+    from: `${config.organizationName} <${config.senderEmail}>`,
     to: recipients,
     subject: `Vaste reservering bevestigd: ${config.roomName} elke ${formatWeekdayDagdeel(subscription)}`,
     html: `
@@ -237,7 +237,7 @@ export async function sendSubscriptionConfirmationEmail(
 
 export async function sendSubscriptionNotificationToOrg(subscription: Subscription) {
   await resend.emails.send({
-    from: `${config.organizationName} <onboarding@resend.dev>`,
+    from: `${config.organizationName} <${config.senderEmail}>`,
     to: config.organizationEmail,
     subject: `Nieuwe vaste reservering: ${subscription.band_name} - elke ${formatWeekdayDagdeel(subscription)}`,
     html: `
@@ -278,7 +278,7 @@ export async function sendMembershipRequestNotificationToOrg(
   request: MembershipRequest
 ) {
   await resend.emails.send({
-    from: `${config.organizationName} <onboarding@resend.dev>`,
+    from: `${config.organizationName} <${config.senderEmail}>`,
     to: config.organizationEmail,
     subject: `Nieuw lidmaatschapsverzoek: ${request.band_name}`,
     html: `
@@ -309,7 +309,7 @@ export async function sendMembershipRequestNotificationToOrg(
 
 export async function sendMyBookingsLinkEmail(email: string, link: string) {
   await resend.emails.send({
-    from: `${config.organizationName} <onboarding@resend.dev>`,
+    from: `${config.organizationName} <${config.senderEmail}>`,
     to: email,
     subject: `Jouw boekingen bij ${config.roomName}`,
     html: `
@@ -337,7 +337,7 @@ export async function sendPeriodPaymentConfirmationEmail(
   const recipients = Array.from(new Set([subscription.contact_email, ...extraRecipients]));
 
   await resend.emails.send({
-    from: `${config.organizationName} <onboarding@resend.dev>`,
+    from: `${config.organizationName} <${config.senderEmail}>`,
     to: recipients,
     subject: `Betaald — ${formatWeekdayDagdeel(subscription)} is van jullie in ${formatMonth(periodPayment.period_month)}`,
     html: `
@@ -363,7 +363,7 @@ export async function sendPeriodPaymentRequestEmail(
   const recipients = Array.from(new Set([subscription.contact_email, ...extraRecipients]));
 
   await resend.emails.send({
-    from: `${config.organizationName} <onboarding@resend.dev>`,
+    from: `${config.organizationName} <${config.senderEmail}>`,
     to: recipients,
     subject: `Nieuwe periode voor ${subscription.band_name} — betalen kan nu`,
     html: `
@@ -390,7 +390,7 @@ export async function sendPeriodReminderEmail(
   const recipients = Array.from(new Set([subscription.contact_email, ...extraRecipients]));
 
   await resend.emails.send({
-    from: `${config.organizationName} <onboarding@resend.dev>`,
+    from: `${config.organizationName} <${config.senderEmail}>`,
     to: recipients,
     subject: `Herinnering: periode ${subscription.band_name} nog niet betaald`,
     html: `
@@ -415,7 +415,7 @@ export async function sendPeriodGraceWarningEmail(
   const recipients = Array.from(new Set([subscription.contact_email, ...extraRecipients]));
 
   await resend.emails.send({
-    from: `${config.organizationName} <onboarding@resend.dev>`,
+    from: `${config.organizationName} <${config.senderEmail}>`,
     to: recipients,
     subject: `Nog even: ${formatWeekdayDagdeel(subscription)} staat tot ${formatDate(periodPayment.grace_until)} voor jullie klaar`,
     html: `
@@ -442,7 +442,7 @@ export async function sendPeriodLapsedEmail(
   const recipients = Array.from(new Set([subscription.contact_email, ...extraRecipients]));
 
   await resend.emails.send({
-    from: `${config.organizationName} <onboarding@resend.dev>`,
+    from: `${config.organizationName} <${config.senderEmail}>`,
     to: recipients,
     subject: `${formatWeekdayDagdeel(subscription)} is vrijgegeven`,
     html: `
@@ -463,7 +463,7 @@ export async function sendPeriodLapsedEmail(
 
 export async function sendPeriodLapsedNotificationToOrg(subscription: Subscription) {
   await resend.emails.send({
-    from: `${config.organizationName} <onboarding@resend.dev>`,
+    from: `${config.organizationName} <${config.senderEmail}>`,
     to: config.organizationEmail,
     subject: `Vaste reservering vervallen (niet betaald): ${subscription.band_name}`,
     html: `
@@ -489,7 +489,7 @@ export async function sendSwapConfirmationEmail(
   const recipients = Array.from(new Set([subscription.contact_email, ...extraRecipients]));
 
   await resend.emails.send({
-    from: `${config.organizationName} <onboarding@resend.dev>`,
+    from: `${config.organizationName} <${config.senderEmail}>`,
     to: recipients,
     subject: `Repetitie verplaatst: ${subscription.band_name}`,
     html: `
@@ -512,7 +512,7 @@ export async function sendSwapNotificationToOrg(
   newDagdeelId: string
 ) {
   await resend.emails.send({
-    from: `${config.organizationName} <onboarding@resend.dev>`,
+    from: `${config.organizationName} <${config.senderEmail}>`,
     to: config.organizationEmail,
     subject: `Repetitie verplaatst: ${subscription.band_name}`,
     html: `
@@ -528,7 +528,7 @@ export async function sendSwapNotificationToOrg(
 
 export async function sendSubscriptionCancellationNotification(subscription: Subscription) {
   await resend.emails.send({
-    from: `${config.organizationName} <onboarding@resend.dev>`,
+    from: `${config.organizationName} <${config.senderEmail}>`,
     to: config.organizationEmail,
     subject: `Vaste reservering opgezegd: ${subscription.band_name} - elke ${formatWeekdayDagdeel(subscription)}`,
     html: `
