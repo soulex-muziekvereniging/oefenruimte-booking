@@ -148,7 +148,7 @@ Het wachtwoord wijzigen: ga naar Vercel → Settings → Environment Variables �
 ## Kalenderoverzicht
 
 - **Groene slots** = beschikbaar, klik om te boeken
-- **Rode slots** = bezet, met de bandnaam eronder zichtbaar
+- **Rode slots** = bezet (bandnaam wordt bewust niet publiek getoond — alleen zichtbaar in `/admin`)
 - **Datumkiezer** boven het rooster om direct naar een specifieke week te springen
 - **Slot toggle** — klik nogmaals op een geselecteerd (blauw) slot om te deselecteren
 - **Gedockt formulier** — bij selectie verschijnt het boekingsformulier vast aan de onderkant van het scherm

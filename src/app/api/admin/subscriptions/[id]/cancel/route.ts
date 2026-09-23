@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { verifyAdminPassword } from "@/lib/adminAuth";
 import { supabase } from "@/lib/supabase";
 import { sendSubscriptionCancellationNotification } from "@/lib/email";
 
@@ -7,10 +8,8 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const password = request.headers.get("x-admin-password");
-  if (!password || password !== process.env.ADMIN_PASSWORD) {
-    return NextResponse.json({ error: "Ongeldig wachtwoord" }, { status: 401 });
-  }
+  const authError = verifyAdminPassword(request);
+  if (authError) return authError;
 
   const { data: subscription } = await supabase
     .from("subscriptions")

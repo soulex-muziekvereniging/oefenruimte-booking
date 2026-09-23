@@ -1,8 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { sendMembershipRequestNotificationToOrg } from "@/lib/email";
+import { getClientIp, isRateLimited } from "@/lib/rateLimit";
+
+const MAX_ATTEMPTS = 5;
+const WINDOW_MS = 60 * 60 * 1000; // 1 uur
 
 export async function POST(request: NextRequest) {
+  if (isRateLimited(`membership-request:${getClientIp(request)}`, MAX_ATTEMPTS, WINDOW_MS)) {
+    return NextResponse.json(
+      { error: "Te veel aanvragen, probeer het later opnieuw" },
+      { status: 429 }
+    );
+  }
+
   const body = await request.json();
   const { bandName, contactName, contactEmail, contactPhone } = body;
 

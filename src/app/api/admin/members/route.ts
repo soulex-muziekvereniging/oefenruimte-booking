@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { verifyAdminPassword } from "@/lib/adminAuth";
 import { supabase } from "@/lib/supabase";
 
 export async function GET(request: NextRequest) {
-  const password = request.headers.get("x-admin-password");
-  if (!password || password !== process.env.ADMIN_PASSWORD) {
-    return NextResponse.json({ error: "Ongeldig wachtwoord" }, { status: 401 });
-  }
+  const authError = verifyAdminPassword(request);
+  if (authError) return authError;
 
   const { data, error } = await supabase
     .from("members")
@@ -20,10 +19,8 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const password = request.headers.get("x-admin-password");
-  if (!password || password !== process.env.ADMIN_PASSWORD) {
-    return NextResponse.json({ error: "Ongeldig wachtwoord" }, { status: 401 });
-  }
+  const authError = verifyAdminPassword(request);
+  if (authError) return authError;
 
   const body = await request.json();
   const { name, email } = body;

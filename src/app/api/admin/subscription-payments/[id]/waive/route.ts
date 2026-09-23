@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { verifyAdminPassword } from "@/lib/adminAuth";
 import { supabase } from "@/lib/supabase";
 
 // Handmatige "pauzeperiode"-hendel (besluit bestuur 2026-09-11): deze maand hoeft niet
@@ -9,10 +10,8 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const password = request.headers.get("x-admin-password");
-  if (!password || password !== process.env.ADMIN_PASSWORD) {
-    return NextResponse.json({ error: "Ongeldig wachtwoord" }, { status: 401 });
-  }
+  const authError = verifyAdminPassword(request);
+  if (authError) return authError;
 
   const { data, error } = await supabase
     .from("subscription_payments")
