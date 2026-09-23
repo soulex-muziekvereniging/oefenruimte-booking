@@ -134,6 +134,31 @@ export default function AdminPage() {
 
   const [calWeekStart, setCalWeekStart] = useState<Date>(() => getWeekStart(new Date()));
 
+  const [showAddBooking, setShowAddBooking] = useState(false);
+  const [addBookingForm, setAddBookingForm] = useState({
+    bandName: "",
+    contactName: "",
+    contactEmail: "",
+    contactPhone: "",
+    slotDate: "",
+    dagdeelId: config.dagdelen[0].id,
+  });
+  const [addingBooking, setAddingBooking] = useState(false);
+  const [addBookingError, setAddBookingError] = useState("");
+
+  const [showAddSubscription, setShowAddSubscription] = useState(false);
+  const [addSubscriptionForm, setAddSubscriptionForm] = useState({
+    bandName: "",
+    contactName: "",
+    contactEmail: "",
+    contactPhone: "",
+    weekday: "1",
+    dagdeelId: config.dagdelen[0].id,
+    frequency: "weekly" as "weekly" | "biweekly",
+  });
+  const [addingSubscription, setAddingSubscription] = useState(false);
+  const [addSubscriptionError, setAddSubscriptionError] = useState("");
+
   async function fetchBookings() {
     setLoading(true);
     setError("");
@@ -386,6 +411,72 @@ export default function AdminPage() {
     setCancelling(null);
   }
 
+  async function handleAddBooking(e: React.FormEvent) {
+    e.preventDefault();
+    setAddingBooking(true);
+    setAddBookingError("");
+
+    const res = await fetch("/api/admin/bookings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(addBookingForm),
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      setAddBookingError(data.error || "Kon boeking niet aanmaken");
+      setAddingBooking(false);
+      return;
+    }
+
+    setAddBookingForm({
+      bandName: "",
+      contactName: "",
+      contactEmail: "",
+      contactPhone: "",
+      slotDate: "",
+      dagdeelId: config.dagdelen[0].id,
+    });
+    setShowAddBooking(false);
+    setAddingBooking(false);
+    await fetchBookings();
+  }
+
+  async function handleAddSubscription(e: React.FormEvent) {
+    e.preventDefault();
+    setAddingSubscription(true);
+    setAddSubscriptionError("");
+
+    const res = await fetch("/api/admin/subscriptions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ...addSubscriptionForm,
+        weekday: parseInt(addSubscriptionForm.weekday, 10),
+      }),
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      setAddSubscriptionError(data.error || "Kon vaste reservering niet aanmaken");
+      setAddingSubscription(false);
+      return;
+    }
+
+    setAddSubscriptionForm({
+      bandName: "",
+      contactName: "",
+      contactEmail: "",
+      contactPhone: "",
+      weekday: "1",
+      dagdeelId: config.dagdelen[0].id,
+      frequency: "weekly",
+    });
+    setShowAddSubscription(false);
+    setAddingSubscription(false);
+    await fetchSubscriptions();
+  }
+
   if (!authChecked) {
     return (
       <div className="max-w-sm mx-auto px-4 py-16 text-center text-gray-500">
@@ -557,14 +648,126 @@ export default function AdminPage() {
         <div>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-bold">Vaste reserveringen</h2>
-            <button
-              onClick={() => fetchSubscriptions()}
-              disabled={subscriptionsLoading}
-              className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-sm disabled:opacity-50"
-            >
-              {subscriptionsLoading ? "Laden..." : "Vernieuwen"}
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowAddSubscription((v) => !v)}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
+              >
+                {showAddSubscription ? "Annuleren" : "+ Toevoegen"}
+              </button>
+              <button
+                onClick={() => fetchSubscriptions()}
+                disabled={subscriptionsLoading}
+                className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-sm disabled:opacity-50"
+              >
+                {subscriptionsLoading ? "Laden..." : "Vernieuwen"}
+              </button>
+            </div>
           </div>
+
+          {showAddSubscription && (
+            <form
+              onSubmit={handleAddSubscription}
+              className="bg-white rounded-lg border border-gray-200 p-4 mb-4 space-y-3"
+            >
+              <p className="text-xs text-gray-500">
+                Voor het overzetten van een bestaande afspraak: geen betaling nodig, de lopende
+                periode wordt kwijtgescholden en telt pas vanaf volgende maand mee.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <input
+                  type="text"
+                  required
+                  placeholder="Bandnaam"
+                  value={addSubscriptionForm.bandName}
+                  onChange={(e) =>
+                    setAddSubscriptionForm((f) => ({ ...f, bandName: e.target.value }))
+                  }
+                  className="px-3 py-2.5 border border-gray-300 rounded-lg text-base"
+                />
+                <input
+                  type="text"
+                  required
+                  placeholder="Contactpersoon"
+                  value={addSubscriptionForm.contactName}
+                  onChange={(e) =>
+                    setAddSubscriptionForm((f) => ({ ...f, contactName: e.target.value }))
+                  }
+                  className="px-3 py-2.5 border border-gray-300 rounded-lg text-base"
+                />
+                <input
+                  type="email"
+                  required
+                  placeholder="E-mailadres"
+                  value={addSubscriptionForm.contactEmail}
+                  onChange={(e) =>
+                    setAddSubscriptionForm((f) => ({ ...f, contactEmail: e.target.value }))
+                  }
+                  className="px-3 py-2.5 border border-gray-300 rounded-lg text-base"
+                />
+                <input
+                  type="tel"
+                  placeholder="Telefoon (optioneel)"
+                  value={addSubscriptionForm.contactPhone}
+                  onChange={(e) =>
+                    setAddSubscriptionForm((f) => ({ ...f, contactPhone: e.target.value }))
+                  }
+                  className="px-3 py-2.5 border border-gray-300 rounded-lg text-base"
+                />
+                <select
+                  value={addSubscriptionForm.weekday}
+                  onChange={(e) =>
+                    setAddSubscriptionForm((f) => ({ ...f, weekday: e.target.value }))
+                  }
+                  className="px-3 py-2.5 border border-gray-300 rounded-lg text-base"
+                >
+                  {DAY_NAMES_NL.map((name, i) => (
+                    <option key={i} value={i}>
+                      {name}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={addSubscriptionForm.dagdeelId}
+                  onChange={(e) =>
+                    setAddSubscriptionForm((f) => ({ ...f, dagdeelId: e.target.value }))
+                  }
+                  className="px-3 py-2.5 border border-gray-300 rounded-lg text-base"
+                >
+                  {config.dagdelen.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.label}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={addSubscriptionForm.frequency}
+                  onChange={(e) =>
+                    setAddSubscriptionForm((f) => ({
+                      ...f,
+                      frequency: e.target.value as "weekly" | "biweekly",
+                    }))
+                  }
+                  className="px-3 py-2.5 border border-gray-300 rounded-lg text-base"
+                >
+                  <option value="weekly">Wekelijks</option>
+                  <option value="biweekly">Tweewekelijks</option>
+                </select>
+              </div>
+              {addSubscriptionError && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                  {addSubscriptionError}
+                </div>
+              )}
+              <button
+                type="submit"
+                disabled={addingSubscription}
+                className="px-4 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 text-sm"
+              >
+                {addingSubscription ? "Toevoegen..." : "Vaste reservering toevoegen"}
+              </button>
+            </form>
+          )}
 
           {subscriptions.length === 0 ? (
             <div className="text-center py-12 text-gray-500 bg-white rounded-lg border border-gray-200">
@@ -800,18 +1003,105 @@ export default function AdminPage() {
         <>
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-xl font-bold">Boekingen beheren</h2>
-        <button
-          onClick={() => {
-            fetchBookings();
-            fetchSubscriptions();
-            fetchSwaps();
-          }}
-          disabled={loading}
-          className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-sm disabled:opacity-50"
-        >
-          {loading ? "Laden..." : "Vernieuwen"}
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setShowAddBooking((v) => !v)}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
+          >
+            {showAddBooking ? "Annuleren" : "+ Toevoegen"}
+          </button>
+          <button
+            onClick={() => {
+              fetchBookings();
+              fetchSubscriptions();
+              fetchSwaps();
+            }}
+            disabled={loading}
+            className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-sm disabled:opacity-50"
+          >
+            {loading ? "Laden..." : "Vernieuwen"}
+          </button>
+        </div>
       </div>
+
+      {showAddBooking && (
+        <form
+          onSubmit={handleAddBooking}
+          className="bg-white rounded-lg border border-gray-200 p-4 mb-6 space-y-3"
+        >
+          <p className="text-xs text-gray-500">
+            Voor het overzetten van een bestaande afspraak: komt direct als bevestigd te staan,
+            geen betaling nodig.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <input
+              type="text"
+              required
+              placeholder="Bandnaam"
+              value={addBookingForm.bandName}
+              onChange={(e) => setAddBookingForm((f) => ({ ...f, bandName: e.target.value }))}
+              className="px-3 py-2.5 border border-gray-300 rounded-lg text-base"
+            />
+            <input
+              type="text"
+              required
+              placeholder="Contactpersoon"
+              value={addBookingForm.contactName}
+              onChange={(e) => setAddBookingForm((f) => ({ ...f, contactName: e.target.value }))}
+              className="px-3 py-2.5 border border-gray-300 rounded-lg text-base"
+            />
+            <input
+              type="email"
+              required
+              placeholder="E-mailadres"
+              value={addBookingForm.contactEmail}
+              onChange={(e) =>
+                setAddBookingForm((f) => ({ ...f, contactEmail: e.target.value }))
+              }
+              className="px-3 py-2.5 border border-gray-300 rounded-lg text-base"
+            />
+            <input
+              type="tel"
+              placeholder="Telefoon (optioneel)"
+              value={addBookingForm.contactPhone}
+              onChange={(e) =>
+                setAddBookingForm((f) => ({ ...f, contactPhone: e.target.value }))
+              }
+              className="px-3 py-2.5 border border-gray-300 rounded-lg text-base"
+            />
+            <input
+              type="date"
+              required
+              value={addBookingForm.slotDate}
+              onChange={(e) => setAddBookingForm((f) => ({ ...f, slotDate: e.target.value }))}
+              className="px-3 py-2.5 border border-gray-300 rounded-lg text-base"
+            />
+            <select
+              value={addBookingForm.dagdeelId}
+              onChange={(e) => setAddBookingForm((f) => ({ ...f, dagdeelId: e.target.value }))}
+              className="px-3 py-2.5 border border-gray-300 rounded-lg text-base"
+            >
+              {config.dagdelen.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          {addBookingError && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+              {addBookingError}
+            </div>
+          )}
+          <button
+            type="submit"
+            disabled={addingBooking}
+            className="px-4 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 text-sm"
+          >
+            {addingBooking ? "Toevoegen..." : "Boeking toevoegen"}
+          </button>
+        </form>
+      )}
 
       {(() => {
         const weekEnd = new Date(calWeekStart);
