@@ -141,7 +141,9 @@ export default function AdminPage() {
     contactEmail: "",
     contactPhone: "",
     slotDate: "",
+    weekday: "1",
     dagdeelId: config.dagdelen[0].id,
+    recurrence: "once" as "once" | "weekly" | "biweekly",
   });
   const [addingBooking, setAddingBooking] = useState(false);
   const [addBookingError, setAddBookingError] = useState("");
@@ -416,10 +418,32 @@ export default function AdminPage() {
     setAddingBooking(true);
     setAddBookingError("");
 
-    const res = await fetch("/api/admin/bookings", {
+    const isRecurring = addBookingForm.recurrence !== "once";
+    const { bandName, contactName, contactEmail, contactPhone } = addBookingForm;
+
+    const res = await fetch(isRecurring ? "/api/admin/subscriptions" : "/api/admin/bookings", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(addBookingForm),
+      body: JSON.stringify(
+        isRecurring
+          ? {
+              bandName,
+              contactName,
+              contactEmail,
+              contactPhone,
+              weekday: parseInt(addBookingForm.weekday, 10),
+              dagdeelId: addBookingForm.dagdeelId,
+              frequency: addBookingForm.recurrence,
+            }
+          : {
+              bandName,
+              contactName,
+              contactEmail,
+              contactPhone,
+              slotDate: addBookingForm.slotDate,
+              dagdeelId: addBookingForm.dagdeelId,
+            }
+      ),
     });
     const data = await res.json();
 
@@ -435,11 +459,17 @@ export default function AdminPage() {
       contactEmail: "",
       contactPhone: "",
       slotDate: "",
+      weekday: "1",
       dagdeelId: config.dagdelen[0].id,
+      recurrence: "once",
     });
     setShowAddBooking(false);
     setAddingBooking(false);
-    await fetchBookings();
+    if (isRecurring) {
+      await fetchSubscriptions();
+    } else {
+      await fetchBookings();
+    }
   }
 
   async function handleAddSubscription(e: React.FormEvent) {
@@ -1030,8 +1060,8 @@ export default function AdminPage() {
           className="bg-white rounded-lg border border-gray-200 p-4 mb-6 space-y-3"
         >
           <p className="text-xs text-gray-500">
-            Voor het overzetten van een bestaande afspraak: komt direct als bevestigd te staan,
-            geen betaling nodig.
+            Voor het overzetten van een bestaande afspraak: komt direct als bevestigd (of, bij
+            een herhaling, als actieve vaste reservering) te staan - geen betaling nodig.
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <input
@@ -1069,13 +1099,41 @@ export default function AdminPage() {
               }
               className="px-3 py-2.5 border border-gray-300 rounded-lg text-base"
             />
-            <input
-              type="date"
-              required
-              value={addBookingForm.slotDate}
-              onChange={(e) => setAddBookingForm((f) => ({ ...f, slotDate: e.target.value }))}
-              className="px-3 py-2.5 border border-gray-300 rounded-lg text-base"
-            />
+            <select
+              value={addBookingForm.recurrence}
+              onChange={(e) =>
+                setAddBookingForm((f) => ({
+                  ...f,
+                  recurrence: e.target.value as "once" | "weekly" | "biweekly",
+                }))
+              }
+              className="px-3 py-2.5 border border-gray-300 rounded-lg text-base sm:col-span-2"
+            >
+              <option value="once">Eenmalig, op een datum</option>
+              <option value="weekly">Doorlopend, elke week</option>
+              <option value="biweekly">Doorlopend, elke twee weken</option>
+            </select>
+            {addBookingForm.recurrence === "once" ? (
+              <input
+                type="date"
+                required
+                value={addBookingForm.slotDate}
+                onChange={(e) => setAddBookingForm((f) => ({ ...f, slotDate: e.target.value }))}
+                className="px-3 py-2.5 border border-gray-300 rounded-lg text-base"
+              />
+            ) : (
+              <select
+                value={addBookingForm.weekday}
+                onChange={(e) => setAddBookingForm((f) => ({ ...f, weekday: e.target.value }))}
+                className="px-3 py-2.5 border border-gray-300 rounded-lg text-base"
+              >
+                {DAY_NAMES_NL.map((name, i) => (
+                  <option key={i} value={i}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+            )}
             <select
               value={addBookingForm.dagdeelId}
               onChange={(e) => setAddBookingForm((f) => ({ ...f, dagdeelId: e.target.value }))}
@@ -1098,7 +1156,11 @@ export default function AdminPage() {
             disabled={addingBooking}
             className="px-4 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 text-sm"
           >
-            {addingBooking ? "Toevoegen..." : "Boeking toevoegen"}
+            {addingBooking
+              ? "Toevoegen..."
+              : addBookingForm.recurrence === "once"
+                ? "Boeking toevoegen"
+                : "Vaste reservering toevoegen"}
           </button>
         </form>
       )}
