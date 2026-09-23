@@ -1,31 +1,14 @@
-import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
-import { getClientIp, isRateLimited } from "./rateLimit";
+import { SESSION_COOKIE, verifySessionToken } from "./adminSession";
 
-const MAX_ATTEMPTS = 10;
-const WINDOW_MS = 15 * 60 * 1000; // 15 minuten
-
-function timingSafeEqual(a: string, b: string): boolean {
-  const bufA = Buffer.from(a);
-  const bufB = Buffer.from(b);
-  if (bufA.length !== bufB.length) return false;
-  return crypto.timingSafeEqual(bufA, bufB);
-}
-
-// Centrale check voor alle /api/admin/* routes: 1 gedeeld wachtwoord (ADMIN_PASSWORD),
-// timing-safe vergeleken, met een pogingslimiet per IP om brute-forcen te ontmoedigen.
+// Centrale check voor alle /api/admin/* routes: geldig ingelogd via de sessie-cookie
+// die /api/admin/login zet. Vervangt het oude gedeelde ADMIN_PASSWORD-wachtwoord.
 export function verifyAdminPassword(request: NextRequest): NextResponse | null {
-  const ip = getClientIp(request);
-  if (isRateLimited(`admin:${ip}`, MAX_ATTEMPTS, WINDOW_MS)) {
-    return NextResponse.json(
-      { error: "Te veel pogingen, probeer het over 15 minuten opnieuw" },
-      { status: 429 }
-    );
-  }
+  const token = request.cookies.get(SESSION_COOKIE)?.value;
+  const adminId = token ? verifySessionToken(token) : null;
 
-  const password = request.headers.get("x-admin-password");
-  if (!password || !timingSafeEqual(password, process.env.ADMIN_PASSWORD!)) {
-    return NextResponse.json({ error: "Ongeldig wachtwoord" }, { status: 401 });
+  if (!adminId) {
+    return NextResponse.json({ error: "Niet ingelogd" }, { status: 401 });
   }
 
   return null;

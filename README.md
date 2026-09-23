@@ -111,13 +111,8 @@ Statussen van een boeking:
 
 ## Accounts & Toegang
 
-| Service | Ingelogd via | Dashboard |
-|---------|-------------|-----------|
-| Vercel | Google (stanislaav@gmail.com) | vercel.com/dashboard |
-| Supabase | GitHub (Stanislaav666) | supabase.com/dashboard |
-| Mollie | Eigen account | my.mollie.com |
-| Resend | Eigen account | resend.com |
-| GitHub | Stanislaav666 | github.com/Stanislaav666/oefenruimte-booking (private) |
+Zie [TOEGANG.md](TOEGANG.md) (lokaal bestand, niet in de repo — bevat ook inloggegevens) voor
+een actueel overzicht van alle accounts en dashboards.
 
 ## Environment Variables
 
@@ -126,24 +121,31 @@ Deze staan ingesteld in Vercel (Settings → Environment Variables):
 | Variable | Wat het is | Waar te vinden |
 |----------|-----------|---------------|
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL | `https://janjxrnrscnlbrpvtnhi.supabase.co` |
-| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service_role key | Supabase → API Keys → Legacy tab → service_role |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service_role key (of de nieuwe `sb_secret_...` secret key) | Supabase → Settings → API Keys |
 | `MOLLIE_API_KEY` | Mollie API key | Mollie → Developers → API keys |
 | `RESEND_API_KEY` | Resend API key | Resend → API Keys |
 | `NEXT_PUBLIC_APP_URL` | De URL van de live site | De Vercel deployment URL |
-| `ADMIN_PASSWORD` | Wachtwoord voor de beheerderspagina (`/admin`) | Zelf gekozen bij instellen |
+| `ADMIN_SESSION_SECRET` | Ondertekent de admin-sessie-cookie en wachtwoord-reset-links | Willekeurige lange string, zie `.env.example` |
+| `MAGIC_LINK_SECRET` | Ondertekent de tijdelijke "mijn boekingen"-links | Willekeurige lange string |
+| `CRON_SECRET` | Beveiligt de dagelijkse cron-job (`/api/cron/subscriptions`) | Willekeurige lange string |
 
 **Let op:** `SUPABASE_SERVICE_ROLE_KEY` is een geheime key met volledige database-toegang. Deel deze nooit publiek.
 
 ## Beheerderspagina (`/admin`)
 
-Ga naar `jouw-site.vercel.app/admin` en log in met het `ADMIN_PASSWORD`.
+Ga naar `jouw-site.vercel.app/admin` — log in met je beheerders-e-mailadres en wachtwoord
+(accounts staan in de `admin_users`-tabel in Supabase). Nog geen wachtwoord ingesteld, of
+vergeten? Via "Wachtwoord vergeten" op het inlogscherm krijg je een e-maillink (30 min geldig)
+om er een (nieuw) in te stellen.
 
 Functies:
 - **Overzicht** van alle aankomende bevestigde en lopende boekingen
 - **Annuleren** van een boeking — het betaalde bedrag wordt automatisch teruggestort via Mollie en de organisatie ontvangt een e-mail
 - **Vernieuwen** om de laatste boekingen op te halen
 
-Het wachtwoord wijzigen: ga naar Vercel → Settings → Environment Variables → wijzig `ADMIN_PASSWORD` → redeploy.
+Een nieuw beheerdersaccount toevoegen: voeg een rij toe aan `admin_users` in Supabase (alleen
+`email` invullen, `password_hash` leeg laten) — die persoon kan dan via "Wachtwoord vergeten"
+zelf een wachtwoord instellen.
 
 ## Kalenderoverzicht
 

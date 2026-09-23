@@ -324,6 +324,24 @@ export async function sendMyBookingsLinkEmail(email: string, link: string) {
   });
 }
 
+export async function sendAdminPasswordResetEmail(email: string, link: string) {
+  await resend.emails.send({
+    from: `${config.organizationName} <${config.senderEmail}>`,
+    to: email,
+    subject: `Wachtwoord instellen voor het beheerpaneel`,
+    html: `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>Wachtwoord instellen</h2>
+        <p>Klik op onderstaande link om een (nieuw) wachtwoord in te stellen voor het
+        beheerpaneel van ${config.roomName}. Deze link is 30 minuten geldig.</p>
+        <p><a href="${link}">Wachtwoord instellen</a></p>
+        <p>Heb je dit niet aangevraagd? Dan kun je deze e-mail negeren.</p>
+        <p>Met vriendelijke groet,<br>${config.organizationName}</p>
+      </div>
+    `,
+  });
+}
+
 function payPeriodUrl(periodPayment: SubscriptionPayment): string {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL!;
   return `${appUrl}/vaste-reservering/betalen?token=${periodPayment.pay_token}`;

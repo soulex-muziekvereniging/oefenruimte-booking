@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { config } from "@/config";
 import { toLocalDateStr } from "@/lib/date";
 
@@ -101,8 +101,9 @@ function formatPrice(cents: number): string {
 }
 
 export default function AdminPage() {
-  const [password, setPassword] = useState("");
+  const [authChecked, setAuthChecked] = useState(false);
   const [loggedIn, setLoggedIn] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
   const [view, setView] = useState<"bookings" | "members" | "subscriptions" | "requests">(
     "bookings"
   );
@@ -133,19 +134,17 @@ export default function AdminPage() {
 
   const [calWeekStart, setCalWeekStart] = useState<Date>(() => getWeekStart(new Date()));
 
-  async function fetchBookings(pw: string) {
+  async function fetchBookings() {
     setLoading(true);
     setError("");
-    const res = await fetch("/api/admin/bookings", {
-      headers: { "x-admin-password": pw },
-    });
+    const res = await fetch("/api/admin/bookings");
     if (!res.ok) {
+      if (res.status === 401) {
+        window.location.href = "/admin/login";
+        return false;
+      }
       const data = await res.json().catch(() => ({}));
-      setError(
-        res.status === 401
-          ? "Ongeldig wachtwoord"
-          : data.error || "Er ging iets mis bij het laden van de boekingen"
-      );
+      setError(data.error || "Er ging iets mis bij het laden van de boekingen");
       setLoading(false);
       return false;
     }
@@ -155,43 +154,35 @@ export default function AdminPage() {
     return true;
   }
 
-  async function fetchMembers(pw: string) {
+  async function fetchMembers() {
     setMembersLoading(true);
     setMemberError("");
-    const res = await fetch("/api/admin/members", {
-      headers: { "x-admin-password": pw },
-    });
+    const res = await fetch("/api/admin/members");
     if (res.ok) {
       setMembers(await res.json());
     }
     setMembersLoading(false);
   }
 
-  async function fetchSubscriptions(pw: string) {
+  async function fetchSubscriptions() {
     setSubscriptionsLoading(true);
-    const res = await fetch("/api/admin/subscriptions", {
-      headers: { "x-admin-password": pw },
-    });
+    const res = await fetch("/api/admin/subscriptions");
     if (res.ok) {
       setSubscriptions(await res.json());
     }
     setSubscriptionsLoading(false);
   }
 
-  async function fetchSwaps(pw: string) {
-    const res = await fetch("/api/admin/subscription-swaps", {
-      headers: { "x-admin-password": pw },
-    });
+  async function fetchSwaps() {
+    const res = await fetch("/api/admin/subscription-swaps");
     if (res.ok) {
       setSwaps(await res.json());
     }
   }
 
-  async function fetchRequests(pw: string) {
+  async function fetchRequests() {
     setRequestsLoading(true);
-    const res = await fetch("/api/admin/membership-requests", {
-      headers: { "x-admin-password": pw },
-    });
+    const res = await fetch("/api/admin/membership-requests");
     if (res.ok) {
       setRequests(await res.json());
     }
@@ -207,7 +198,6 @@ export default function AdminPage() {
     setHandlingRequest(request.id);
     const res = await fetch(`/api/admin/membership-requests/${request.id}/approve`, {
       method: "POST",
-      headers: { "x-admin-password": password },
     });
     if (!res.ok) {
       const data = await res.json();
@@ -215,7 +205,7 @@ export default function AdminPage() {
       setHandlingRequest(null);
       return;
     }
-    await fetchRequests(password);
+    await fetchRequests();
     setHandlingRequest(null);
   }
 
@@ -224,9 +214,8 @@ export default function AdminPage() {
     setHandlingRequest(request.id);
     await fetch(`/api/admin/membership-requests/${request.id}/reject`, {
       method: "POST",
-      headers: { "x-admin-password": password },
     });
-    await fetchRequests(password);
+    await fetchRequests();
     setHandlingRequest(null);
   }
 
@@ -242,7 +231,6 @@ export default function AdminPage() {
     setCancellingSubscription(subscription.id);
     const res = await fetch(`/api/admin/subscriptions/${subscription.id}/cancel`, {
       method: "POST",
-      headers: { "x-admin-password": password },
     });
 
     if (!res.ok) {
@@ -252,7 +240,7 @@ export default function AdminPage() {
       return;
     }
 
-    await fetchSubscriptions(password);
+    await fetchSubscriptions();
     setCancellingSubscription(null);
   }
 
@@ -267,9 +255,8 @@ export default function AdminPage() {
     setCancellingSubscription(periodId);
     await fetch(`/api/admin/subscription-payments/${periodId}/waive`, {
       method: "POST",
-      headers: { "x-admin-password": password },
     });
-    await fetchSubscriptions(password);
+    await fetchSubscriptions();
     setCancellingSubscription(null);
   }
 
@@ -277,21 +264,32 @@ export default function AdminPage() {
     setCancellingSubscription(periodId);
     await fetch(`/api/admin/subscription-payments/${periodId}/extend-grace`, {
       method: "POST",
-      headers: { "x-admin-password": password },
     });
-    await fetchSubscriptions(password);
+    await fetchSubscriptions();
     setCancellingSubscription(null);
   }
 
-  async function handleLogin(e: React.FormEvent) {
-    e.preventDefault();
-    const ok = await fetchBookings(password);
-    if (ok) {
-      setLoggedIn(true);
-      fetchRequests(password);
-      fetchSubscriptions(password);
-      fetchSwaps(password);
-    }
+  useEffect(() => {
+    fetch("/api/admin/session")
+      .then((res) => {
+        if (res.ok) {
+          setLoggedIn(true);
+          fetchBookings();
+          fetchRequests();
+          fetchSubscriptions();
+          fetchSwaps();
+        } else {
+          window.location.href = "/admin/login";
+        }
+      })
+      .finally(() => setAuthChecked(true));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function handleLogout() {
+    setLoggingOut(true);
+    await fetch("/api/admin/logout", { method: "POST" });
+    window.location.href = "/admin/login";
   }
 
   async function handleAddMember(e: React.FormEvent) {
@@ -302,7 +300,6 @@ export default function AdminPage() {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-admin-password": password,
       },
       body: JSON.stringify({ name: newMemberName, email: newMemberEmail }),
     });
@@ -315,7 +312,7 @@ export default function AdminPage() {
     setNewMemberName("");
     setNewMemberEmail("");
     setAddingMember(false);
-    await fetchMembers(password);
+    await fetchMembers();
   }
 
   async function handleToggleMember(member: Member) {
@@ -324,11 +321,10 @@ export default function AdminPage() {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",
-        "x-admin-password": password,
       },
       body: JSON.stringify({ active: !member.active }),
     });
-    await fetchMembers(password);
+    await fetchMembers();
     setTogglingMember(null);
   }
 
@@ -341,9 +337,8 @@ export default function AdminPage() {
     setDeletingMember(member.id);
     await fetch(`/api/admin/members/${member.id}`, {
       method: "DELETE",
-      headers: { "x-admin-password": password },
     });
-    await fetchMembers(password);
+    await fetchMembers();
     setDeletingMember(null);
   }
 
@@ -356,7 +351,6 @@ export default function AdminPage() {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-admin-password": password,
       },
       body: JSON.stringify({ name: bandName, email }),
     });
@@ -368,7 +362,7 @@ export default function AdminPage() {
     }
     setNewEmailByBand((prev) => ({ ...prev, [bandName]: "" }));
     setAddingEmailFor(null);
-    await fetchMembers(password);
+    await fetchMembers();
   }
 
   async function handleCancel(bookingId: string, bandName: string) {
@@ -379,7 +373,6 @@ export default function AdminPage() {
     setCancelling(bookingId);
     const res = await fetch(`/api/admin/bookings/${bookingId}/cancel`, {
       method: "POST",
-      headers: { "x-admin-password": password },
     });
 
     if (!res.ok) {
@@ -389,49 +382,41 @@ export default function AdminPage() {
       return;
     }
 
-    await fetchBookings(password);
+    await fetchBookings();
     setCancelling(null);
   }
 
-  if (!loggedIn) {
+  if (!authChecked) {
     return (
-      <div className="max-w-sm mx-auto px-4 py-16">
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <h2 className="text-xl font-bold mb-4 text-center">Beheerder login</h2>
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Wachtwoord
-              </label>
-              <input
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
-                placeholder="Admin wachtwoord"
-              />
-            </div>
-            {error && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
-                {error}
-              </div>
-            )}
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors text-base"
-            >
-              {loading ? "Laden..." : "Inloggen"}
-            </button>
-          </form>
-        </div>
+      <div className="max-w-sm mx-auto px-4 py-16 text-center text-gray-500">
+        Laden...
       </div>
     );
   }
 
+  if (!loggedIn) {
+    // useEffect stuurt door naar /admin/login
+    return null;
+  }
+
   return (
     <div className="max-w-4xl mx-auto px-3 sm:px-4 py-4 sm:py-8">
+      <div className="flex items-center justify-end mb-2">
+        <button
+          onClick={handleLogout}
+          disabled={loggingOut}
+          className="text-sm text-gray-500 hover:text-gray-700 disabled:opacity-50"
+        >
+          {loggingOut ? "Bezig..." : "Uitloggen"}
+        </button>
+      </div>
+
+      {error && (
+        <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm mb-4">
+          {error}
+        </div>
+      )}
+
       <div className="flex items-center gap-2 mb-6 border-b border-gray-200">
         <button
           onClick={() => setView("bookings")}
@@ -446,7 +431,7 @@ export default function AdminPage() {
         <button
           onClick={() => {
             setView("members");
-            if (members.length === 0) fetchMembers(password);
+            if (members.length === 0) fetchMembers();
           }}
           className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${
             view === "members"
@@ -459,7 +444,7 @@ export default function AdminPage() {
         <button
           onClick={() => {
             setView("subscriptions");
-            if (subscriptions.length === 0) fetchSubscriptions(password);
+            if (subscriptions.length === 0) fetchSubscriptions();
           }}
           className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${
             view === "subscriptions"
@@ -472,7 +457,7 @@ export default function AdminPage() {
         <button
           onClick={() => {
             setView("requests");
-            fetchRequests(password);
+            fetchRequests();
           }}
           className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px flex items-center gap-1.5 ${
             view === "requests"
@@ -494,7 +479,7 @@ export default function AdminPage() {
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-bold">Lidmaatschapsverzoeken</h2>
             <button
-              onClick={() => fetchRequests(password)}
+              onClick={() => fetchRequests()}
               disabled={requestsLoading}
               className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-sm disabled:opacity-50"
             >
@@ -573,7 +558,7 @@ export default function AdminPage() {
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-bold">Vaste reserveringen</h2>
             <button
-              onClick={() => fetchSubscriptions(password)}
+              onClick={() => fetchSubscriptions()}
               disabled={subscriptionsLoading}
               className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-sm disabled:opacity-50"
             >
@@ -690,7 +675,7 @@ export default function AdminPage() {
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-bold">Ledenlijst</h2>
             <button
-              onClick={() => fetchMembers(password)}
+              onClick={() => fetchMembers()}
               disabled={membersLoading}
               className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-sm disabled:opacity-50"
             >
@@ -817,9 +802,9 @@ export default function AdminPage() {
         <h2 className="text-xl font-bold">Boekingen beheren</h2>
         <button
           onClick={() => {
-            fetchBookings(password);
-            fetchSubscriptions(password);
-            fetchSwaps(password);
+            fetchBookings();
+            fetchSubscriptions();
+            fetchSwaps();
           }}
           disabled={loading}
           className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-sm disabled:opacity-50"
