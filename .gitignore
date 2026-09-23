@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# toegang/wachtwoorden - repo is publiek, dit bestand blijft lokaal
+TOEGANG.md

@@ -15,10 +15,13 @@ export const config = {
     weekly: { label: "Wekelijks", priceCentsPerMonth: 11000 },
     biweekly: { label: "Tweewekelijks", priceCentsPerMonth: 5500 },
   },
-  // Echte mailbox (aangemaakt door Kimberly, sep 2026) - zowel het adres waar
-  // boekingsnotificaties naartoe gaan als het afzenderadres van alle systeemmails.
+  // Echte mailbox (aangemaakt door Kimberly, sep 2026) - het afzenderadres van alle
+  // systeemmails en het adres dat in "neem contact op"-teksten getoond wordt.
   organizationEmail: "beheer@soulex.nl",
   senderEmail: "beheer@soulex.nl",
+  // Wie een melding krijgt zodra er een nieuwe boeking binnenkomt. Voeg hier extra
+  // adressen toe (bijv. andere bestuursleden) om hen ook mee te laten lezen.
+  bookingNotificationEmails: ["beheer@soulex.nl"] as string[],
   organizationName: "Muziekvereniging Soulex",
   currency: "EUR" as const,
   pendingExpiryMinutes: 15,

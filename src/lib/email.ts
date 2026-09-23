@@ -100,7 +100,7 @@ export async function sendConfirmationEmail(booking: Booking, extraRecipients: s
 export async function sendBookingNotificationToOrg(booking: Booking) {
   await resend.emails.send({
     from: `${config.organizationName} <${config.senderEmail}>`,
-    to: config.organizationEmail,
+    to: config.bookingNotificationEmails,
     subject: `Nieuwe boeking: ${booking.band_name} - ${formatDate(booking.slot_date)}`,
     html: `
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
