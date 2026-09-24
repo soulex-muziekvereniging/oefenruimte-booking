@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { config } from "@/config";
-import { toLocalDateStr } from "@/lib/date";
+import { todayStr } from "@/lib/date";
 import { addDaysStr, addMonthsToMonthStr } from "@/lib/periods";
 import { getActiveMemberEmails } from "@/lib/members";
 import {
@@ -10,6 +10,7 @@ import {
   sendPeriodGraceWarningEmail,
   sendPeriodLapsedEmail,
   sendPeriodLapsedNotificationToOrg,
+  sendSafely,
 } from "@/lib/email";
 import type { Subscription, SubscriptionPayment } from "@/lib/supabase";
 
@@ -17,6 +18,9 @@ import type { Subscription, SubscriptionPayment } from "@/lib/supabase";
 // nieuwe periodes klaarzetten + betaalverzoek mailen, herinneren, en tijdsloten vrijgeven
 // als er niet binnen de coulanceperiode betaald is. Draait bewust maar 1x per dag - dat
 // is precies genoeg voor dit model en past binnen de gratis Vercel Hobby-cronlimiet.
+//
+// De *_sent_at-velden worden pas gezet nadat de mail echt verstuurd is. Mislukt een mail,
+// dan probeert de volgende run het gewoon opnieuw.
 const DAYS_BEFORE_DUE_TO_INVOICE = 14;
 const DAYS_AFTER_DUE_FOR_REMINDER = 7;
 const DAYS_BEFORE_GRACE_END_FOR_WARNING = 3;
@@ -27,7 +31,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const today = toLocalDateStr(new Date());
+  const today = todayStr();
 
   const { data: activeSubscriptions } = await supabase
     .from("subscriptions")
@@ -45,6 +49,16 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({ ok: true });
 }
 
+async function trySend(label: string, fn: () => Promise<unknown>): Promise<boolean> {
+  try {
+    await fn();
+    return true;
+  } catch (err) {
+    console.error(`[cron] ${label} mislukt:`, err);
+    return false;
+  }
+}
+
 async function ensureNextPeriod(subscription: Subscription, today: string) {
   const { data: latest } = await supabase
     .from("subscription_payments")
@@ -56,18 +70,14 @@ async function ensureNextPeriod(subscription: Subscription, today: string) {
 
   if (!latest) return; // zou niet moeten gebeuren - elke actieve subscription heeft een eerste periode
 
+  // Betaalverzoek dat eerder niet verstuurd kon worden: opnieuw proberen.
+  if (latest.status === "unpaid" && !latest.invoice_sent_at) {
+    await sendInvoice(subscription, latest as SubscriptionPayment);
+  }
+
   const nextMonth = addMonthsToMonthStr(latest.period_month, 1);
   const invoiceFrom = addDaysStr(nextMonth, -DAYS_BEFORE_DUE_TO_INVOICE);
   if (today < invoiceFrom) return; // nog te vroeg om de volgende periode klaar te zetten
-
-  const { data: existing } = await supabase
-    .from("subscription_payments")
-    .select("id")
-    .eq("subscription_id", subscription.id)
-    .eq("period_month", nextMonth)
-    .maybeSingle();
-
-  if (existing) return;
 
   const dueDate = nextMonth;
   const graceUntil = addDaysStr(dueDate, config.subscriptionGraceDays);
@@ -81,15 +91,27 @@ async function ensureNextPeriod(subscription: Subscription, today: string) {
       due_date: dueDate,
       grace_until: graceUntil,
       status: "unpaid",
-      invoice_sent_at: new Date().toISOString(),
     })
     .select()
     .single();
 
+  // Geen rij terug = bestond al (unieke index op subscription_id + period_month).
   if (!periodPayment) return;
 
+  await sendInvoice(subscription, periodPayment as SubscriptionPayment);
+}
+
+async function sendInvoice(subscription: Subscription, periodPayment: SubscriptionPayment) {
   const bandEmails = await getActiveMemberEmails(subscription.band_name);
-  await sendPeriodPaymentRequestEmail(subscription, periodPayment, bandEmails);
+  const sent = await trySend(`betaalverzoek ${subscription.band_name} ${periodPayment.period_month}`, () =>
+    sendPeriodPaymentRequestEmail(subscription, periodPayment, bandEmails)
+  );
+  if (sent) {
+    await supabase
+      .from("subscription_payments")
+      .update({ invoice_sent_at: new Date().toISOString() })
+      .eq("id", periodPayment.id);
+  }
 }
 
 async function sendReminders(today: string) {
@@ -105,11 +127,15 @@ async function sendReminders(today: string) {
     if (!subscription || subscription.status !== "active") continue;
 
     const bandEmails = await getActiveMemberEmails(subscription.band_name);
-    await sendPeriodReminderEmail(subscription, periodPayment, bandEmails);
-    await supabase
-      .from("subscription_payments")
-      .update({ reminder_sent_at: new Date().toISOString() })
-      .eq("id", periodPayment.id);
+    const sent = await trySend(`herinnering ${subscription.band_name}`, () =>
+      sendPeriodReminderEmail(subscription, periodPayment, bandEmails)
+    );
+    if (sent) {
+      await supabase
+        .from("subscription_payments")
+        .update({ reminder_sent_at: new Date().toISOString() })
+        .eq("id", periodPayment.id);
+    }
   }
 }
 
@@ -127,11 +153,15 @@ async function sendGraceWarnings(today: string) {
     if (!subscription || subscription.status !== "active") continue;
 
     const bandEmails = await getActiveMemberEmails(subscription.band_name);
-    await sendPeriodGraceWarningEmail(subscription, periodPayment, bandEmails);
-    await supabase
-      .from("subscription_payments")
-      .update({ warning_sent_at: new Date().toISOString() })
-      .eq("id", periodPayment.id);
+    const sent = await trySend(`coulance-waarschuwing ${subscription.band_name}`, () =>
+      sendPeriodGraceWarningEmail(subscription, periodPayment, bandEmails)
+    );
+    if (sent) {
+      await supabase
+        .from("subscription_payments")
+        .update({ warning_sent_at: new Date().toISOString() })
+        .eq("id", periodPayment.id);
+    }
   }
 }
 
@@ -153,13 +183,13 @@ async function applyLapses(today: string) {
       .eq("id", periodPayment.subscription_id)
       .eq("status", "active")
       .select()
-      .single();
+      .maybeSingle();
 
     if (!lapsed) continue; // al vervallen/opgezegd door een eerdere run of admin-actie
 
     const bandEmails = await getActiveMemberEmails(lapsed.band_name);
-    await sendPeriodLapsedEmail(lapsed, bandEmails);
-    await sendPeriodLapsedNotificationToOrg(lapsed);
+    await sendSafely("melding vervallen", () => sendPeriodLapsedEmail(lapsed, bandEmails));
+    await sendSafely("melding vervallen bestuur", () => sendPeriodLapsedNotificationToOrg(lapsed));
   }
 }
 

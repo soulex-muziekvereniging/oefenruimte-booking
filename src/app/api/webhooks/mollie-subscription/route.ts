@@ -5,7 +5,10 @@ import {
   sendSubscriptionConfirmationEmail,
   sendSubscriptionNotificationToOrg,
   sendPeriodPaymentConfirmationEmail,
+  sendAdminAlertToOrg,
+  sendSafely,
 } from "@/lib/email";
+import type { Subscription } from "@/lib/supabase";
 import { getActiveMemberEmails } from "@/lib/members";
 
 // Deze webhook verwerkt betalingen voor een periode (kalendermaand) van een vaste
@@ -51,32 +54,56 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ received: true });
     }
 
-    if (subscription.status === "pending_first_payment") {
+    // Een nooit geactiveerde aanvraag die op "cancelled" staat zonder cancelled_at, is
+    // automatisch verlopen omdat de eerste betaling te lang duurde (expire.ts) - niet door
+    // de band of het bestuur opgezegd. Komt die betaling nu alsnog binnen, dan alsnog
+    // activeren als het weekdag+dagdeel nog vrij is.
+    const neverActivated =
+      subscription.status === "pending_first_payment" ||
+      (subscription.status === "cancelled" &&
+        !subscription.term_start_date &&
+        !subscription.cancelled_at);
+
+    if (neverActivated) {
       const { data: activated } = await supabase
         .from("subscriptions")
         .update({
           status: "active",
           term_start_date: periodPayment.period_month,
+          cancelled_at: null,
           updated_at: new Date().toISOString(),
         })
         .eq("id", subscriptionId)
-        .eq("status", "pending_first_payment")
+        .eq("status", subscription.status)
         .select()
-        .single();
+        .maybeSingle();
 
       if (activated) {
         const bandEmails = await getActiveMemberEmails(activated.band_name);
-        await sendSubscriptionConfirmationEmail(activated, bandEmails);
-        await sendSubscriptionNotificationToOrg(activated);
+        await sendSafely("bevestiging vaste reservering", () =>
+          sendSubscriptionConfirmationEmail(activated, bandEmails)
+        );
+        await sendSafely("melding vaste reservering bestuur", () =>
+          sendSubscriptionNotificationToOrg(activated)
+        );
+      } else {
+        // Activeren mislukt, meestal omdat een andere band dit weekdag+dagdeel intussen
+        // heeft (unieke index) - geld terug.
+        await refundAndAlert(subscription, paymentId, periodPayment.id, periodPayment.amount_cents);
       }
     } else if (subscription.status === "active") {
       const bandEmails = await getActiveMemberEmails(subscription.band_name);
-      await sendPeriodPaymentConfirmationEmail(subscription, periodPayment, bandEmails);
+      await sendSafely("betaalbevestiging periode", () =>
+        sendPeriodPaymentConfirmationEmail(subscription, periodPayment, bandEmails)
+      );
     } else {
       // Betaling voor een inmiddels opgezegde/vervallen reservering (zeldzame race
-      // conditie) - geld is binnen, maar dit vergt een handmatige check door het bestuur.
-      console.error(
-        `Betaling ${paymentId} ontvangen voor subscription ${subscriptionId} met status "${subscription.status}" - handmatig controleren.`
+      // conditie) - geld is binnen, maar dit vergt een beslissing van het bestuur.
+      await sendSafely("melding betaling na opzeggen", () =>
+        sendAdminAlertToOrg(
+          `betaling van ${subscription.band_name} na opzeggen`,
+          `${subscription.band_name} (${subscription.contact_email}) betaalde een periode van hun vaste reservering, maar die staat op "${subscription.status}". Controleer in Mollie (betaling ${paymentId}) of terugbetalen nodig is.`
+        )
       );
     }
   } else if (
@@ -104,4 +131,36 @@ export async function POST(request: NextRequest) {
   }
 
   return NextResponse.json({ received: true });
+}
+
+async function refundAndAlert(
+  subscription: Subscription,
+  paymentId: string,
+  periodPaymentId: string,
+  amountCents: number
+) {
+  let refunded = false;
+  try {
+    await mollie.paymentRefunds.create({
+      paymentId,
+      amount: { currency: "EUR", value: (amountCents / 100).toFixed(2) },
+    });
+    refunded = true;
+    await supabase
+      .from("subscription_payments")
+      .update({ status: "refunded", updated_at: new Date().toISOString() })
+      .eq("id", periodPaymentId);
+  } catch (err) {
+    console.error(`Terugbetaling van te late betaling ${paymentId} mislukt:`, err);
+  }
+
+  await sendSafely("melding te late betaling vaste reservering", () =>
+    sendAdminAlertToOrg(
+      `te late betaling van ${subscription.band_name}`,
+      `${subscription.band_name} (${subscription.contact_email}) betaalde de eerste periode van een vaste reservering, maar pas nadat de aanvraag was verlopen en het tijdslot inmiddels door een andere band is vastgelegd. ` +
+        (refunded
+          ? "Het bedrag is automatisch teruggestort via Mollie."
+          : `Automatisch terugstorten lukte niet - stort handmatig terug via Mollie (betaling ${paymentId}).`)
+    )
+  );
 }

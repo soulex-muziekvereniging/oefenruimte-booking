@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyAdminPassword } from "@/lib/adminAuth";
 import { supabase } from "@/lib/supabase";
 import { config } from "@/config";
-import { toLocalDateStr } from "@/lib/date";
+import { todayStr } from "@/lib/date";
 import { getSlotsForRange } from "@/lib/slots";
-import { sendConfirmationEmail } from "@/lib/email";
+import { sendConfirmationEmail, sendSafely } from "@/lib/email";
 
 export async function GET(request: NextRequest) {
   const authError = verifyAdminPassword(request);
@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
     .from("bookings")
     .select("*")
     .in("status", ["confirmed", "pending"])
-    .gte("slot_date", toLocalDateStr(new Date()))
+    .gte("slot_date", todayStr())
     .order("slot_date", { ascending: true })
     .order("slot_start_time", { ascending: true });
 
@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  await sendConfirmationEmail(booking);
+  await sendSafely("bevestiging boeking (handmatig)", () => sendConfirmationEmail(booking));
 
   return NextResponse.json(booking);
 }

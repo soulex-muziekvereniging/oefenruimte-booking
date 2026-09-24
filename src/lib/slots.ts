@@ -1,6 +1,6 @@
 import { config } from "@/config";
 import { supabase, Booking, Subscription } from "./supabase";
-import { toLocalDateStr } from "./date";
+import { toLocalDateStr, todayStr } from "./date";
 import { expireStalePendingBookings } from "./expire";
 
 export type Slot = {
@@ -67,10 +67,12 @@ export async function getSlotsForRange(
     throw new Error(`Kon boekingen niet ophalen: ${error.message}`);
   }
 
+  // Ook een aanvraag die nog op de eerste betaling wacht houdt het weekdag+dagdeel al
+  // vast - anders kan iemand er in die minuten een losse boeking tussen schuiven.
   const { data: subscriptions, error: subscriptionsError } = await supabase
     .from("subscriptions")
     .select("id, weekday, dagdeel_id")
-    .eq("status", "active");
+    .in("status", ["active", "pending_first_payment"]);
 
   if (subscriptionsError) {
     throw new Error(`Kon vaste reserveringen niet ophalen: ${subscriptionsError.message}`);
@@ -81,7 +83,7 @@ export async function getSlotsForRange(
   // Schuiven (zie subscription_swaps): een specifieke datum kan zijn overgeslagen
   // (weer gewoon los boekbaar) en/of een andere datum kan juist bezet zijn geraakt
   // doordat een band daar structureel naartoe is geschoven deze periode.
-  const { data: swaps } =
+  const { data: swaps, error: swapsError } =
     subscriptionIds.length > 0
       ? await supabase
           .from("subscription_swaps")
@@ -90,7 +92,11 @@ export async function getSlotsForRange(
           .or(
             `and(original_date.gte.${from},original_date.lte.${to}),and(new_date.gte.${from},new_date.lte.${to})`
           )
-      : { data: [] };
+      : { data: [], error: null };
+
+  if (swapsError) {
+    throw new Error(`Kon geruilde repetities niet ophalen: ${swapsError.message}`);
+  }
 
   // Alleen bezet/vrij naar buiten geven - de bandnaam achter een geboekt slot is
   // niet bedoeld voor anonieme bezoekers van de publieke kalender.
@@ -152,4 +158,30 @@ export async function getSlotsForRange(
   }
 
   return days;
+}
+
+// Komende losse boekingen op een weekdag+dagdeel - die zouden botsen met een nieuwe
+// vaste reservering op datzelfde moment.
+export async function findConflictingBookingDates(
+  weekday: number,
+  dagdeelId: string
+): Promise<string[]> {
+  const dagdeel = config.dagdelen.find((d) => d.id === dagdeelId);
+  if (!dagdeel) return [];
+
+  const { data, error } = await supabase
+    .from("bookings")
+    .select("slot_date")
+    .in("status", ["pending", "confirmed"])
+    .gte("slot_date", todayStr())
+    .eq("slot_start_time", `${formatTime(dagdeel.startHour)}:00`);
+
+  if (error) {
+    throw new Error(`Kon boekingen niet ophalen: ${error.message}`);
+  }
+
+  return (data ?? [])
+    .map((b) => b.slot_date as string)
+    .filter((date) => new Date(date + "T00:00:00").getDay() === weekday)
+    .sort();
 }

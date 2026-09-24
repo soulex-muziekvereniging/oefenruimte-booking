@@ -4,7 +4,7 @@ import { useSearchParams } from "next/navigation";
 import { useEffect, useState, Suspense } from "react";
 
 type PeriodInfo = {
-  status: "unpaid" | "paid" | "waived";
+  status: "unpaid" | "paid" | "waived" | "processing";
   amountCents: number;
   periodMonth: string;
   dueDate: string;
@@ -37,24 +37,39 @@ function BetalenContent() {
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
   const [info, setInfo] = useState<PeriodInfo | null>(null);
+  const [loadError, setLoadError] = useState("");
   const [error, setError] = useState("");
   const [paying, setPaying] = useState(false);
 
   useEffect(() => {
     if (!token) {
-      setError("Deze link is ongeldig.");
+      setLoadError("Deze link is ongeldig.");
       return;
     }
-    fetch(`/api/subscriptions/payments/${encodeURIComponent(token)}`)
-      .then(async (res) => {
-        const data = await res.json();
-        if (!res.ok) {
-          setError(data.error || "Kon deze betaalperiode niet vinden");
-          return;
-        }
-        setInfo(data);
-      })
-      .catch(() => setError("Kon deze betaalperiode niet vinden"));
+    let cancelled = false;
+    let polls = 0;
+
+    function load() {
+      polls += 1;
+      fetch(`/api/subscriptions/payments/${encodeURIComponent(token!)}`)
+        .then(async (res) => {
+          const data = await res.json();
+          if (cancelled) return;
+          if (!res.ok) {
+            setLoadError(data.error || "Kon deze betaalperiode niet vinden");
+            return;
+          }
+          setInfo(data);
+          // Net terug van Mollie: de webhook kan een paar seconden later binnenkomen.
+          if (data.status === "processing" && polls < 15) setTimeout(load, 2000);
+        })
+        .catch(() => !cancelled && setLoadError("Kon deze betaalperiode niet vinden"));
+    }
+
+    load();
+    return () => {
+      cancelled = true;
+    };
   }, [token]);
 
   async function handlePay() {
@@ -72,12 +87,12 @@ function BetalenContent() {
     window.location.href = data.checkoutUrl;
   }
 
-  if (error) {
+  if (loadError) {
     return (
       <div className="max-w-lg mx-auto px-4 py-16 text-center">
         <div className="bg-white rounded-lg border border-gray-200 p-8">
           <h2 className="text-xl font-bold mb-2">Kan deze periode niet tonen</h2>
-          <p className="text-gray-600">{error}</p>
+          <p className="text-gray-600">{loadError}</p>
         </div>
       </div>
     );
@@ -106,6 +121,11 @@ function BetalenContent() {
             Voor deze periode hoeft niet betaald te worden - het tijdslot blijft gewoon van
             jullie.
           </p>
+        ) : info.status === "processing" ? (
+          <p className="text-blue-700 bg-blue-50 border border-blue-200 rounded-lg p-4">
+            Je betaling wordt verwerkt. Dit duurt meestal maar even - je krijgt een
+            bevestigingsmail zodra hij binnen is.
+          </p>
         ) : info.subscriptionStatus !== "active" ? (
           <p className="text-gray-600 bg-gray-50 border border-gray-200 rounded-lg p-4">
             Deze vaste reservering is niet meer actief.
@@ -116,8 +136,9 @@ function BetalenContent() {
               Te betalen: <span className="font-semibold">{formatPrice(info.amountCents)}</span>
             </p>
             <p className="text-sm text-gray-500 mb-6">
-              Betaal vóór {formatDate(info.dueDate)} om het tijdslot zonder gedoe te behouden
-              (coulance tot en met {formatDate(info.graceUntil)}).
+              {new Date(info.dueDate + "T00:00:00") < new Date(new Date().toDateString())
+                ? `De betaaldatum (${formatDate(info.dueDate)}) is verstreken - betaal uiterlijk ${formatDate(info.graceUntil)} om het tijdslot te behouden.`
+                : `Betaal vóór ${formatDate(info.dueDate)} om het tijdslot zonder gedoe te behouden (coulance tot en met ${formatDate(info.graceUntil)}).`}
             </p>
 
             {error && (

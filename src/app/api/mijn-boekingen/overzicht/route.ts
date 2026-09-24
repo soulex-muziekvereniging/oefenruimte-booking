@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { config } from "@/config";
 import { verifyMagicLinkToken } from "@/lib/magicLink";
-import { toLocalDateStr } from "@/lib/date";
+import { toLocalDateStr, todayStr, nowInAmsterdam } from "@/lib/date";
+import { firstOfMonthStr, pickActionablePeriod } from "@/lib/periods";
 
 export async function GET(request: NextRequest) {
   const token = request.nextUrl.searchParams.get("token");
@@ -22,6 +23,7 @@ export async function GET(request: NextRequest) {
     )
     .ilike("contact_email", email)
     .in("status", ["pending", "confirmed"])
+    .gte("slot_date", todayStr())
     .order("slot_date", { ascending: true });
 
   const { data: subscriptions } = await supabase
@@ -57,11 +59,16 @@ export async function GET(request: NextRequest) {
         ).data ?? [])
       : [];
 
-  const latestPeriodBySubscription = new Map<string, CurrentPeriod>();
-  for (const period of currentPeriods) {
-    if (!latestPeriodBySubscription.has(period.subscription_id)) {
-      latestPeriodBySubscription.set(period.subscription_id, period);
-    }
+  const currentMonth = firstOfMonthStr(nowInAmsterdam());
+  const periodsFor = (subscriptionId: string) =>
+    currentPeriods.filter((p) => p.subscription_id === subscriptionId);
+
+  // Repetities tonen we voor de lopende maand - niet voor de nieuwste periode, want de
+  // cron zet de volgende maand al ~14 dagen van tevoren klaar.
+  function occurrencePeriod(subscriptionId: string): CurrentPeriod | undefined {
+    return periodsFor(subscriptionId)
+      .filter((p) => p.period_month >= currentMonth)
+      .sort((a, b) => a.period_month.localeCompare(b.period_month))[0];
   }
 
   type Swap = {
@@ -78,7 +85,7 @@ export async function GET(request: NextRequest) {
           .data ?? [])
       : [];
 
-  const today = toLocalDateStr(new Date());
+  const today = todayStr();
 
   type SubscriptionRow = {
     id: string;
@@ -92,7 +99,7 @@ export async function GET(request: NextRequest) {
   };
 
   function occurrencesFor(subscription: SubscriptionRow) {
-    const period = latestPeriodBySubscription.get(subscription.id);
+    const period = occurrencePeriod(subscription.id);
     if (!period) return { occurrences: [], swapsUsed: 0 };
 
     const periodMonth = period.period_month;
@@ -127,7 +134,7 @@ export async function GET(request: NextRequest) {
     const { occurrences, swapsUsed } = occurrencesFor(s);
     return {
       ...s,
-      currentPeriod: latestPeriodBySubscription.get(s.id) ?? null,
+      currentPeriod: pickActionablePeriod(periodsFor(s.id), currentMonth),
       occurrences,
       swapsUsed,
       swapsAllowed: config.subscriptionMaxSwapsPerPeriod,

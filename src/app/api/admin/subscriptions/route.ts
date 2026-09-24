@@ -3,8 +3,10 @@ import { verifyAdminPassword } from "@/lib/adminAuth";
 import { supabase } from "@/lib/supabase";
 import type { SubscriptionPayment } from "@/lib/supabase";
 import { config } from "@/config";
-import { firstOfMonthStr, addDaysStr } from "@/lib/periods";
-import { sendSubscriptionConfirmationEmail } from "@/lib/email";
+import { firstOfMonthStr, addDaysStr, pickActionablePeriod } from "@/lib/periods";
+import { nowInAmsterdam } from "@/lib/date";
+import { findConflictingBookingDates } from "@/lib/slots";
+import { sendSubscriptionConfirmationEmail, sendSafely } from "@/lib/email";
 
 export async function GET(request: NextRequest) {
   const authError = verifyAdminPassword(request);
@@ -23,23 +25,24 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // Voeg de meest recente betaalperiode per reservering toe, zodat het admin-scherm de
-  // betaalstatus kan tonen zonder een aparte round-trip per rij.
-  const { data: payments } = await supabase
-    .from("subscription_payments")
-    .select("*")
-    .order("period_month", { ascending: false });
+  // Voeg per reservering de periode toe waar actie op nodig is, zodat het admin-scherm
+  // de betaalstatus (en kwijtschelden/coulance) op de juiste maand toont.
+  const { data: payments } = await supabase.from("subscription_payments").select("*");
 
-  const latestPaymentBySubscription = new Map<string, SubscriptionPayment>();
+  const paymentsBySubscription = new Map<string, SubscriptionPayment[]>();
   for (const payment of (payments ?? []) as SubscriptionPayment[]) {
-    if (!latestPaymentBySubscription.has(payment.subscription_id)) {
-      latestPaymentBySubscription.set(payment.subscription_id, payment);
-    }
+    const list = paymentsBySubscription.get(payment.subscription_id) ?? [];
+    list.push(payment);
+    paymentsBySubscription.set(payment.subscription_id, list);
   }
 
+  const currentMonth = firstOfMonthStr(nowInAmsterdam());
   const withPeriod = data.map((subscription) => ({
     ...subscription,
-    currentPeriod: latestPaymentBySubscription.get(subscription.id) ?? null,
+    currentPeriod: pickActionablePeriod(
+      paymentsBySubscription.get(subscription.id) ?? [],
+      currentMonth
+    ),
   }));
 
   return NextResponse.json(withPeriod);
@@ -77,8 +80,19 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Ongeldige frequentie" }, { status: 400 });
   }
 
+  const conflicts = await findConflictingBookingDates(weekday, dagdeelId);
+  if (conflicts.length > 0) {
+    return NextResponse.json(
+      {
+        error: `Er staan al losse boekingen op dit weekdag+dagdeel (${conflicts.join(", ")}). Annuleer of verplaats die eerst.`,
+      },
+      { status: 409 }
+    );
+  }
+
   const priceCents =
     config.subscriptionPricing[frequency as "weekly" | "biweekly"].priceCentsPerMonth;
+  const periodMonth = firstOfMonthStr(nowInAmsterdam());
 
   const { data: subscription, error } = await supabase
     .from("subscriptions")
@@ -92,6 +106,7 @@ export async function POST(request: NextRequest) {
       frequency,
       price_cents: priceCents,
       status: "active",
+      term_start_date: periodMonth,
     })
     .select()
     .single();
@@ -109,15 +124,13 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const periodMonth = firstOfMonthStr(new Date());
-  const dueDate = firstOfMonthStr(new Date());
-  const graceUntil = addDaysStr(dueDate, config.subscriptionGraceDays);
+  const graceUntil = addDaysStr(periodMonth, config.subscriptionGraceDays);
 
   const { error: periodError } = await supabase.from("subscription_payments").insert({
     subscription_id: subscription.id,
     period_month: periodMonth,
     amount_cents: priceCents,
-    due_date: dueDate,
+    due_date: periodMonth,
     grace_until: graceUntil,
     status: "waived",
   });
@@ -130,7 +143,9 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  await sendSubscriptionConfirmationEmail(subscription);
+  await sendSafely("bevestiging vaste reservering (handmatig)", () =>
+    sendSubscriptionConfirmationEmail(subscription)
+  );
 
   return NextResponse.json(subscription);
 }

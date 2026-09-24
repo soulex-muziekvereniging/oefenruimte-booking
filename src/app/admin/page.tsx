@@ -23,6 +23,7 @@ type Booking = {
   slot_end_time: string;
   price_cents: number;
   status: string;
+  mollie_payment_id: string | null;
   created_at: string;
 };
 
@@ -309,18 +310,26 @@ export default function AdminPage() {
       return;
     }
     setCancellingSubscription(periodId);
-    await fetch(`/api/admin/subscription-payments/${periodId}/waive`, {
+    const res = await fetch(`/api/admin/subscription-payments/${periodId}/waive`, {
       method: "POST",
     });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      alert(data.error || "Kwijtschelden is niet gelukt");
+    }
     await fetchSubscriptions();
     setCancellingSubscription(null);
   }
 
   async function handleExtendGrace(periodId: string) {
     setCancellingSubscription(periodId);
-    await fetch(`/api/admin/subscription-payments/${periodId}/extend-grace`, {
+    const res = await fetch(`/api/admin/subscription-payments/${periodId}/extend-grace`, {
       method: "POST",
     });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      alert(data.error || "Coulance verlengen is niet gelukt");
+    }
     await fetchSubscriptions();
     setCancellingSubscription(null);
   }
@@ -421,18 +430,48 @@ export default function AdminPage() {
     await fetchMembers();
   }
 
-  async function handleCancel(bookingId: string, bandName: string) {
-    if (!confirm(`Weet je zeker dat je de boeking van "${bandName}" wilt annuleren? Het bedrag wordt teruggestort.`)) {
+  async function handleCancel(booking: Booking) {
+    const paidOnline = !!booking.mollie_payment_id;
+    if (
+      !confirm(
+        `Weet je zeker dat je de boeking van "${booking.band_name}" wilt annuleren?` +
+          (paidOnline
+            ? " Het bedrag wordt via Mollie teruggestort."
+            : " Deze boeking is niet online betaald, er wordt niets teruggestort.")
+      )
+    ) {
       return;
     }
 
-    setCancelling(bookingId);
-    const res = await fetch(`/api/admin/bookings/${bookingId}/cancel`, {
-      method: "POST",
-    });
+    setCancelling(booking.id);
+    const cancel = (skipRefund: boolean) =>
+      fetch(`/api/admin/bookings/${booking.id}/cancel`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ skipRefund }),
+      });
+
+    let res = await cancel(false);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      if (
+        data.refundFailed &&
+        confirm(
+          `${data.error}
+
+Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mollie-dashboard.)`
+        )
+      ) {
+        res = await cancel(true);
+      } else {
+        if (!data.refundFailed) alert(data.error || "Er ging iets mis bij het annuleren");
+        setCancelling(null);
+        return;
+      }
+    }
 
     if (!res.ok) {
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       alert(data.error || "Er ging iets mis bij het annuleren");
       setCancelling(null);
       return;
@@ -1346,7 +1385,7 @@ export default function AdminPage() {
                               key={dagdeel.id}
                               onClick={() =>
                                 booking.status === "confirmed" &&
-                                handleCancel(booking.id, booking.band_name)
+                                handleCancel(booking)
                               }
                               disabled={
                                 booking.status !== "confirmed" || cancelling === booking.id

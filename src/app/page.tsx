@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { config } from "@/config";
-import { toLocalDateStr } from "@/lib/date";
+import { toLocalDateStr, hoursUntilSlot } from "@/lib/date";
 import SubscriptionSection from "./SubscriptionSection";
 import MembershipRequestPrompt from "./MembershipRequestPrompt";
 import JoinRequestForm from "./JoinRequestForm";
@@ -89,7 +89,7 @@ export default function Home() {
   const canGoPrev = weekStart > getWeekStart(today);
 
   const maxDate = new Date(today);
-  maxDate.setDate(maxDate.getDate() + 4 * 7);
+  maxDate.setDate(maxDate.getDate() + config.maxWeeksAhead * 7);
   const canGoNext = new Date(weekEndStr + "T00:00:00") < maxDate;
 
   const maxDateStr = formatDateStr(maxDate);
@@ -333,7 +333,6 @@ export default function Home() {
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-2 sm:gap-3">
           {days.map((day) => {
-            const isPast = day.date < formatDateStr(new Date());
             return (
               <div
                 key={day.date}
@@ -351,7 +350,12 @@ export default function Home() {
                 </div>
                 <div className="space-y-1.5">
                   {day.slots.map((slot) => {
-                    const disabled = !slot.available || isPast;
+                    // Voorbij (ook een eerder dagdeel van vandaag) of verder dan het
+                    // boekingsvenster - de server weigert die ook.
+                    const disabled =
+                      !slot.available ||
+                      hoursUntilSlot(slot.date, slot.startTime) <= 0 ||
+                      slot.date > maxDateStr;
                     const isSelected =
                       selectedSlot?.date === slot.date &&
                       selectedSlot?.startTime === slot.startTime;

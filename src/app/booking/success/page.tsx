@@ -2,11 +2,24 @@
 
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
+import PaymentResult from "../../PaymentResult";
 
 function SuccessContent() {
   const searchParams = useSearchParams();
   const bookingId = searchParams.get("id");
 
+  return (
+    <PaymentResult
+      statusUrl={bookingId ? `/api/bookings/${encodeURIComponent(bookingId)}/status` : null}
+      successStatuses={["confirmed"]}
+      pendingStatuses={["pending"]}
+      retryHref="/"
+      success={<Confirmed bookingId={bookingId} />}
+    />
+  );
+}
+
+function Confirmed({ bookingId }: { bookingId: string | null }) {
   return (
     <div className="max-w-lg mx-auto px-4 py-16 text-center">
       <div className="bg-white rounded-lg border border-gray-200 p-8">

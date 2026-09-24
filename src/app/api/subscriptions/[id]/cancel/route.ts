@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
-import { sendSubscriptionCancellationNotification } from "@/lib/email";
+import { sendSubscriptionCancellationNotification, sendSafely } from "@/lib/email";
 
 export async function POST(
   request: NextRequest,
@@ -41,7 +41,7 @@ export async function POST(
     })
     .eq("id", id);
 
-  await sendSubscriptionCancellationNotification(subscription);
+  await sendSafely("melding opzegging", () => sendSubscriptionCancellationNotification(subscription));
 
   return NextResponse.json({ success: true });
 }

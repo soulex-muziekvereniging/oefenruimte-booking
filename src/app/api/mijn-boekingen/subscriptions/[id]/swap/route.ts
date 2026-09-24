@@ -6,7 +6,7 @@ import { hoursUntilSlot } from "@/lib/date";
 import { firstOfMonthStr } from "@/lib/periods";
 import { getSlotsForRange } from "@/lib/slots";
 import { getActiveMemberEmails } from "@/lib/members";
-import { sendSwapConfirmationEmail, sendSwapNotificationToOrg } from "@/lib/email";
+import { sendSwapConfirmationEmail, sendSwapNotificationToOrg, sendSafely } from "@/lib/email";
 
 // Zelf één repetitie binnen de lopende periode verplaatsen naar een ander vrij
 // dagdeel - max. config.subscriptionMaxSwapsPerPeriod keer per kalendermaand, en
@@ -129,8 +129,12 @@ export async function POST(
   }
 
   const bandEmails = await getActiveMemberEmails(subscription.band_name);
-  await sendSwapConfirmationEmail(subscription, originalDate, newDate, newDagdeelId, bandEmails);
-  await sendSwapNotificationToOrg(subscription, originalDate, newDate, newDagdeelId);
+  await sendSafely("bevestiging ruiling", () =>
+    sendSwapConfirmationEmail(subscription, originalDate, newDate, newDagdeelId, bandEmails)
+  );
+  await sendSafely("melding ruiling bestuur", () =>
+    sendSwapNotificationToOrg(subscription, originalDate, newDate, newDagdeelId)
+  );
 
   return NextResponse.json({ success: true });
 }

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
-import { sendMembershipRequestNotificationToOrg } from "@/lib/email";
+import { sendMembershipRequestNotificationToOrg, sendSafely } from "@/lib/email";
 import { getClientIp, isRateLimited } from "@/lib/rateLimit";
 
 const MAX_ATTEMPTS = 5;
@@ -43,7 +43,11 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  await sendMembershipRequestNotificationToOrg(request_);
+  // Het verzoek staat al in de database en is zichtbaar in /admin - een mislukte
+  // melding mag de aanvraag voor de band niet laten mislukken.
+  await sendSafely("melding lidmaatschapsverzoek", () =>
+    sendMembershipRequestNotificationToOrg(request_)
+  );
 
   return NextResponse.json({ success: true });
 }

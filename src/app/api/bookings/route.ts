@@ -3,6 +3,8 @@ import { supabase } from "@/lib/supabase";
 import { mollie } from "@/lib/mollie";
 import { config } from "@/config";
 import { expireStalePendingBookings } from "@/lib/expire";
+import { getSlotsForRange } from "@/lib/slots";
+import { slotStartInstant, nowInAmsterdam, toLocalDateStr } from "@/lib/date";
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
@@ -34,6 +36,31 @@ export async function POST(request: NextRequest) {
   }
 
   const startHour = parseInt(slotStartTime.split(":")[0], 10);
+  const dagdeel = config.dagdelen.find((d) => d.startHour === startHour);
+  if (!dagdeel || !/^\d{4}-\d{2}-\d{2}$/.test(slotDate)) {
+    return NextResponse.json({ error: "Ongeldig tijdslot" }, { status: 400 });
+  }
+
+  const latest = nowInAmsterdam();
+  latest.setDate(latest.getDate() + config.maxWeeksAhead * 7);
+  if (slotStartInstant(slotDate, slotStartTime).getTime() <= Date.now()) {
+    return NextResponse.json({ error: "Dit tijdslot is al begonnen of voorbij" }, { status: 400 });
+  }
+  if (slotDate > toLocalDateStr(latest)) {
+    return NextResponse.json(
+      { error: `Je kunt maximaal ${config.maxWeeksAhead} weken vooruit boeken` },
+      { status: 400 }
+    );
+  }
+
+  // De unieke index op bookings vangt alleen dubbele losse boekingen af - niet een
+  // vaste reservering (of een daarheen geruilde repetitie) op hetzelfde moment.
+  const days = await getSlotsForRange(slotDate, slotDate);
+  const slot = days[0]?.slots.find((s) => s.dagdeelId === dagdeel.id);
+  if (!slot || !slot.available) {
+    return NextResponse.json({ error: "Dit tijdslot is al geboekt" }, { status: 409 });
+  }
+
   const endHour = startHour + config.slotDurationMinutes / 60;
   const endTime = `${endHour.toString().padStart(2, "0")}:00`;
 

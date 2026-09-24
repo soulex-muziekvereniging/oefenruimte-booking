@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { mollie } from "@/lib/mollie";
-import { sendCancellationNotification } from "@/lib/email";
+import { sendCancellationNotification, sendSafely } from "@/lib/email";
 import { hoursUntilSlot } from "@/lib/date";
 import { config } from "@/config";
 
@@ -45,13 +45,23 @@ export async function POST(
   }
 
   if (booking.mollie_payment_id) {
-    await mollie.paymentRefunds.create({
-      paymentId: booking.mollie_payment_id,
-      amount: {
-        currency: "EUR",
-        value: (booking.price_cents / 100).toFixed(2),
-      },
-    });
+    try {
+      await mollie.paymentRefunds.create({
+        paymentId: booking.mollie_payment_id,
+        amount: {
+          currency: "EUR",
+          value: (booking.price_cents / 100).toFixed(2),
+        },
+      });
+    } catch (err) {
+      console.error(`Terugbetaling voor boeking ${id} mislukt:`, err);
+      return NextResponse.json(
+        {
+          error: `Het terugstorten lukte niet, dus de boeking is niet geannuleerd. Neem contact op met ${config.organizationEmail}.`,
+        },
+        { status: 502 }
+      );
+    }
   }
 
   await supabase
@@ -59,7 +69,7 @@ export async function POST(
     .update({ status: "cancelled", updated_at: new Date().toISOString() })
     .eq("id", id);
 
-  await sendCancellationNotification(booking);
+  await sendSafely("annuleringsmelding", () => sendCancellationNotification(booking, !!booking.mollie_payment_id));
 
   return NextResponse.json({ success: true });
 }

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { createResetToken } from "@/lib/adminSession";
-import { sendAdminPasswordResetEmail } from "@/lib/email";
+import { sendAdminPasswordResetEmail, sendSafely } from "@/lib/email";
 import { getClientIp, isRateLimited } from "@/lib/rateLimit";
 
 const MAX_ATTEMPTS = 5;
@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
     const appUrl = process.env.NEXT_PUBLIC_APP_URL!;
     const token = createResetToken(admin.email);
     const link = `${appUrl}/admin/wachtwoord-resetten?token=${token}`;
-    await sendAdminPasswordResetEmail(admin.email, link);
+    await sendSafely("wachtwoord-resetmail", () => sendAdminPasswordResetEmail(admin.email, link));
   }
 
   return NextResponse.json(GENERIC_RESPONSE);

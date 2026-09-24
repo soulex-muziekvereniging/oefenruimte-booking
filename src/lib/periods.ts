@@ -13,6 +13,22 @@ export function addMonthsToMonthStr(monthStr: string, months: number): string {
   return toLocalDateStr(new Date(y, m - 1 + months, 1));
 }
 
+// De periode waar actie op nodig is: de oudste nog onbetaalde, anders die van de lopende
+// maand, anders de meest recente. Niet simpelweg de nieuwste - de cron zet de volgende
+// maand al ~14 dagen van tevoren klaar, en dan zou de lopende maand uit beeld raken.
+export function pickActionablePeriod<T extends { period_month: string; status: string }>(
+  periods: T[],
+  currentMonth: string
+): T | null {
+  const sorted = [...periods].sort((a, b) => a.period_month.localeCompare(b.period_month));
+  return (
+    sorted.find((p) => p.status === "unpaid") ??
+    sorted.find((p) => p.period_month === currentMonth) ??
+    sorted[sorted.length - 1] ??
+    null
+  );
+}
+
 export function addDaysStr(dateStr: string, days: number): string {
   const d = new Date(dateStr + "T00:00:00");
   d.setDate(d.getDate() + days);

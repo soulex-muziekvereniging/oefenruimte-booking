@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { createMagicLinkToken } from "@/lib/magicLink";
-import { sendMyBookingsLinkEmail } from "@/lib/email";
+import { sendMyBookingsLinkEmail, sendSafely } from "@/lib/email";
 import { getClientIp, isRateLimited } from "@/lib/rateLimit";
 
 const GENERIC_RESPONSE = {
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
     const appUrl = process.env.NEXT_PUBLIC_APP_URL!;
     const token = createMagicLinkToken(member.email);
     const link = `${appUrl}/mijn-boekingen/overzicht?token=${token}`;
-    await sendMyBookingsLinkEmail(member.email, link);
+    await sendSafely("mijn-boekingen-link", () => sendMyBookingsLinkEmail(member.email, link));
   }
 
   return NextResponse.json(GENERIC_RESPONSE);

@@ -70,6 +70,14 @@ function dagdeelLabelFor(dagdeelId: string): string {
   return config.dagdelen.find((d) => d.id === dagdeelId)?.label ?? dagdeelId;
 }
 
+// Zelfde grens als de server: schuiven kan tot cancellationCutoffHours voor aanvang.
+function canStillSwap(date: string, dagdeelId: string): boolean {
+  const dagdeel = config.dagdelen.find((d) => d.id === dagdeelId);
+  if (!dagdeel) return false;
+  const start = `${dagdeel.startHour.toString().padStart(2, "0")}:00:00`;
+  return hoursUntilSlot(date, start) >= config.cancellationCutoffHours;
+}
+
 function formatShortDate(dateStr: string): string {
   return new Date(dateStr + "T00:00:00").toLocaleDateString("nl-NL", {
     weekday: "short",
@@ -341,7 +349,9 @@ function OverzichtContent() {
                               formatShortDate(occ.date)
                             )}
                           </span>
-                          {!occ.swappedTo && s.swapsUsed < s.swapsAllowed && (
+                          {!occ.swappedTo &&
+                            s.swapsUsed < s.swapsAllowed &&
+                            canStillSwap(occ.date, s.dagdeel_id) && (
                             <button
                               onClick={() => openSwapPanel(s.id, occ.date)}
                               className="text-blue-600 hover:text-blue-700 text-xs font-medium shrink-0"

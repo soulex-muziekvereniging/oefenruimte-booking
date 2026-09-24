@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
-import { mollie } from "@/lib/mollie";
+import { mollie, isPaymentInProgress } from "@/lib/mollie";
 import { config } from "@/config";
 
 export async function POST(
@@ -36,6 +36,13 @@ export async function POST(
     return NextResponse.json(
       { error: "Deze vaste reservering is niet meer actief" },
       { status: 400 }
+    );
+  }
+
+  if (await isPaymentInProgress(periodPayment.mollie_payment_id)) {
+    return NextResponse.json(
+      { error: "Er loopt al een betaling voor deze periode. Even geduld - vernieuw de pagina over een minuutje." },
+      { status: 409 }
     );
   }
 

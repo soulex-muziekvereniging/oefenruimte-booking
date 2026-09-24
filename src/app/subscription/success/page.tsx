@@ -2,11 +2,26 @@
 
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
+import PaymentResult from "../../PaymentResult";
 
 function SuccessContent() {
   const searchParams = useSearchParams();
   const subscriptionId = searchParams.get("id");
 
+  return (
+    <PaymentResult
+      statusUrl={
+        subscriptionId ? `/api/subscriptions/${encodeURIComponent(subscriptionId)}/status` : null
+      }
+      successStatuses={["active"]}
+      pendingStatuses={["pending_first_payment"]}
+      retryHref="/"
+      success={<Confirmed subscriptionId={subscriptionId} />}
+    />
+  );
+}
+
+function Confirmed({ subscriptionId }: { subscriptionId: string | null }) {
   return (
     <div className="max-w-lg mx-auto px-4 py-16 text-center">
       <div className="bg-white rounded-lg border border-gray-200 p-8">

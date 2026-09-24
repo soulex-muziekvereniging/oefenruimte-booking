@@ -4,6 +4,8 @@ import { mollie } from "@/lib/mollie";
 import { config } from "@/config";
 import { expireStalePendingSubscriptions } from "@/lib/expire";
 import { firstOfMonthStr, addDaysStr } from "@/lib/periods";
+import { nowInAmsterdam } from "@/lib/date";
+import { findConflictingBookingDates } from "@/lib/slots";
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
@@ -50,6 +52,16 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const conflicts = await findConflictingBookingDates(weekday, dagdeelId);
+  if (conflicts.length > 0) {
+    return NextResponse.json(
+      {
+        error: "Op dit dagdeel staan de komende weken al losse boekingen van andere bands. Kies een ander moment of neem contact op met het bestuur.",
+      },
+      { status: 409 }
+    );
+  }
+
   const priceCents = config.subscriptionPricing[frequency as "weekly" | "biweekly"].priceCentsPerMonth;
 
   const { data: subscription, error } = await supabase
@@ -83,8 +95,8 @@ export async function POST(request: NextRequest) {
 
   // Eerste betaalperiode = de huidige kalendermaand. Latere maanden worden door de
   // dagelijkse cron aangemaakt (zie /api/cron/subscriptions).
-  const periodMonth = firstOfMonthStr(new Date());
-  const dueDate = firstOfMonthStr(new Date());
+  const periodMonth = firstOfMonthStr(nowInAmsterdam());
+  const dueDate = firstOfMonthStr(nowInAmsterdam());
   const graceUntil = addDaysStr(dueDate, config.subscriptionGraceDays);
 
   const { data: periodPayment, error: periodError } = await supabase

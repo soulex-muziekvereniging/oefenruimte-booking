@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyAdminPassword } from "@/lib/adminAuth";
 import { supabase } from "@/lib/supabase";
 import { mollie } from "@/lib/mollie";
-import { sendCancellationNotification } from "@/lib/email";
+import { sendCancellationNotification, sendSafely } from "@/lib/email";
 
 export async function POST(
   request: NextRequest,
@@ -29,7 +29,11 @@ export async function POST(
     );
   }
 
-  if (booking.mollie_payment_id) {
+  // skipRefund: de beheerder heeft na een mislukte terugbetaling bewust gekozen om toch
+  // te annuleren (bv. omdat het al handmatig via Mollie is teruggestort).
+  const { skipRefund } = await request.json().catch(() => ({ skipRefund: false }));
+
+  if (booking.mollie_payment_id && !skipRefund) {
     try {
       await mollie.paymentRefunds.create({
         paymentId: booking.mollie_payment_id,
@@ -38,8 +42,12 @@ export async function POST(
           value: (booking.price_cents / 100).toFixed(2),
         },
       });
-    } catch {
-      // Refund may fail in test mode or if already refunded
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : "onbekende fout";
+      return NextResponse.json(
+        { error: `Terugstorten via Mollie mislukt: ${reason}`, refundFailed: true },
+        { status: 502 }
+      );
     }
   }
 
@@ -48,11 +56,7 @@ export async function POST(
     .update({ status: "cancelled", updated_at: new Date().toISOString() })
     .eq("id", id);
 
-  try {
-    await sendCancellationNotification(booking);
-  } catch {
-    // Email failure should not block cancellation
-  }
+  await sendSafely("annuleringsmelding", () => sendCancellationNotification(booking, !!booking.mollie_payment_id && !skipRefund));
 
   return NextResponse.json({ success: true });
 }
