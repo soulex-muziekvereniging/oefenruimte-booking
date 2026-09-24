@@ -126,6 +126,8 @@ export default function AdminPage() {
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [subscriptionsLoading, setSubscriptionsLoading] = useState(false);
   const [cancellingSubscription, setCancellingSubscription] = useState<string | null>(null);
+  const [showInactiveSubscriptions, setShowInactiveSubscriptions] = useState(false);
+  const [deletingSubscriptions, setDeletingSubscriptions] = useState(false);
   const [swaps, setSwaps] = useState<SubscriptionSwap[]>([]);
 
   const [requests, setRequests] = useState<MembershipRequest[]>([]);
@@ -269,6 +271,33 @@ export default function AdminPage() {
 
     await fetchSubscriptions();
     setCancellingSubscription(null);
+  }
+
+  async function handleDeleteSubscriptions(targets: Subscription[]) {
+    if (targets.length === 0) return;
+    const label =
+      targets.length === 1
+        ? `de vaste reservering van "${targets[0].band_name}"`
+        : `${targets.length} opgezegde/vervallen vaste reserveringen`;
+    if (
+      !confirm(
+        `Weet je zeker dat je ${label} definitief wilt verwijderen? De betaalgeschiedenis ervan verdwijnt ook.`
+      )
+    ) {
+      return;
+    }
+
+    setDeletingSubscriptions(true);
+    const failed: string[] = [];
+    for (const s of targets) {
+      const res = await fetch(`/api/admin/subscriptions/${s.id}`, { method: "DELETE" });
+      if (!res.ok) failed.push(s.band_name);
+    }
+    if (failed.length > 0) {
+      alert(`Kon niet verwijderen: ${failed.join(", ")}`);
+    }
+    await fetchSubscriptions();
+    setDeletingSubscriptions(false);
   }
 
   async function handleWaivePeriod(periodId: string) {
@@ -799,13 +828,50 @@ export default function AdminPage() {
             </form>
           )}
 
-          {subscriptions.length === 0 ? (
+          {(() => {
+            const inactive = subscriptions.filter(
+              (s) => s.status === "cancelled" || s.status === "lapsed"
+            );
+            if (inactive.length === 0) return null;
+            return (
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-3 text-sm">
+                <button
+                  onClick={() => setShowInactiveSubscriptions((v) => !v)}
+                  className="text-blue-600 hover:text-blue-700"
+                >
+                  {showInactiveSubscriptions
+                    ? "Verberg opgezegde/vervallen"
+                    : `Toon opgezegde/vervallen (${inactive.length})`}
+                </button>
+                {showInactiveSubscriptions && (
+                  <button
+                    onClick={() => handleDeleteSubscriptions(inactive)}
+                    disabled={deletingSubscriptions}
+                    className="px-3 py-1.5 bg-red-50 text-red-700 border border-red-200 rounded-lg hover:bg-red-100 disabled:opacity-50 font-medium"
+                  >
+                    {deletingSubscriptions ? "Bezig..." : `Alle ${inactive.length} verwijderen`}
+                  </button>
+                )}
+              </div>
+            );
+          })()}
+
+          {subscriptions.filter(
+            (s) =>
+              showInactiveSubscriptions || (s.status !== "cancelled" && s.status !== "lapsed")
+          ).length === 0 ? (
             <div className="text-center py-12 text-gray-500 bg-white rounded-lg border border-gray-200">
               Geen vaste reserveringen gevonden.
             </div>
           ) : (
             <div className="space-y-3">
-              {subscriptions.map((subscription) => (
+              {subscriptions
+                .filter(
+                  (s) =>
+                    showInactiveSubscriptions ||
+                    (s.status !== "cancelled" && s.status !== "lapsed")
+                )
+                .map((subscription) => (
                 <div
                   key={subscription.id}
                   className="bg-white rounded-lg border border-gray-200 p-4 sm:p-5"
@@ -894,6 +960,16 @@ export default function AdminPage() {
                           {cancellingSubscription === subscription.id
                             ? "Opzeggen..."
                             : "Zeg op"}
+                        </button>
+                      )}
+                      {(subscription.status === "cancelled" ||
+                        subscription.status === "lapsed") && (
+                        <button
+                          onClick={() => handleDeleteSubscriptions([subscription])}
+                          disabled={deletingSubscriptions}
+                          className="px-4 py-2.5 bg-white text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 text-sm font-medium min-h-[44px]"
+                        >
+                          Verwijderen
                         </button>
                       )}
                     </div>
