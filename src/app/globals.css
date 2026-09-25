@@ -1,1 +1,20 @@
 @import "tailwindcss";
+
+/* Huisstijl Soulex (zie soulex.nl): petrolblauw als hoofdkleur, oranje als accent.
+   De standaard "blue"-schaal van Tailwind wordt hier vervangen door petrol, zodat alle
+   bestaande knoppen/links (bg-blue-600 enz.) automatisch in de huisstijl staan. */
+@theme {
+  --color-blue-50: #eef6f9;
+  --color-blue-100: #d5e9f0;
+  --color-blue-200: #aed3e1;
+  --color-blue-300: #7db6cc;
+  --color-blue-400: #4a93ae;
+  --color-blue-500: #2a7593;
+  --color-blue-600: #175670;
+  --color-blue-700: #11445a;
+  --color-blue-800: #0e3647;
+  --color-blue-900: #0b2a38;
+
+  --color-soulex-orange: #f66a10;
+  --color-soulex-orange-dark: #d4560a;
+}

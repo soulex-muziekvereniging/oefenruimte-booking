@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import Image from "next/image";
 import { config } from "@/config";
 import { toLocalDateStr, hoursUntilSlot } from "@/lib/date";
 import SubscriptionSection from "./SubscriptionSection";
@@ -205,66 +206,114 @@ export default function Home() {
   }
 
   if (mode === null) {
+    const euro = (cents: number) => `€${(cents / 100).toFixed(2).replace(".", ",")}`;
+    const options = [
+      {
+        mode: "once" as const,
+        title: "Eenmalige boeking",
+        text: "Los dagdeel op een datum naar keuze",
+        price: euro(config.pricePerSlotCents),
+      },
+      {
+        mode: "package" as const,
+        title: "Om de week",
+        text: `Pakket van ${config.packagePricing.sessions}× hetzelfde dagdeel, om de ${config.packagePricing.intervalWeeks} weken`,
+        price: euro(config.packagePricing.priceCents),
+      },
+      {
+        mode: "subscription" as const,
+        title: "Vaste reservering",
+        text: "Elke week hetzelfde dagdeel, blijft van jullie zolang je betaalt",
+        price: `${euro(config.subscriptionPricing.weekly.priceCentsPerMonth)}/mnd`,
+      },
+    ];
+
     return (
-      <div className="max-w-3xl mx-auto px-4 py-12 sm:py-20 text-center">
-        <h2 className="text-2xl sm:text-3xl font-bold mb-3">
-          Boek {config.roomName.toLowerCase()}
-        </h2>
-        <p className="text-gray-600 mb-10 max-w-xl mx-auto">
-          Reserveer een dagdeel (Ochtend, Middag of Avond, telkens 4 uur) voor je
-          band: los, als pakket om de week, of elke week vast.
-        </p>
-        <div className="grid sm:grid-cols-3 gap-4 max-w-3xl mx-auto">
-          <button
-            onClick={() => setMode("once")}
-            className="text-left bg-white border-2 border-gray-200 rounded-xl p-5 sm:p-6 hover:border-blue-400 hover:shadow-md transition-all"
-          >
-            <span className="block text-lg font-semibold mb-1">
-              Eenmalige boeking
-            </span>
-            <span className="block text-sm text-gray-600 mb-3">
-              Los dagdeel op een datum naar keuze
-            </span>
-            <span className="block text-xl font-bold text-blue-600">
-              €{(config.pricePerSlotCents / 100).toFixed(2).replace(".", ",")}
-            </span>
-          </button>
-          <button
-            onClick={() => setMode("package")}
-            className="text-left bg-white border-2 border-gray-200 rounded-xl p-5 sm:p-6 hover:border-blue-400 hover:shadow-md transition-all"
-          >
-            <span className="block text-lg font-semibold mb-1">
-              Om de week
-            </span>
-            <span className="block text-sm text-gray-600 mb-3">
-              Pakket van {config.packagePricing.sessions}× hetzelfde dagdeel, om de
-              {" "}{config.packagePricing.intervalWeeks} weken
-            </span>
-            <span className="block text-xl font-bold text-blue-600">
-              €{(config.packagePricing.priceCents / 100).toFixed(2).replace(".", ",")}
-            </span>
-          </button>
-          <button
-            onClick={() => setMode("subscription")}
-            className="text-left bg-white border-2 border-gray-200 rounded-xl p-5 sm:p-6 hover:border-blue-400 hover:shadow-md transition-all"
-          >
-            <span className="block text-lg font-semibold mb-1">
-              Vaste reservering
-            </span>
-            <span className="block text-sm text-gray-600 mb-3">
-              Elke week hetzelfde dagdeel, blijft van jullie zolang je betaalt
-            </span>
-            <span className="block text-xl font-bold text-blue-600">
-              €{(config.subscriptionPricing.weekly.priceCentsPerMonth / 100).toFixed(2).replace(".", ",")}/mnd
-            </span>
-          </button>
+      <div>
+        <section className="relative h-56 sm:h-80 overflow-hidden">
+          <Image
+            src="/oefenruimte-overzicht.jpg"
+            alt="De oefenruimte van Soulex met drumstel, versterkers en speakers"
+            fill
+            priority
+            sizes="100vw"
+            className="object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-blue-900/90 via-blue-900/40 to-blue-900/10" />
+          <div className="absolute inset-x-0 bottom-0 max-w-5xl mx-auto px-4 pb-6 sm:pb-8 text-white">
+            <h2 className="text-3xl sm:text-5xl font-bold font-[family-name:var(--font-slab)] drop-shadow">
+              Boek de oefenruimte
+            </h2>
+            <p className="mt-2 max-w-xl text-sm sm:text-base text-blue-50">
+              Geluidsdicht, met airco en complete backline. Reserveer een dagdeel
+              (ochtend, middag of avond, telkens 4 uur): los, om de week of elke week vast.
+            </p>
+          </div>
+        </section>
+
+        <div className="max-w-5xl mx-auto px-4 py-8 sm:py-12">
+          <div className="grid sm:grid-cols-3 gap-4">
+            {options.map((o) => (
+              <button
+                key={o.mode}
+                onClick={() => setMode(o.mode)}
+                className="group text-left bg-white border-2 border-gray-200 border-t-4 border-t-soulex-orange rounded-xl p-5 sm:p-6 hover:border-blue-400 hover:border-t-soulex-orange hover:shadow-md transition-all"
+              >
+                <span className="block text-lg font-semibold mb-1 font-[family-name:var(--font-slab)] text-blue-900">
+                  {o.title}
+                </span>
+                <span className="block text-sm text-gray-600 mb-3">{o.text}</span>
+                <span className="flex items-baseline justify-between">
+                  <span className="text-xl font-bold text-blue-600">{o.price}</span>
+                  <span className="text-sm font-medium text-soulex-orange group-hover:translate-x-0.5 transition-transform">
+                    Kies →
+                  </span>
+                </span>
+              </button>
+            ))}
+          </div>
+          <div className="text-center">
+            <button
+              onClick={() => setMode("join")}
+              className="mt-6 text-sm text-blue-600 hover:text-blue-700"
+            >
+              Nog geen lid? Vraag hier toegang aan →
+            </button>
+          </div>
+
+          <section className="mt-12 grid md:grid-cols-2 gap-6 items-center bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div className="relative h-56 md:h-full min-h-56">
+              <Image
+                src="/oefenruimte-drums.jpg"
+                alt="Sonor drumstel en mengpaneel in de oefenruimte"
+                fill
+                sizes="(min-width: 768px) 50vw, 100vw"
+                className="object-cover"
+              />
+            </div>
+            <div className="p-5 sm:p-6">
+              <h3 className="text-xl font-bold text-blue-900 font-[family-name:var(--font-slab)] mb-2">
+                Wat staat er klaar?
+              </h3>
+              <p className="text-sm text-gray-600 mb-3">
+                Een volledig geluidsdichte ruimte in gemeenschapshuis De Borgh in Budel.
+                Alle muziekstijlen welkom.
+              </p>
+              <ul className="text-sm text-gray-700 space-y-1">
+                <li>🥁 Sonor Select Force Stage 2 drumstel</li>
+                <li>🎸 Orange Crush Pro CR60 en Marshall DSL20CR gitaarversterkers</li>
+                <li>🎸 Hartke HD150 basversterker</li>
+                <li>🎤 Yamaha EMX 312 SC zangversterker, 4× Shure SM58 en 1× Shure Beta 57A</li>
+                <li>🔊 4× Electro Voice ELX 112 speakers</li>
+                <li>❄️ Airco</li>
+              </ul>
+              <p className="text-xs text-gray-500 mt-3">
+                Alleen voor leden van {config.organizationName}. Sleutel en borg regel je
+                eenmalig met het bestuur.
+              </p>
+            </div>
+          </section>
         </div>
-        <button
-          onClick={() => setMode("join")}
-          className="mt-6 text-sm text-blue-600 hover:text-blue-700"
-        >
-          Nog geen lid? Vraag hier toegang aan →
-        </button>
       </div>
     );
   }

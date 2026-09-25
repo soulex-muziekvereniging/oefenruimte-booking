@@ -16,7 +16,20 @@ const resend = new Resend(process.env.RESEND_API_KEY!);
 
 // Resend gooit geen exception bij een mislukte verzending maar geeft {error} terug -
 // zonder deze check mislukt een mail stil en denkt de aanroeper dat hij verstuurd is.
+// Elke mail krijgt bovenaan het Soulex-logo, zodat bands meteen zien van wie hij komt.
+function withBranding(html: string): string {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL!;
+  return `
+    <div style="max-width: 600px; margin: 0 auto; padding: 16px 0 12px; border-bottom: 3px solid #f66a10;">
+      <img src="${appUrl}/soulex-wordmark.png" alt="Soulex" width="140" style="display: block; height: auto;">
+    </div>
+    ${html}`;
+}
+
 async function send(payload: Parameters<typeof resend.emails.send>[0]) {
+  if ("html" in payload && typeof payload.html === "string") {
+    payload = { ...payload, html: withBranding(payload.html) };
+  }
   const { error } = await resend.emails.send(payload);
   if (error) throw new Error(`E-mail versturen mislukt: ${error.message}`);
 }
@@ -435,7 +448,7 @@ export async function sendPeriodPaymentRequestEmail(
         (${formatMonth(periodPayment.period_month)}, elke ${formatWeekdayDagdeel(subscription)}) staat klaar.
         Reken je ${formatPrice(periodPayment.amount_cents)} af vóór
         <strong>${formatDate(periodPayment.due_date)}</strong>, dan blijft het tijdslot gewoon van jullie.</p>
-        <p><a href="${payPeriodUrl(periodPayment)}" style="display:inline-block;padding:10px 20px;background:#2563eb;color:#fff;border-radius:6px;text-decoration:none;">Periode betalen — ${formatPrice(periodPayment.amount_cents)}</a></p>
+        <p><a href="${payPeriodUrl(periodPayment)}" style="display:inline-block;padding:10px 20px;background:#175670;color:#fff;border-radius:6px;text-decoration:none;">Periode betalen — ${formatPrice(periodPayment.amount_cents)}</a></p>
         <p>Even niet doorgaan of lukt het niet? Laat het weten, dan zoeken we samen een oplossing.</p>
         <p>Met vriendelijke groet,<br>${config.organizationName}</p>
       </div>
@@ -461,7 +474,7 @@ export async function sendPeriodReminderEmail(
         <p>We zagen de betaling voor de periode ${formatMonth(periodPayment.period_month)}
         (elke ${formatWeekdayDagdeel(subscription)}) nog niet binnenkomen. Geen paniek - betaal je
         vóór <strong>${formatDate(periodPayment.grace_until)}</strong>, dan blijft het tijdslot gewoon van jullie.</p>
-        <p><a href="${payPeriodUrl(periodPayment)}" style="display:inline-block;padding:10px 20px;background:#2563eb;color:#fff;border-radius:6px;text-decoration:none;">Periode betalen — ${formatPrice(periodPayment.amount_cents)}</a></p>
+        <p><a href="${payPeriodUrl(periodPayment)}" style="display:inline-block;padding:10px 20px;background:#175670;color:#fff;border-radius:6px;text-decoration:none;">Periode betalen — ${formatPrice(periodPayment.amount_cents)}</a></p>
         <p>Met vriendelijke groet,<br>${config.organizationName}</p>
       </div>
     `,
@@ -487,7 +500,7 @@ export async function sendPeriodGraceWarningEmail(
         nog steeds niet ontvangen. We houden <strong>${formatWeekdayDagdeel(subscription)}</strong> nog vast
         <strong>tot en met ${formatDate(periodPayment.grace_until)}</strong>. Daarna geven we het tijdslot vrij
         aan een andere band, en is het dit jaar niet meer opnieuw te claimen.</p>
-        <p><a href="${payPeriodUrl(periodPayment)}" style="display:inline-block;padding:10px 20px;background:#2563eb;color:#fff;border-radius:6px;text-decoration:none;">Periode betalen — ${formatPrice(periodPayment.amount_cents)}</a></p>
+        <p><a href="${payPeriodUrl(periodPayment)}" style="display:inline-block;padding:10px 20px;background:#175670;color:#fff;border-radius:6px;text-decoration:none;">Periode betalen — ${formatPrice(periodPayment.amount_cents)}</a></p>
         <p>Lukt het niet of stopt de band ermee? Mail even naar
         <a href="mailto:${config.organizationEmail}">${config.organizationEmail}</a>, dan zoeken we een oplossing.</p>
         <p>Met vriendelijke groet,<br>${config.organizationName}</p>
@@ -740,7 +753,7 @@ export async function sendPackageRenewalReminderEmail(
         Verleng je vóór <strong>${formatDate(renewBy)}</strong>, dan houden jullie zeker hetzelfde dagdeel
         (${dagdeelLabel(pkg.dagdeel_id)}) op deze data:</p>
         <ul>${dates}</ul>
-        <p><a href="${renewUrl(pkg)}" style="display:inline-block;padding:10px 20px;background:#2563eb;color:#fff;border-radius:6px;text-decoration:none;">Pakket verlengen - ${formatPrice(config.packagePricing.priceCents)}</a></p>
+        <p><a href="${renewUrl(pkg)}" style="display:inline-block;padding:10px 20px;background:#175670;color:#fff;border-radius:6px;text-decoration:none;">Pakket verlengen - ${formatPrice(config.packagePricing.priceCents)}</a></p>
         <p>Daarna kan het nog steeds, maar dan kan een andere band het slot inmiddels geboekt hebben.
         Geen interesse meer? Dan hoef je niets te doen.</p>
         <p>Met vriendelijke groet,<br>${config.organizationName}</p>
