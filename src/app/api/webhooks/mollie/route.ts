@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase, Booking } from "@/lib/supabase";
-import { mollie } from "@/lib/mollie";
+import { mollie, payerName } from "@/lib/mollie";
 import {
   sendConfirmationEmail,
   sendBookingNotificationToOrg,
@@ -21,7 +21,9 @@ export async function POST(request: NextRequest) {
   const payment = (await mollie.payments.get(paymentId)) as {
     status: string;
     metadata: { bookingId: string };
+    details?: { consumerName?: string | null; cardHolder?: string | null } | null;
   };
+  const paidBy = payerName(payment);
   const bookingId = payment.metadata.bookingId;
 
   if (payment.status === "paid") {
@@ -37,9 +39,9 @@ export async function POST(request: NextRequest) {
       .maybeSingle();
 
     if (booking) {
-      await notifyConfirmed(booking);
+      await notifyConfirmed(booking, paidBy);
     } else {
-      await handleLatePayment(bookingId, paymentId);
+      await handleLatePayment(bookingId, paymentId, paidBy);
     }
   } else if (
     payment.status === "expired" ||
@@ -56,16 +58,16 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({ received: true });
 }
 
-async function notifyConfirmed(booking: Booking) {
+async function notifyConfirmed(booking: Booking, paidBy: string | null) {
   const bandEmails = await getActiveMemberEmails(booking.band_name, booking.contact_email);
-  await sendSafely("bevestiging boeking", () => sendConfirmationEmail(booking, bandEmails));
+  await sendSafely("bevestiging boeking", () => sendConfirmationEmail(booking, bandEmails, paidBy));
   await sendSafely("boekingsmelding bestuur", () => sendBookingNotificationToOrg(booking));
 }
 
 // De betaling kwam binnen nadat de boeking al op "expired" was gezet (onbetaald na
 // pendingExpiryMinutes). Is het slot nog vrij, dan alsnog bevestigen; anders is het geld
 // binnen voor een slot dat inmiddels vergeven is - dan terugbetalen.
-async function handleLatePayment(bookingId: string, paymentId: string) {
+async function handleLatePayment(bookingId: string, paymentId: string, paidBy: string | null) {
   const { data: booking } = await supabase
     .from("bookings")
     .select("*")
@@ -88,7 +90,7 @@ async function handleLatePayment(bookingId: string, paymentId: string) {
       .select()
       .maybeSingle();
     if (revived) {
-      await notifyConfirmed(revived);
+      await notifyConfirmed(revived, paidBy);
       return;
     }
   }

@@ -94,7 +94,11 @@ function formatPeriod(periodPayment: Pick<SubscriptionPayment, "period_start" | 
   return `${short(periodPayment.period_start)} t/m ${short(periodPayment.period_end)}`;
 }
 
-export async function sendConfirmationEmail(booking: Booking, extraRecipients: string[] = []) {
+export async function sendConfirmationEmail(
+  booking: Booking,
+  extraRecipients: string[] = [],
+  paidBy: string | null = null
+) {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL!;
   const cancelUrl = `${appUrl}/booking/cancel?id=${booking.id}&token=${booking.cancel_token}`;
   const recipients = Array.from(
@@ -109,7 +113,7 @@ export async function sendConfirmationEmail(booking: Booking, extraRecipients: s
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
         <h2>Boeking bevestigd!</h2>
         <p>Hallo ${booking.contact_name},</p>
-        <p>Je boeking voor <strong>${booking.band_name}</strong> is bevestigd.</p>
+        <p>De boeking voor <strong>${booking.band_name}</strong> is bevestigd.</p>
 
         <table style="border-collapse: collapse; width: 100%; margin: 20px 0;">
           <tr>
@@ -124,6 +128,18 @@ export async function sendConfirmationEmail(booking: Booking, extraRecipients: s
             <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Tijd</td>
             <td style="padding: 8px; border: 1px solid #ddd;">${formatTime(booking.slot_start_time)} - ${formatTime(booking.slot_end_time)}</td>
           </tr>
+          <tr>
+            <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Geboekt door</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">${booking.contact_name} (${booking.contact_email})</td>
+          </tr>
+          ${
+            paidBy
+              ? `<tr>
+            <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Betaald door</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">${paidBy}</td>
+          </tr>`
+              : ""
+          }
           <tr>
             <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Betaald</td>
             <td style="padding: 8px; border: 1px solid #ddd;">${formatPrice(booking.price_cents)}</td>
@@ -254,7 +270,8 @@ export async function sendBookingCancelledConfirmationEmail(
 
 export async function sendSubscriptionConfirmationEmail(
   subscription: Subscription,
-  extraRecipients: string[] = []
+  extraRecipients: string[] = [],
+  paidBy: string | null = null
 ) {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL!;
   const cancelUrl = `${appUrl}/subscription/cancel?id=${subscription.id}&token=${subscription.cancel_token}`;
@@ -288,6 +305,18 @@ export async function sendSubscriptionConfirmationEmail(
               ? `<tr>
             <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Opslagruimte</td>
             <td style="padding: 8px; border: 1px solid #ddd;">Ruimte ${subscription.storage_unit} (${formatPrice(config.storage.priceCentsPerPeriod)} per ${config.periodWeeks} weken, zit in het bedrag)</td>
+          </tr>`
+              : ""
+          }
+          <tr>
+            <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Aangevraagd door</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">${subscription.contact_name} (${subscription.contact_email})</td>
+          </tr>
+          ${
+            paidBy
+              ? `<tr>
+            <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Betaald door</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">${paidBy}</td>
           </tr>`
               : ""
           }
@@ -438,7 +467,8 @@ function payPeriodUrl(periodPayment: SubscriptionPayment): string {
 export async function sendPeriodPaymentConfirmationEmail(
   subscription: Subscription,
   periodPayment: SubscriptionPayment,
-  extraRecipients: string[] = []
+  extraRecipients: string[] = [],
+  paidBy: string | null = null
 ) {
   const recipients = Array.from(new Set([subscription.contact_email, ...extraRecipients]));
 
@@ -451,7 +481,7 @@ export async function sendPeriodPaymentConfirmationEmail(
         <h2>Betaling ontvangen</h2>
         <p>Hoi ${subscription.contact_name},</p>
         <p>De periode ${formatPeriod(periodPayment)} van <strong>${subscription.band_name}</strong>
-        is betaald (${formatPrice(periodPayment.amount_cents)}). ${capitalize(formatWeekdayDagdeel(subscription))}
+        is betaald (${formatPrice(periodPayment.amount_cents)}${paidBy ? `, door ${paidBy}` : ""}). ${capitalize(formatWeekdayDagdeel(subscription))}
         is in die periode van jullie.</p>
         <p>Het volgende betaalverzoek krijgen jullie automatisch per e-mail, ruim voordat de
         nieuwe periode begint.</p>

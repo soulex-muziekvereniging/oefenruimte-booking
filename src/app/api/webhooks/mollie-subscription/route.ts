@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
-import { mollie } from "@/lib/mollie";
+import { mollie, payerName } from "@/lib/mollie";
 import {
   sendSubscriptionConfirmationEmail,
   sendSubscriptionNotificationToOrg,
@@ -27,7 +27,9 @@ export async function POST(request: NextRequest) {
   const payment = (await mollie.payments.get(paymentId)) as {
     status: string;
     metadata: { subscriptionId: string; periodPaymentId: string };
+    details?: { consumerName?: string | null; cardHolder?: string | null } | null;
   };
+  const paidBy = payerName(payment);
   const { subscriptionId, periodPaymentId } = payment.metadata;
 
   if (payment.status === "paid") {
@@ -97,7 +99,7 @@ export async function POST(request: NextRequest) {
       if (activated) {
         const bandEmails = await getActiveMemberEmails(activated.band_name, activated.contact_email);
         await sendSafely("bevestiging vaste reservering", () =>
-          sendSubscriptionConfirmationEmail(activated, bandEmails)
+          sendSubscriptionConfirmationEmail(activated, bandEmails, paidBy)
         );
         await sendSafely("melding vaste reservering bestuur", () =>
           sendSubscriptionNotificationToOrg(activated)
@@ -109,7 +111,7 @@ export async function POST(request: NextRequest) {
     } else if (subscription.status === "active") {
       const bandEmails = await getActiveMemberEmails(subscription.band_name, subscription.contact_email);
       await sendSafely("betaalbevestiging periode", () =>
-        sendPeriodPaymentConfirmationEmail(subscription, periodPayment, bandEmails)
+        sendPeriodPaymentConfirmationEmail(subscription, periodPayment, bandEmails, paidBy)
       );
     } else {
       // Betaling voor een inmiddels opgezegde/vervallen reservering (zeldzame race

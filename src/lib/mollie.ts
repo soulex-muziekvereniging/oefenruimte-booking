@@ -16,3 +16,12 @@ export async function isPaymentInProgress(paymentId: string | null): Promise<boo
     return false;
   }
 }
+
+// Naam van wie er betaald heeft, zoals Mollie die doorgeeft: de rekeninghouder bij iDEAL
+// e.d., of de naam op de kaart. Niet altijd beschikbaar.
+export function payerName(payment: {
+  details?: { consumerName?: string | null; cardHolder?: string | null } | null;
+}): string | null {
+  const name = payment.details?.consumerName || payment.details?.cardHolder;
+  return name ? name.trim() : null;
+}
