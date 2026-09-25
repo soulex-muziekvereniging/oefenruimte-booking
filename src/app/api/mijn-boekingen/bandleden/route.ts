@@ -37,6 +37,7 @@ export async function POST(request: NextRequest) {
   const { error } = await supabase.from("members").insert({
     name: member.name,
     email: newEmail.toLowerCase().trim(),
+    phone: typeof body.newPhone === "string" && body.newPhone.trim() ? body.newPhone.trim() : null,
     active: true,
   });
 

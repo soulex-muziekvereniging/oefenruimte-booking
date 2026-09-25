@@ -33,6 +33,7 @@ type Member = {
   id: string;
   name: string;
   email: string;
+  phone: string | null;
   active: boolean;
 };
 
@@ -133,6 +134,9 @@ export default function AdminPage() {
   const [memberError, setMemberError] = useState("");
   const [newMemberName, setNewMemberName] = useState("");
   const [newMemberEmail, setNewMemberEmail] = useState("");
+  const [newMemberPhone, setNewMemberPhone] = useState("");
+  const [newPhoneByBand, setNewPhoneByBand] = useState<Record<string, string>>({});
+  const [editingPhone, setEditingPhone] = useState<{ id: string; value: string } | null>(null);
   const [addingMember, setAddingMember] = useState(false);
   const [togglingMember, setTogglingMember] = useState<string | null>(null);
   const [deletingMember, setDeletingMember] = useState<string | null>(null);
@@ -415,7 +419,7 @@ export default function AdminPage() {
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ name: newMemberName, email: newMemberEmail }),
+      body: JSON.stringify({ name: newMemberName, email: newMemberEmail, phone: newMemberPhone }),
     });
     const data = await res.json();
     if (!res.ok) {
@@ -425,6 +429,7 @@ export default function AdminPage() {
     }
     setNewMemberName("");
     setNewMemberEmail("");
+    setNewMemberPhone("");
     setAddingMember(false);
     await fetchMembers();
   }
@@ -442,6 +447,22 @@ export default function AdminPage() {
     setTogglingMember(null);
   }
 
+  async function handleSavePhone(member: Member, phone: string) {
+    setMemberError("");
+    const res = await fetch(`/api/admin/members/${member.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ phone }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setMemberError(data.error || "Kon telefoonnummer niet opslaan");
+      return;
+    }
+    setEditingPhone(null);
+    await fetchMembers();
+  }
+
   async function handleDeleteMember(member: Member) {
     if (
       !confirm(`Weet je zeker dat je ${member.email} wilt verwijderen uit "${member.name}"?`)
@@ -449,9 +470,14 @@ export default function AdminPage() {
       return;
     }
     setDeletingMember(member.id);
-    await fetch(`/api/admin/members/${member.id}`, {
+    setMemberError("");
+    const res = await fetch(`/api/admin/members/${member.id}`, {
       method: "DELETE",
     });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setMemberError(data.error || "Kon lid niet verwijderen");
+    }
     await fetchMembers();
     setDeletingMember(null);
   }
@@ -466,7 +492,7 @@ export default function AdminPage() {
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ name: bandName, email }),
+      body: JSON.stringify({ name: bandName, email, phone: newPhoneByBand[bandName] || "" }),
     });
     const data = await res.json();
     if (!res.ok) {
@@ -475,6 +501,7 @@ export default function AdminPage() {
       return;
     }
     setNewEmailByBand((prev) => ({ ...prev, [bandName]: "" }));
+    setNewPhoneByBand((prev) => ({ ...prev, [bandName]: "" }));
     setAddingEmailFor(null);
     await fetchMembers();
   }
@@ -1145,6 +1172,13 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
               placeholder="E-mailadres"
               className="flex-1 px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
             />
+            <input
+              type="tel"
+              value={newMemberPhone}
+              onChange={(e) => setNewMemberPhone(e.target.value)}
+              placeholder="Telefoonnummer"
+              className="flex-1 px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
+            />
             <button
               type="submit"
               disabled={addingMember}
@@ -1155,7 +1189,8 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
           </form>
           <p className="text-xs text-gray-500 mb-4 -mt-2">
             Bestaat de band al? Vul dezelfde bandnaam in met een ander e-mailadres om een extra
-            bandlid te autoriseren - iedereen in de band krijgt dan de bevestigingsmail.
+            bandlid te autoriseren - iedereen in de band krijgt dan de bevestigingsmail. Elke
+            band heeft minstens één telefoonnummer nodig.
           </p>
 
           {memberError && (
@@ -1182,16 +1217,71 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
                     key={bandName}
                     className="bg-white rounded-lg border border-gray-200 p-3 sm:p-4"
                   >
-                    <p className="font-medium mb-2">{bandName}</p>
+                    <p className="font-medium mb-2">
+                      {bandName}
+                      {!bandMembers.some((m) => m.phone) && (
+                        <span className="ml-2 text-xs font-normal text-amber-700">
+                          ⚠ nog geen telefoonnummer
+                        </span>
+                      )}
+                    </p>
                     <div className="space-y-2 mb-3">
                       {bandMembers.map((member) => (
                         <div
                           key={member.id}
                           className="flex items-center justify-between gap-2 pl-3 border-l-2 border-gray-100"
                         >
-                          <p className="text-sm text-gray-600 truncate min-w-0">
-                            {member.email}
-                          </p>
+                          <div className="min-w-0">
+                            <p className="text-sm text-gray-600 truncate">{member.email}</p>
+                            {editingPhone?.id === member.id ? (
+                              <form
+                                className="flex gap-1 mt-1"
+                                onSubmit={(e) => {
+                                  e.preventDefault();
+                                  handleSavePhone(member, editingPhone.value);
+                                }}
+                              >
+                                <input
+                                  type="tel"
+                                  autoFocus
+                                  value={editingPhone.value}
+                                  onChange={(e) =>
+                                    setEditingPhone({ id: member.id, value: e.target.value })
+                                  }
+                                  placeholder="Telefoonnummer"
+                                  className="w-36 px-2 py-1 border border-gray-300 rounded text-sm"
+                                />
+                                <button type="submit" className="px-2 py-1 bg-blue-600 text-white rounded text-xs">
+                                  Opslaan
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingPhone(null)}
+                                  className="px-2 py-1 text-gray-500 text-xs"
+                                >
+                                  Annuleer
+                                </button>
+                              </form>
+                            ) : (
+                              <p className="text-sm text-gray-500">
+                                {member.phone ? (
+                                  <a href={`tel:${member.phone}`} className="hover:underline">
+                                    📞 {member.phone}
+                                  </a>
+                                ) : (
+                                  <span className="text-gray-400">geen telefoonnummer</span>
+                                )}{" "}
+                                <button
+                                  onClick={() =>
+                                    setEditingPhone({ id: member.id, value: member.phone ?? "" })
+                                  }
+                                  className="text-xs text-blue-600 hover:text-blue-700"
+                                >
+                                  wijzig
+                                </button>
+                              </p>
+                            )}
+                          </div>
                           <div className="flex items-center gap-2 shrink-0">
                             <button
                               onClick={() => handleToggleMember(member)}
@@ -1223,7 +1313,16 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
                           setNewEmailByBand((prev) => ({ ...prev, [bandName]: e.target.value }))
                         }
                         placeholder="Extra e-mailadres voor deze band"
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                        className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                      />
+                      <input
+                        type="tel"
+                        value={newPhoneByBand[bandName] || ""}
+                        onChange={(e) =>
+                          setNewPhoneByBand((prev) => ({ ...prev, [bandName]: e.target.value }))
+                        }
+                        placeholder="Telefoon (optioneel)"
+                        className="w-40 min-w-0 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
                       />
                       <button
                         onClick={() => handleAddEmailToBand(bandName)}

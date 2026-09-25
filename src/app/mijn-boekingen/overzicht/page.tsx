@@ -131,6 +131,7 @@ function OverzichtContent() {
   const [bandMembers, setBandMembers] = useState<string[]>([]);
   const [error, setError] = useState("");
   const [newEmail, setNewEmail] = useState("");
+  const [newPhone, setNewPhone] = useState("");
   const [addingEmail, setAddingEmail] = useState(false);
   const [addEmailError, setAddEmailError] = useState("");
   const [swapPanelFor, setSwapPanelFor] = useState<{ subscriptionId: string; date: string } | null>(
@@ -172,7 +173,7 @@ function OverzichtContent() {
     const res = await fetch("/api/mijn-boekingen/bandleden", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token, newEmail }),
+      body: JSON.stringify({ token, newEmail, newPhone }),
     });
     const data = await res.json();
 
@@ -183,6 +184,7 @@ function OverzichtContent() {
     }
 
     setNewEmail("");
+    setNewPhone("");
     setAddingEmail(false);
     loadOverzicht();
   }
@@ -518,6 +520,13 @@ function OverzichtContent() {
                 onChange={(e) => setNewEmail(e.target.value)}
                 placeholder="E-mailadres van bandlid"
                 className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+              />
+              <input
+                type="tel"
+                value={newPhone}
+                onChange={(e) => setNewPhone(e.target.value)}
+                placeholder="Telefoon (optioneel)"
+                className="sm:w-44 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
               />
               <button
                 type="submit"

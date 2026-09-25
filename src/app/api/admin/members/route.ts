@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAdminPassword } from "@/lib/adminAuth";
 import { supabase } from "@/lib/supabase";
+import { bandHasOtherPhone, cleanPhone } from "@/lib/memberPhones";
 
 export async function GET(request: NextRequest) {
   const authError = await verifyAdminPassword(request);
@@ -24,6 +25,7 @@ export async function POST(request: NextRequest) {
 
   const body = await request.json();
   const { name, email } = body;
+  const phone = cleanPhone(body.phone);
 
   if (!name || !email) {
     return NextResponse.json(
@@ -32,9 +34,16 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  if (!phone && !(await bandHasOtherPhone(name))) {
+    return NextResponse.json(
+      { error: "Vul een telefoonnummer in - elke band heeft er minstens één nodig" },
+      { status: 400 }
+    );
+  }
+
   const { data, error } = await supabase
     .from("members")
-    .insert({ name, email: email.toLowerCase().trim(), active: true })
+    .insert({ name, email: email.toLowerCase().trim(), phone, active: true })
     .select()
     .single();
 

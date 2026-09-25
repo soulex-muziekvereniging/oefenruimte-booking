@@ -23,6 +23,7 @@ export async function POST(
   const { error: insertError } = await supabase.from("members").insert({
     name: membershipRequest.band_name,
     email: membershipRequest.contact_email.toLowerCase().trim(),
+    phone: membershipRequest.contact_phone || null,
     active: true,
   });
 
