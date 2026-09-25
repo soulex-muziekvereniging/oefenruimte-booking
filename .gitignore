@@ -42,3 +42,6 @@ next-env.d.ts
 
 # toegang/wachtwoorden - repo is publiek, dit bestand blijft lokaal
 TOEGANG.md
+
+# Interne documenten (feedback e.d.) - repo is openbaar
+*.docx
