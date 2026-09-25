@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
         .maybeSingle();
 
       if (activated) {
-        const bandEmails = await getActiveMemberEmails(activated.band_name);
+        const bandEmails = await getActiveMemberEmails(activated.band_name, activated.contact_email);
         await sendSafely("bevestiging vaste reservering", () =>
           sendSubscriptionConfirmationEmail(activated, bandEmails)
         );
@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
         await refundAndAlert(subscription, paymentId, periodPayment.id, periodPayment.amount_cents);
       }
     } else if (subscription.status === "active") {
-      const bandEmails = await getActiveMemberEmails(subscription.band_name);
+      const bandEmails = await getActiveMemberEmails(subscription.band_name, subscription.contact_email);
       await sendSafely("betaalbevestiging periode", () =>
         sendPeriodPaymentConfirmationEmail(subscription, periodPayment, bandEmails)
       );

@@ -128,7 +128,7 @@ export async function POST(
     return NextResponse.json({ error: "Kon niet verplaatsen" }, { status: 500 });
   }
 
-  const bandEmails = await getActiveMemberEmails(subscription.band_name);
+  const bandEmails = await getActiveMemberEmails(subscription.band_name, subscription.contact_email);
   await sendSafely("bevestiging ruiling", () =>
     sendSwapConfirmationEmail(subscription, originalDate, newDate, newDagdeelId, bandEmails)
   );

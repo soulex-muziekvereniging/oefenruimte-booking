@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { config } from "@/config";
 import { toLocalDateStr } from "@/lib/date";
+import AdminSettings from "./AdminSettings";
 
 function getWeekStart(date: Date): Date {
   const d = new Date(date);
@@ -115,7 +116,7 @@ export default function AdminPage() {
   const [authChecked, setAuthChecked] = useState(false);
   const [loggedIn, setLoggedIn] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
-  const [view, setView] = useState<"bookings" | "members" | "subscriptions" | "requests">(
+  const [view, setView] = useState<"bookings" | "members" | "subscriptions" | "requests" | "settings">(
     "bookings"
   );
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -630,10 +631,10 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
         </div>
       )}
 
-      <div className="flex items-center gap-2 mb-6 border-b border-gray-200">
+      <div className="flex items-center gap-2 mb-6 border-b border-gray-200 overflow-x-auto">
         <button
           onClick={() => setView("bookings")}
-          className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${
+          className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px whitespace-nowrap ${
             view === "bookings"
               ? "border-blue-600 text-blue-600"
               : "border-transparent text-gray-500 hover:text-gray-700"
@@ -646,7 +647,7 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
             setView("members");
             if (members.length === 0) fetchMembers();
           }}
-          className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${
+          className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px whitespace-nowrap ${
             view === "members"
               ? "border-blue-600 text-blue-600"
               : "border-transparent text-gray-500 hover:text-gray-700"
@@ -659,7 +660,7 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
             setView("subscriptions");
             if (subscriptions.length === 0) fetchSubscriptions();
           }}
-          className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${
+          className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px whitespace-nowrap ${
             view === "subscriptions"
               ? "border-blue-600 text-blue-600"
               : "border-transparent text-gray-500 hover:text-gray-700"
@@ -672,7 +673,7 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
             setView("requests");
             fetchRequests();
           }}
-          className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px flex items-center gap-1.5 ${
+          className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px whitespace-nowrap flex items-center gap-1.5 ${
             view === "requests"
               ? "border-blue-600 text-blue-600"
               : "border-transparent text-gray-500 hover:text-gray-700"
@@ -685,9 +686,21 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
             </span>
           )}
         </button>
+        <button
+          onClick={() => setView("settings")}
+          className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px whitespace-nowrap ${
+            view === "settings"
+              ? "border-blue-600 text-blue-600"
+              : "border-transparent text-gray-500 hover:text-gray-700"
+          }`}
+        >
+          Instellingen
+        </button>
       </div>
 
-      {view === "requests" ? (
+      {view === "settings" ? (
+        <AdminSettings />
+      ) : view === "requests" ? (
         <div>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-bold">Lidmaatschapsverzoeken</h2>

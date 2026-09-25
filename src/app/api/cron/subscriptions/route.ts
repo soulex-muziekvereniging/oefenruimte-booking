@@ -81,7 +81,7 @@ async function sendPackageRenewalReminders(today: string) {
       .limit(1);
     if ((renewal ?? []).length > 0) continue;
 
-    const bandEmails = await getActiveMemberEmails(pkg.band_name);
+    const bandEmails = await getActiveMemberEmails(pkg.band_name, pkg.contact_email);
     const nextDates = packageDates(nextPackageFirstDate(pkg));
     const sent = await trySend(`verlengherinnering pakket ${pkg.id}`, () =>
       sendPackageRenewalReminderEmail(pkg, deadline, nextDates, finalDue, bandEmails)
@@ -153,7 +153,7 @@ async function ensureNextPeriod(subscription: Subscription, today: string) {
 }
 
 async function sendInvoice(subscription: Subscription, periodPayment: SubscriptionPayment) {
-  const bandEmails = await getActiveMemberEmails(subscription.band_name);
+  const bandEmails = await getActiveMemberEmails(subscription.band_name, subscription.contact_email);
   const sent = await trySend(`betaalverzoek ${subscription.band_name} ${periodPayment.period_month}`, () =>
     sendPeriodPaymentRequestEmail(subscription, periodPayment, bandEmails)
   );
@@ -177,7 +177,7 @@ async function sendReminders(today: string) {
     const subscription = await getSubscription(periodPayment.subscription_id);
     if (!subscription || subscription.status !== "active") continue;
 
-    const bandEmails = await getActiveMemberEmails(subscription.band_name);
+    const bandEmails = await getActiveMemberEmails(subscription.band_name, subscription.contact_email);
     const sent = await trySend(`herinnering ${subscription.band_name}`, () =>
       sendPeriodReminderEmail(subscription, periodPayment, bandEmails)
     );
@@ -203,7 +203,7 @@ async function sendGraceWarnings(today: string) {
     const subscription = await getSubscription(periodPayment.subscription_id);
     if (!subscription || subscription.status !== "active") continue;
 
-    const bandEmails = await getActiveMemberEmails(subscription.band_name);
+    const bandEmails = await getActiveMemberEmails(subscription.band_name, subscription.contact_email);
     const sent = await trySend(`coulance-waarschuwing ${subscription.band_name}`, () =>
       sendPeriodGraceWarningEmail(subscription, periodPayment, bandEmails)
     );
@@ -238,7 +238,7 @@ async function applyLapses(today: string) {
 
     if (!lapsed) continue; // al vervallen/opgezegd door een eerdere run of admin-actie
 
-    const bandEmails = await getActiveMemberEmails(lapsed.band_name);
+    const bandEmails = await getActiveMemberEmails(lapsed.band_name, lapsed.contact_email);
     await sendSafely("melding vervallen", () => sendPeriodLapsedEmail(lapsed, bandEmails));
     await sendSafely("melding vervallen bestuur", () => sendPeriodLapsedNotificationToOrg(lapsed));
   }

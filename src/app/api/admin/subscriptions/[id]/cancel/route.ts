@@ -1,14 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAdminPassword } from "@/lib/adminAuth";
 import { supabase } from "@/lib/supabase";
-import { sendSubscriptionCancellationNotification } from "@/lib/email";
+import {
+  sendSubscriptionCancellationNotification,
+  sendSubscriptionCancelledConfirmationEmail,
+  sendSafely,
+} from "@/lib/email";
+import { getActiveMemberEmails } from "@/lib/members";
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const authError = verifyAdminPassword(request);
+  const authError = await verifyAdminPassword(request);
   if (authError) return authError;
 
   const { data: subscription } = await supabase
@@ -37,11 +42,12 @@ export async function POST(
     })
     .eq("id", id);
 
-  try {
-    await sendSubscriptionCancellationNotification(subscription);
-  } catch {
-    // Email failure should not block cancellation
-  }
+  // Opzeggen door de beheerder geeft het slot direct vrij (geen doorloop tot einde maand).
+  const bandEmails = await getActiveMemberEmails(subscription.band_name, subscription.contact_email);
+  await sendSafely("bevestiging opzegging (beheer)", () =>
+    sendSubscriptionCancelledConfirmationEmail(subscription, null, bandEmails)
+  );
+  await sendSafely("melding opzegging", () => sendSubscriptionCancellationNotification(subscription));
 
   return NextResponse.json({ success: true });
 }

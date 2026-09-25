@@ -27,9 +27,8 @@ export const config = {
   // systeemmails en het adres dat in "neem contact op"-teksten getoond wordt.
   organizationEmail: "beheer@soulex.nl",
   senderEmail: "beheer@soulex.nl",
-  // Wie een melding krijgt zodra er een nieuwe boeking binnenkomt. Voeg hier extra
-  // adressen toe (bijv. andere bestuursleden) om hen ook mee te laten lezen.
-  bookingNotificationEmails: ["beheer@soulex.nl"] as string[],
+  // Wie meldingen krijgt (nieuwe boekingen e.d.) stel je in via het beheerpaneel, tab
+  // "Instellingen". Is die lijst leeg, dan gaat alles naar organizationEmail.
   organizationName: "Muziekvereniging Soulex",
   currency: "EUR" as const,
   pendingExpiryMinutes: 15,

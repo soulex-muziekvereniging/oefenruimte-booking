@@ -12,7 +12,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const authError = verifyAdminPassword(request);
+  const authError = await verifyAdminPassword(request);
   if (authError) return authError;
 
   const { data: current } = await supabase

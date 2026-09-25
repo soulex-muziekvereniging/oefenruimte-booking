@@ -3,7 +3,7 @@ import { verifyAdminPassword } from "@/lib/adminAuth";
 import { supabase } from "@/lib/supabase";
 
 export async function GET(request: NextRequest) {
-  const authError = verifyAdminPassword(request);
+  const authError = await verifyAdminPassword(request);
   if (authError) return authError;
 
   const { data, error } = await supabase

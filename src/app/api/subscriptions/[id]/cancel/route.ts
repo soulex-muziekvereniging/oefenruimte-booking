@@ -73,7 +73,7 @@ export async function POST(
     );
   }
 
-  const bandEmails = await getActiveMemberEmails(subscription.band_name);
+  const bandEmails = await getActiveMemberEmails(subscription.band_name, subscription.contact_email);
   await sendSafely("bevestiging opzegging", () =>
     sendSubscriptionCancelledConfirmationEmail(subscription, activeUntil, bandEmails)
   );

@@ -5,9 +5,10 @@ import { config } from "@/config";
 import { todayStr } from "@/lib/date";
 import { getSlotsForRange } from "@/lib/slots";
 import { sendConfirmationEmail, sendSafely } from "@/lib/email";
+import { getActiveMemberEmails } from "@/lib/members";
 
 export async function GET(request: NextRequest) {
-  const authError = verifyAdminPassword(request);
+  const authError = await verifyAdminPassword(request);
   if (authError) return authError;
 
   const { data, error } = await supabase
@@ -28,7 +29,7 @@ export async function GET(request: NextRequest) {
 // Handmatig een losse boeking toevoegen (bv. een afspraak van vóór dit systeem
 // overzetten) - komt direct als "confirmed" binnen, geen Mollie-betaling nodig.
 export async function POST(request: NextRequest) {
-  const authError = verifyAdminPassword(request);
+  const authError = await verifyAdminPassword(request);
   if (authError) return authError;
 
   const body = await request.json();
@@ -79,7 +80,8 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  await sendSafely("bevestiging boeking (handmatig)", () => sendConfirmationEmail(booking));
+  const bandEmails = await getActiveMemberEmails(booking.band_name, booking.contact_email);
+  await sendSafely("bevestiging boeking (handmatig)", () => sendConfirmationEmail(booking, bandEmails));
 
   return NextResponse.json(booking);
 }

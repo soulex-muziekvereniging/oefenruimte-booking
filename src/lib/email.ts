@@ -1,4 +1,5 @@
 import { Resend } from "resend";
+import { getOrgRecipients } from "./notifications";
 import { config } from "@/config";
 import {
   Booking,
@@ -49,7 +50,7 @@ export async function sendSafely(label: string, fn: () => Promise<unknown>) {
 export async function sendAdminAlertToOrg(subject: string, message: string) {
   await send({
     from: `${config.organizationName} <${config.senderEmail}>`,
-    to: config.bookingNotificationEmails,
+    to: await getOrgRecipients(),
     subject: `Actie nodig: ${subject}`,
     html: `
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
@@ -152,7 +153,7 @@ export async function sendConfirmationEmail(booking: Booking, extraRecipients: s
 export async function sendBookingNotificationToOrg(booking: Booking) {
   await send({
     from: `${config.organizationName} <${config.senderEmail}>`,
-    to: config.bookingNotificationEmails,
+    to: await getOrgRecipients(),
     subject: `Nieuwe boeking: ${booking.band_name} - ${formatDate(booking.slot_date)}`,
     html: `
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
@@ -193,7 +194,7 @@ export async function sendBookingNotificationToOrg(booking: Booking) {
 export async function sendCancellationNotification(booking: Booking, refunded: boolean) {
   await send({
     from: `${config.organizationName} <${config.senderEmail}>`,
-    to: config.organizationEmail,
+    to: await getOrgRecipients(),
     subject: `Annulering: ${booking.band_name} - ${formatDate(booking.slot_date)}`,
     html: `
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
@@ -228,6 +229,35 @@ export async function sendCancellationNotification(booking: Booking, refunded: b
             ? "De refund wordt automatisch verwerkt via Mollie."
             : "Er is niets via Mollie teruggestort (niet online betaald, of terugstorten is overgeslagen)."
         }</p>
+      </div>
+    `,
+  });
+}
+
+export async function sendBookingCancelledConfirmationEmail(
+  booking: Booking,
+  refunded: boolean,
+  extraRecipients: string[] = []
+) {
+  const recipients = Array.from(new Set([booking.contact_email, ...extraRecipients]));
+
+  await send({
+    from: `${config.organizationName} <${config.senderEmail}>`,
+    to: recipients,
+    subject: `Geannuleerd: ${config.roomName} op ${formatDate(booking.slot_date)}`,
+    html: `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>Boeking geannuleerd</h2>
+        <p>Hallo,</p>
+        <p>De boeking van <strong>${booking.band_name}</strong> op <strong>${formatDate(booking.slot_date)}</strong>
+        (${formatTime(booking.slot_start_time)} - ${formatTime(booking.slot_end_time)}) is geannuleerd.</p>
+        <p>${
+          refunded
+            ? `Het bedrag van ${formatPrice(booking.price_cents)} wordt teruggestort; dat duurt meestal een paar werkdagen.`
+            : "Er wordt niets teruggestort."
+        }</p>
+        <p>Klopt dit niet? Mail dan naar <a href="mailto:${config.organizationEmail}">${config.organizationEmail}</a>.</p>
+        <p>Met vriendelijke groet,<br>${config.organizationName}</p>
       </div>
     `,
   });
@@ -294,7 +324,7 @@ export async function sendSubscriptionConfirmationEmail(
 export async function sendSubscriptionNotificationToOrg(subscription: Subscription) {
   await send({
     from: `${config.organizationName} <${config.senderEmail}>`,
-    to: config.organizationEmail,
+    to: await getOrgRecipients(),
     subject: `Nieuwe vaste reservering: ${subscription.band_name} - elke ${formatWeekdayDagdeel(subscription)}`,
     html: `
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
@@ -335,7 +365,7 @@ export async function sendMembershipRequestNotificationToOrg(
 ) {
   await send({
     from: `${config.organizationName} <${config.senderEmail}>`,
-    to: config.organizationEmail,
+    to: await getOrgRecipients(),
     subject: `Nieuw lidmaatschapsverzoek: ${request.band_name}`,
     html: `
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
@@ -538,7 +568,7 @@ export async function sendPeriodLapsedEmail(
 export async function sendPeriodLapsedNotificationToOrg(subscription: Subscription) {
   await send({
     from: `${config.organizationName} <${config.senderEmail}>`,
-    to: config.organizationEmail,
+    to: await getOrgRecipients(),
     subject: `Vaste reservering vervallen (niet betaald): ${subscription.band_name}`,
     html: `
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
@@ -587,7 +617,7 @@ export async function sendSwapNotificationToOrg(
 ) {
   await send({
     from: `${config.organizationName} <${config.senderEmail}>`,
-    to: config.organizationEmail,
+    to: await getOrgRecipients(),
     subject: `Repetitie verplaatst: ${subscription.band_name}`,
     html: `
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
@@ -603,7 +633,7 @@ export async function sendSwapNotificationToOrg(
 export async function sendSubscriptionCancellationNotification(subscription: Subscription) {
   await send({
     from: `${config.organizationName} <${config.senderEmail}>`,
-    to: config.organizationEmail,
+    to: await getOrgRecipients(),
     subject: `Vaste reservering opgezegd: ${subscription.band_name} - elke ${formatWeekdayDagdeel(subscription)}`,
     html: `
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
@@ -716,7 +746,7 @@ export async function sendPackageConfirmationEmail(
 export async function sendPackageNotificationToOrg(pkg: BookingPackage, bookings: Booking[]) {
   await send({
     from: `${config.organizationName} <${config.senderEmail}>`,
-    to: config.bookingNotificationEmails,
+    to: await getOrgRecipients(),
     subject: `Nieuw pakket: ${pkg.band_name} - ${bookings.length}× ${dagdeelLabel(pkg.dagdeel_id)}`,
     html: `
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">

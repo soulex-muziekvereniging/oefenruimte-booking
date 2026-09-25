@@ -7,7 +7,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const authError = verifyAdminPassword(request);
+  const authError = await verifyAdminPassword(request);
   if (authError) return authError;
 
   const body = await request.json();
@@ -36,7 +36,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const authError = verifyAdminPassword(request);
+  const authError = await verifyAdminPassword(request);
   if (authError) return authError;
 
   const { error } = await supabase.from("members").delete().eq("id", id);

@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
 
 async function notifyConfirmed(pkg: BookingPackage) {
   const bookings = (await getPackageBookings(pkg.id)).filter((b) => b.status === "confirmed");
-  const bandEmails = await getActiveMemberEmails(pkg.band_name);
+  const bandEmails = await getActiveMemberEmails(pkg.band_name, pkg.contact_email);
   await sendSafely("bevestiging pakket", () =>
     sendPackageConfirmationEmail(pkg, bookings, renewalDeadline(pkg), bandEmails)
   );

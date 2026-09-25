@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { mollie } from "@/lib/mollie";
-import { sendCancellationNotification, sendSafely } from "@/lib/email";
+import {
+  sendCancellationNotification,
+  sendBookingCancelledConfirmationEmail,
+  sendSafely,
+} from "@/lib/email";
+import { getActiveMemberEmails } from "@/lib/members";
 import { hoursUntilSlot } from "@/lib/date";
 import { config } from "@/config";
 
@@ -69,7 +74,12 @@ export async function POST(
     .update({ status: "cancelled", updated_at: new Date().toISOString() })
     .eq("id", id);
 
-  await sendSafely("annuleringsmelding", () => sendCancellationNotification(booking, !!booking.mollie_payment_id));
+  const refunded = !!booking.mollie_payment_id;
+  const bandEmails = await getActiveMemberEmails(booking.band_name, booking.contact_email);
+  await sendSafely("bevestiging annulering", () =>
+    sendBookingCancelledConfirmationEmail(booking, refunded, bandEmails)
+  );
+  await sendSafely("annuleringsmelding", () => sendCancellationNotification(booking, refunded));
 
   return NextResponse.json({ success: true });
 }

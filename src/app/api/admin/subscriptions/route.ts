@@ -7,9 +7,10 @@ import { firstOfMonthStr, addDaysStr, pickActionablePeriod } from "@/lib/periods
 import { nowInAmsterdam } from "@/lib/date";
 import { findConflictingBookingDates, findRunningOutSubscriptionEnd } from "@/lib/slots";
 import { sendSubscriptionConfirmationEmail, sendSafely } from "@/lib/email";
+import { getActiveMemberEmails } from "@/lib/members";
 
 export async function GET(request: NextRequest) {
-  const authError = verifyAdminPassword(request);
+  const authError = await verifyAdminPassword(request);
   if (authError) return authError;
 
   const { data, error } = await supabase
@@ -53,7 +54,7 @@ export async function GET(request: NextRequest) {
 // nodig. De lopende periode wordt kwijtgescholden; vanaf de eerstvolgende kalendermaand
 // loopt het gewoon mee met de normale, dagelijkse betaalcyclus (zie /api/cron/subscriptions).
 export async function POST(request: NextRequest) {
-  const authError = verifyAdminPassword(request);
+  const authError = await verifyAdminPassword(request);
   if (authError) return authError;
 
   const body = await request.json();
@@ -153,8 +154,9 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const bandEmails = await getActiveMemberEmails(subscription.band_name, subscription.contact_email);
   await sendSafely("bevestiging vaste reservering (handmatig)", () =>
-    sendSubscriptionConfirmationEmail(subscription)
+    sendSubscriptionConfirmationEmail(subscription, bandEmails)
   );
 
   return NextResponse.json(subscription);

@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
 }
 
 async function notifyConfirmed(booking: Booking) {
-  const bandEmails = await getActiveMemberEmails(booking.band_name);
+  const bandEmails = await getActiveMemberEmails(booking.band_name, booking.contact_email);
   await sendSafely("bevestiging boeking", () => sendConfirmationEmail(booking, bandEmails));
   await sendSafely("boekingsmelding bestuur", () => sendBookingNotificationToOrg(booking));
 }

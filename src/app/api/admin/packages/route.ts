@@ -9,7 +9,7 @@ import { sendPackageConfirmationEmail, sendSafely } from "@/lib/email";
 // Handmatig een pakket invoeren (bv. een bestaande tweewekelijkse afspraak overzetten) -
 // komt direct als betaald binnen, geen Mollie. De verlengherinneringen gaan wel gewoon mee.
 export async function POST(request: NextRequest) {
-  const authError = verifyAdminPassword(request);
+  const authError = await verifyAdminPassword(request);
   if (authError) return authError;
 
   const body = await request.json().catch(() => ({}));
@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const bandEmails = await getActiveMemberEmails(bandName);
+  const bandEmails = await getActiveMemberEmails(bandName, contactEmail);
   await sendSafely("bevestiging pakket (handmatig)", () =>
     sendPackageConfirmationEmail(result.pkg, result.bookings, renewalDeadline(result.pkg), bandEmails)
   );

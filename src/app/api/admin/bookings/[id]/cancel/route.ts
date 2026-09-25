@@ -2,14 +2,19 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyAdminPassword } from "@/lib/adminAuth";
 import { supabase } from "@/lib/supabase";
 import { mollie } from "@/lib/mollie";
-import { sendCancellationNotification, sendSafely } from "@/lib/email";
+import {
+  sendCancellationNotification,
+  sendBookingCancelledConfirmationEmail,
+  sendSafely,
+} from "@/lib/email";
+import { getActiveMemberEmails } from "@/lib/members";
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const authError = verifyAdminPassword(request);
+  const authError = await verifyAdminPassword(request);
   if (authError) return authError;
 
   const { data: booking } = await supabase
@@ -56,7 +61,12 @@ export async function POST(
     .update({ status: "cancelled", updated_at: new Date().toISOString() })
     .eq("id", id);
 
-  await sendSafely("annuleringsmelding", () => sendCancellationNotification(booking, !!booking.mollie_payment_id && !skipRefund));
+  const refunded = !!booking.mollie_payment_id && !skipRefund;
+  const bandEmails = await getActiveMemberEmails(booking.band_name, booking.contact_email);
+  await sendSafely("bevestiging annulering", () =>
+    sendBookingCancelledConfirmationEmail(booking, refunded, bandEmails)
+  );
+  await sendSafely("annuleringsmelding", () => sendCancellationNotification(booking, refunded));
 
   return NextResponse.json({ success: true });
 }
