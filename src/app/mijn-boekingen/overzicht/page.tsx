@@ -9,6 +9,8 @@ type Booking = {
   id: string;
   band_name: string;
   contact_name: string;
+  paid_by: string | null;
+  paidOnline: boolean;
   slot_date: string;
   slot_start_time: string;
   slot_end_time: string;
@@ -25,6 +27,8 @@ type SubscriptionPeriod = {
   grace_until: string;
   status: "unpaid" | "paid" | "waived";
   pay_token: string;
+  paid_at: string | null;
+  paid_by: string | null;
 };
 
 type Occurrence = {
@@ -44,6 +48,7 @@ type Subscription = {
   status: "pending_first_payment" | "active" | "lapsed";
   cancel_token: string;
   currentPeriod: SubscriptionPeriod | null;
+  recentPeriods: SubscriptionPeriod[];
   occurrences: Occurrence[];
   swapsAllowed: number;
 };
@@ -291,7 +296,8 @@ function OverzichtContent() {
                   <div className="mb-3">
                     {s.currentPeriod.status === "paid" ? (
                       <p className="text-sm text-green-700">
-                        Periode {formatPeriod(s.currentPeriod)} betaald.
+                        Periode {formatPeriod(s.currentPeriod)} betaald
+                        {s.currentPeriod.paid_by ? ` door ${s.currentPeriod.paid_by}` : ""}.
                       </p>
                     ) : s.currentPeriod.status === "waived" ? (
                       <p className="text-sm text-blue-700">
@@ -311,6 +317,38 @@ function OverzichtContent() {
                         </a>
                       </div>
                     )}
+                  </div>
+                )}
+
+                {s.status === "active" && s.recentPeriods.length > 0 && (
+                  <div className="mb-3">
+                    <p className="text-sm font-medium text-gray-700 mb-1">Betalingen</p>
+                    <ul className="text-sm space-y-1">
+                      {s.recentPeriods.map((p) => (
+                        <li key={p.period_start} className="flex justify-between gap-2">
+                          <span className="text-gray-600">{formatPeriod(p)}</span>
+                          <span
+                            className={
+                              p.status === "paid"
+                                ? "text-green-700"
+                                : p.status === "waived"
+                                  ? "text-blue-700"
+                                  : "text-amber-700"
+                            }
+                          >
+                            {p.status === "paid"
+                              ? `betaald${p.paid_by ? ` door ${p.paid_by}` : ""}${
+                                  p.paid_at
+                                    ? ` op ${new Date(p.paid_at).toLocaleDateString("nl-NL", { day: "numeric", month: "short" })}`
+                                    : ""
+                                }`
+                              : p.status === "waived"
+                                ? "kwijtgescholden"
+                                : `nog open (${formatPrice(p.amount_cents)})`}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
                   </div>
                 )}
 
@@ -429,6 +467,12 @@ function OverzichtContent() {
                 <p className="text-sm text-gray-500 mb-3">
                   {b.status === "confirmed" ? "Bevestigd" : "In afwachting"} · geboekt door{" "}
                   {b.contact_name}
+                  {b.status === "confirmed" &&
+                    (b.paid_by
+                      ? ` · betaald door ${b.paid_by}`
+                      : b.paidOnline
+                        ? " · betaald"
+                        : " · toegevoegd door het bestuur")}
                 </p>
                 {b.status === "confirmed" &&
                   (hoursUntilSlot(b.slot_date, b.slot_start_time) >=

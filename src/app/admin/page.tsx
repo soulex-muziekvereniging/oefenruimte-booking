@@ -44,6 +44,7 @@ type SubscriptionPeriod = {
   due_date: string;
   grace_until: string;
   status: "unpaid" | "paid" | "waived";
+  paid_by: string | null;
 };
 
 type Subscription = {
@@ -1043,6 +1044,9 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
                             <span className="text-green-700">
                               Periode {formatShortDate(subscription.currentPeriod.period_start)} t/m{" "}
                               {formatShortDate(subscription.currentPeriod.period_end)}: betaald
+                              {subscription.currentPeriod.paid_by
+                                ? ` door ${subscription.currentPeriod.paid_by}`
+                                : ""}
                             </span>
                           ) : subscription.currentPeriod.status === "waived" ? (
                             <span className="text-blue-700">

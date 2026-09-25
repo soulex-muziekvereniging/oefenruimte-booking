@@ -37,7 +37,12 @@ export async function POST(request: NextRequest) {
     // verwerkte periode niet nogmaals activeren of dubbele mails versturen.
     const { data: periodPayment } = await supabase
       .from("subscription_payments")
-      .update({ status: "paid", paid_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+      .update({
+        status: "paid",
+        paid_at: new Date().toISOString(),
+        paid_by: paidBy,
+        updated_at: new Date().toISOString(),
+      })
       .eq("id", periodPaymentId)
       .eq("status", "unpaid")
       .select()

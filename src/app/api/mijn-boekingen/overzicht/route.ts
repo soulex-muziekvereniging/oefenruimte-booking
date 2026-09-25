@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
   const { data: bookings } = await supabase
     .from("bookings")
     .select(
-      "id, band_name, contact_name, contact_email, slot_date, slot_start_time, slot_end_time, price_cents, status, cancel_token"
+      "id, band_name, contact_name, contact_email, slot_date, slot_start_time, slot_end_time, price_cents, status, cancel_token, paid_by, mollie_payment_id"
     )
     .or(ownerFilter)
     .in("status", ["pending", "confirmed"])
@@ -78,6 +78,8 @@ export async function GET(request: NextRequest) {
     grace_until: string;
     status: "unpaid" | "paid" | "waived";
     pay_token: string;
+    paid_at: string | null;
+    paid_by: string | null;
   };
 
   const periods: Period[] =
@@ -85,7 +87,7 @@ export async function GET(request: NextRequest) {
       ? ((
           await supabase
             .from("subscription_payments")
-            .select("subscription_id, period_start, period_end, amount_cents, due_date, grace_until, status, pay_token")
+            .select("subscription_id, period_start, period_end, amount_cents, due_date, grace_until, status, pay_token, paid_at, paid_by")
             .in("subscription_id", activeIds)
         ).data ?? [])
       : [];
@@ -139,12 +141,20 @@ export async function GET(request: NextRequest) {
   const subscriptionsWithPeriod = (subscriptions ?? []).map((s) => ({
     ...s,
     currentPeriod: pickActionablePeriod(periodsFor(s.id), today),
+    // De laatste paar periodes, zodat de band ziet of en door wie er betaald is.
+    recentPeriods: periodsFor(s.id)
+      .filter((p) => p.period_start <= addDaysStr(today, 14))
+      .sort((a, b) => b.period_start.localeCompare(a.period_start))
+      .slice(0, 3),
     occurrences: occurrencesFor(s as SubscriptionPattern & { id: string; status: string }),
     swapsAllowed: config.subscriptionMaxSwapsPerPeriod,
   }));
 
   return NextResponse.json({
-    bookings: bookings ?? [],
+    bookings: (bookings ?? []).map(({ mollie_payment_id, ...b }) => ({
+      ...b,
+      paidOnline: !!mollie_payment_id,
+    })),
     subscriptions: subscriptionsWithPeriod,
     bandName,
     bandMembers,

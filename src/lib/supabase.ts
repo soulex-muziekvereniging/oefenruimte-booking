@@ -33,6 +33,7 @@ export type Booking = {
   status: "pending" | "confirmed" | "cancelled" | "expired";
   mollie_payment_id: string | null;
   cancel_token: string;
+  paid_by: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -75,6 +76,7 @@ export type SubscriptionPayment = {
   mollie_payment_id: string | null;
   pay_token: string;
   paid_at: string | null;
+  paid_by: string | null;
   invoice_sent_at: string | null;
   reminder_sent_at: string | null;
   warning_sent_at: string | null;

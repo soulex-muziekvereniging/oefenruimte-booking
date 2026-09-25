@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
     // geannuleerd is, en komt hij ongewild weer als bevestigd terug.
     const { data: booking } = await supabase
       .from("bookings")
-      .update({ status: "confirmed", updated_at: new Date().toISOString() })
+      .update({ status: "confirmed", paid_by: paidBy, updated_at: new Date().toISOString() })
       .eq("id", bookingId)
       .eq("status", "pending")
       .select()
@@ -84,7 +84,7 @@ async function handleLatePayment(bookingId: string, paymentId: string, paidBy: s
   if (slot?.available) {
     const { data: revived } = await supabase
       .from("bookings")
-      .update({ status: "confirmed", updated_at: new Date().toISOString() })
+      .update({ status: "confirmed", paid_by: paidBy, updated_at: new Date().toISOString() })
       .eq("id", bookingId)
       .eq("status", "expired")
       .select()
