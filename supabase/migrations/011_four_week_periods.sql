@@ -6,7 +6,9 @@
 --   zie src/lib/schedule.ts).
 
 ALTER TABLE subscriptions ADD COLUMN start_date DATE;
-UPDATE subscriptions SET start_date = COALESCE(term_start_date, created_at::date);
+-- Eerste datum op of na de oude start die op de juiste weekdag valt.
+UPDATE subscriptions SET start_date = COALESCE(term_start_date, created_at::date)
+  + ((weekday - EXTRACT(DOW FROM COALESCE(term_start_date, created_at::date))::int + 7) % 7);
 
 DROP INDEX IF EXISTS unique_active_subscription_slot;
 
