@@ -42,7 +42,7 @@ export async function POST(
     })
     .eq("id", id);
 
-  // Opzeggen door de beheerder geeft het slot direct vrij (geen doorloop tot einde maand).
+  // Opzeggen door de beheerder geeft het slot direct vrij (geen doorloop tot einde periode).
   const bandEmails = await getActiveMemberEmails(subscription.band_name, subscription.contact_email);
   await sendSafely("bevestiging opzegging (beheer)", () =>
     sendSubscriptionCancelledConfirmationEmail(subscription, null, bandEmails)

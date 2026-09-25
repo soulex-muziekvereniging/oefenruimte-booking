@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
-import { config } from "@/config";
 import { isPaymentInProgress } from "@/lib/mollie";
+import { formatRhythm } from "@/lib/schedule";
 
-const DAY_NAMES_NL = ["zondag", "maandag", "dinsdag", "woensdag", "donderdag", "vrijdag", "zaterdag"];
 
 export async function GET(
   request: NextRequest,
@@ -31,7 +30,6 @@ export async function GET(
     return NextResponse.json({ error: "Vaste reservering niet gevonden" }, { status: 404 });
   }
 
-  const dagdeel = config.dagdelen.find((d) => d.id === subscription.dagdeel_id);
 
   return NextResponse.json({
     // "processing": er loopt al een betaling (of hij is betaald en de webhook komt zo) -
@@ -42,11 +40,12 @@ export async function GET(
         ? "processing"
         : periodPayment.status,
     amountCents: periodPayment.amount_cents,
-    periodMonth: periodPayment.period_month,
+    periodStart: periodPayment.period_start,
+    periodEnd: periodPayment.period_end,
     dueDate: periodPayment.due_date,
     graceUntil: periodPayment.grace_until,
     bandName: subscription.band_name,
-    weekdayDagdeel: `${DAY_NAMES_NL[subscription.weekday]} ${dagdeel?.label.toLowerCase() ?? subscription.dagdeel_id}`,
+    rhythm: formatRhythm(subscription),
     subscriptionStatus: subscription.status,
   });
 }

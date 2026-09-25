@@ -3,9 +3,11 @@ import { verifyAdminPassword } from "@/lib/adminAuth";
 import { supabase } from "@/lib/supabase";
 import type { SubscriptionPayment } from "@/lib/supabase";
 import { config } from "@/config";
-import { firstOfMonthStr, addDaysStr, pickActionablePeriod } from "@/lib/periods";
-import { nowInAmsterdam } from "@/lib/date";
-import { findConflictingBookingDates, findRunningOutSubscriptionEnd } from "@/lib/slots";
+import { addDaysStr, pickActionablePeriod } from "@/lib/periods";
+import { todayStr } from "@/lib/date";
+import { findSubscriptionConflict } from "@/lib/slots";
+import { periodEndFor, weekdayOf } from "@/lib/schedule";
+import { checkStartDate, conflictMessage, parseSubscriptionInput } from "@/lib/subscriptionRequest";
 import { sendSubscriptionConfirmationEmail, sendSafely } from "@/lib/email";
 import { getActiveMemberEmails } from "@/lib/members";
 
@@ -27,7 +29,7 @@ export async function GET(request: NextRequest) {
   }
 
   // Voeg per reservering de periode toe waar actie op nodig is, zodat het admin-scherm
-  // de betaalstatus (en kwijtschelden/coulance) op de juiste maand toont.
+  // de betaalstatus (en kwijtschelden/coulance) op de juiste periode toont.
   const { data: payments } = await supabase.from("subscription_payments").select("*");
 
   const paymentsBySubscription = new Map<string, SubscriptionPayment[]>();
@@ -37,12 +39,12 @@ export async function GET(request: NextRequest) {
     paymentsBySubscription.set(payment.subscription_id, list);
   }
 
-  const currentMonth = firstOfMonthStr(nowInAmsterdam());
+  const today = todayStr();
   const withPeriod = data.map((subscription) => ({
     ...subscription,
     currentPeriod: pickActionablePeriod(
       paymentsBySubscription.get(subscription.id) ?? [],
-      currentMonth
+      today
     ),
   }));
 
@@ -51,59 +53,39 @@ export async function GET(request: NextRequest) {
 
 // Handmatig een vaste reservering toevoegen (bv. een bestaande afspraak van vóór dit
 // systeem overzetten) - komt direct als "active" binnen, geen eerste Mollie-betaling
-// nodig. De lopende periode wordt kwijtgescholden; vanaf de eerstvolgende kalendermaand
-// loopt het gewoon mee met de normale, dagelijkse betaalcyclus (zie /api/cron/subscriptions).
+// nodig. De eerste periode van 4 weken wordt kwijtgescholden (die is buiten het systeem
+// al geregeld); daarna loopt het mee met de normale betaalcyclus (zie /api/cron/subscriptions).
 export async function POST(request: NextRequest) {
   const authError = await verifyAdminPassword(request);
   if (authError) return authError;
 
-  const body = await request.json();
-  const { bandName, contactName, contactEmail, contactPhone, weekday, dagdeelId, frequency } =
-    body;
+  const body = await request.json().catch(() => ({}));
+  const { bandName, contactName, contactEmail, contactPhone } = body;
 
-  if (
-    !bandName ||
-    !contactName ||
-    !contactEmail ||
-    weekday === undefined ||
-    weekday === null ||
-    !dagdeelId ||
-    !frequency
-  ) {
+  if (!bandName || !contactName || !contactEmail) {
     return NextResponse.json({ error: "Vul alle verplichte velden in" }, { status: 400 });
   }
 
-  if (!config.dagdelen.some((d) => d.id === dagdeelId)) {
-    return NextResponse.json({ error: "Ongeldig dagdeel" }, { status: 400 });
+  const parsed = parseSubscriptionInput(body);
+  if (!parsed.ok) {
+    return NextResponse.json({ error: parsed.error }, { status: 400 });
+  }
+  const { startDate, dagdeelId, frequency } = parsed.value;
+  const startError = checkStartDate(parsed.value, { admin: true });
+  if (startError) {
+    return NextResponse.json({ error: startError }, { status: 400 });
   }
 
-  if (!(frequency in config.subscriptionPricing)) {
-    return NextResponse.json({ error: "Ongeldige frequentie" }, { status: 400 });
+  const conflict = await findSubscriptionConflict({
+    dagdeel_id: dagdeelId,
+    frequency,
+    start_date: startDate,
+  });
+  if (conflict) {
+    return NextResponse.json({ error: conflictMessage(conflict, { admin: true }) }, { status: 409 });
   }
 
-  const runningOutUntil = await findRunningOutSubscriptionEnd(weekday, dagdeelId);
-  if (runningOutUntil) {
-    return NextResponse.json(
-      {
-        error: `Hier loopt nog een opgezegde vaste reservering tot en met ${new Date(runningOutUntil + "T00:00:00").toLocaleDateString("nl-NL", { day: "numeric", month: "long" })}. Verwijder die eerst (tab Vaste reserveringen) als het slot eerder vrij mag.`,
-      },
-      { status: 409 }
-    );
-  }
-
-  const conflicts = await findConflictingBookingDates(weekday, dagdeelId);
-  if (conflicts.length > 0) {
-    return NextResponse.json(
-      {
-        error: `Er staan al losse boekingen op dit weekdag+dagdeel (${conflicts.join(", ")}). Annuleer of verplaats die eerst.`,
-      },
-      { status: 409 }
-    );
-  }
-
-  const priceCents =
-    config.subscriptionPricing[frequency as "weekly"].priceCentsPerMonth;
-  const periodMonth = firstOfMonthStr(nowInAmsterdam());
+  const priceCents = config.subscriptionPricing[frequency].priceCentsPerPeriod;
 
   const { data: subscription, error } = await supabase
     .from("subscriptions")
@@ -112,37 +94,31 @@ export async function POST(request: NextRequest) {
       contact_name: contactName,
       contact_email: contactEmail,
       contact_phone: contactPhone || null,
-      weekday,
+      weekday: weekdayOf(startDate),
       dagdeel_id: dagdeelId,
       frequency,
+      start_date: startDate,
       price_cents: priceCents,
       status: "active",
-      term_start_date: periodMonth,
+      term_start_date: startDate,
     })
     .select()
     .single();
 
   if (error) {
-    if (error.code === "23505") {
-      return NextResponse.json(
-        { error: "Dit weekdag en dagdeel is al vast gereserveerd door een andere band" },
-        { status: 409 }
-      );
-    }
     return NextResponse.json(
       { error: "Er ging iets mis bij het aanmaken van de vaste reservering" },
       { status: 500 }
     );
   }
 
-  const graceUntil = addDaysStr(periodMonth, config.subscriptionGraceDays);
-
   const { error: periodError } = await supabase.from("subscription_payments").insert({
     subscription_id: subscription.id,
-    period_month: periodMonth,
+    period_start: startDate,
+    period_end: periodEndFor(startDate),
     amount_cents: priceCents,
-    due_date: periodMonth,
-    grace_until: graceUntil,
+    due_date: startDate,
+    grace_until: addDaysStr(startDate, config.subscriptionGraceDays),
     status: "waived",
   });
 

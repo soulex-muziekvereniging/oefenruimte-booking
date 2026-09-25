@@ -10,10 +10,11 @@ import {
 } from "@/lib/email";
 import type { Subscription } from "@/lib/supabase";
 import { getActiveMemberEmails } from "@/lib/members";
+import { findSubscriptionConflict } from "@/lib/slots";
 
-// Deze webhook verwerkt betalingen voor een periode (kalendermaand) van een vaste
-// reservering - zowel de allereerste betaling als elke latere maandelijkse betaling.
-// Er is geen Mollie-mandaat/customerSubscription meer: elke maand is gewoon een losse
+// Deze webhook verwerkt betalingen voor een periode (4 weken) van een vaste
+// reservering - zowel de allereerste betaling als elke latere periodebetaling.
+// Er is geen Mollie-mandaat/customerSubscription meer: elke periode is gewoon een losse
 // betaling met een eigen /api/subscriptions/payments/[token]-link (zie /lib/cron).
 export async function POST(request: NextRequest) {
   const body = await request.formData();
@@ -64,12 +65,27 @@ export async function POST(request: NextRequest) {
         !subscription.term_start_date &&
         !subscription.cancelled_at);
 
-    if (neverActivated) {
+    // Een verlopen aanvraag hield het slot niet meer vast: eerst checken of een andere
+    // band het intussen heeft (er is geen unieke index meer die dat afdwingt).
+    const slotTaken =
+      subscription.status === "cancelled" &&
+      !!(await findSubscriptionConflict(
+        {
+          dagdeel_id: subscription.dagdeel_id,
+          frequency: subscription.frequency,
+          start_date: subscription.start_date,
+        },
+        subscription.id
+      ));
+
+    if (neverActivated && slotTaken) {
+      await refundAndAlert(subscription, paymentId, periodPayment.id, periodPayment.amount_cents);
+    } else if (neverActivated) {
       const { data: activated } = await supabase
         .from("subscriptions")
         .update({
           status: "active",
-          term_start_date: periodPayment.period_month,
+          term_start_date: subscription.start_date,
           cancelled_at: null,
           updated_at: new Date().toISOString(),
         })
@@ -87,8 +103,7 @@ export async function POST(request: NextRequest) {
           sendSubscriptionNotificationToOrg(activated)
         );
       } else {
-        // Activeren mislukt, meestal omdat een andere band dit weekdag+dagdeel intussen
-        // heeft (unieke index) - geld terug.
+        // Activeren mislukt (status intussen gewijzigd) - geld terug.
         await refundAndAlert(subscription, paymentId, periodPayment.id, periodPayment.amount_cents);
       }
     } else if (subscription.status === "active") {
@@ -112,7 +127,7 @@ export async function POST(request: NextRequest) {
     payment.status === "canceled"
   ) {
     // Alleen de allereerste betaling annuleert de hele aanvraag en geeft het
-    // weekdag+dagdeel vrij. Een mislukte latere maandbetaling laat de al actieve
+    // weekdag+dagdeel vrij. Een mislukte latere periodebetaling laat de al actieve
     // reservering gewoon staan - de cron stuurt herinneringen en bewaakt de coulance.
     const { data: subscription } = await supabase
       .from("subscriptions")

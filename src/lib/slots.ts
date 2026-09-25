@@ -1,5 +1,6 @@
 import { config } from "@/config";
-import { supabase, Booking, Subscription } from "./supabase";
+import { supabase, Booking } from "./supabase";
+import { occursOn, patternsCollide, SubscriptionPattern, weekdayOf } from "./schedule";
 import { toLocalDateStr, todayStr } from "./date";
 import { expireStalePendingBookings } from "./expire";
 
@@ -70,10 +71,10 @@ export async function getSlotsForRange(
   // Ook een aanvraag die nog op de eerste betaling wacht houdt het weekdag+dagdeel al
   // vast - anders kan iemand er in die minuten een losse boeking tussen schuiven.
   // Een opgezegde reservering houdt het slot nog vast tot en met active_until (het einde
-  // van de laatst betaalde maand).
+  // van de laatst betaalde periode).
   const { data: subscriptions, error: subscriptionsError } = await supabase
     .from("subscriptions")
-    .select("id, weekday, dagdeel_id, active_until")
+    .select("id, weekday, dagdeel_id, frequency, start_date, active_until")
     .or(
       `status.in.(active,pending_first_payment),and(status.eq.cancelled,active_until.gte.${from})`
     );
@@ -110,15 +111,11 @@ export async function getSlotsForRange(
     ) ?? []
   );
 
-  const subscriptionsByPattern = new Map<string, Pick<Subscription, "id" | "active_until">>(
-    (
-      (subscriptions ?? []) as Pick<Subscription, "id" | "weekday" | "dagdeel_id" | "active_until">[]
-    ).map((s) => [`${s.weekday}_${s.dagdeel_id}`, s])
-  );
-
   const skippedDates = new Set<string>(
     (swaps ?? []).map((s) => `${s.subscription_id}_${s.original_date}`)
   );
+  const activePatterns = (subscriptions ?? []) as (SubscriptionPattern & { id: string })[];
+
   const movedInSet = new Set<string>(
     (swaps ?? [])
       .filter((s) => s.new_date && s.new_dagdeel_id)
@@ -134,14 +131,15 @@ export async function getSlotsForRange(
     const weekday = current.getDay();
     const slots = generateSlotsForDay(dateStr).map((slot) => {
       const key = `${dateStr}_${slot.startTime}:00`;
-      const pattern = `${weekday}_${slot.dagdeelId}`;
-      const patternSubscription = subscriptionsByPattern.get(pattern);
-      const skippedThisDate =
-        !!patternSubscription && skippedDates.has(`${patternSubscription.id}_${dateStr}`);
-      const occupiedBySubscription =
-        !!patternSubscription &&
-        !skippedThisDate &&
-        (!patternSubscription.active_until || dateStr <= patternSubscription.active_until);
+      // Een vaste reservering bezet dit dagdeel als het ritme op deze datum valt, tenzij
+      // de band juist deze keer heeft verplaatst.
+      const occupiedBySubscription = activePatterns.some(
+        (sub) =>
+          sub.weekday === weekday &&
+          sub.dagdeel_id === slot.dagdeelId &&
+          occursOn(sub, dateStr) &&
+          !skippedDates.has(`${sub.id}_${dateStr}`)
+      );
       const occupied =
         bookedSet.has(key) ||
         occupiedBySubscription ||
@@ -164,50 +162,62 @@ export async function getSlotsForRange(
   return days;
 }
 
-// Komende losse boekingen op een weekdag+dagdeel - die zouden botsen met een nieuwe
-// vaste reservering op datzelfde moment.
-export async function findConflictingBookingDates(
-  weekday: number,
-  dagdeelId: string
-): Promise<string[]> {
-  const dagdeel = config.dagdelen.find((d) => d.id === dagdeelId);
-  if (!dagdeel) return [];
+// Kan er een nieuwe vaste reservering met dit ritme bij? Botst die met losse boekingen
+// (vanaf de startdatum) of met een andere vaste reservering - ook een opgezegde die nog
+// doorloopt tot het einde van de betaalde periode?
+export type SubscriptionConflict =
+  | { kind: "bookings"; dates: string[] }
+  | { kind: "subscription"; freeFrom: string | null }
+  | null;
 
-  const { data, error } = await supabase
+export async function findSubscriptionConflict(
+  pattern: Omit<SubscriptionPattern, "weekday" | "active_until">,
+  excludeSubscriptionId?: string
+): Promise<SubscriptionConflict> {
+  const dagdeel = config.dagdelen.find((d) => d.id === pattern.dagdeel_id);
+  if (!dagdeel) return null;
+  const candidate: SubscriptionPattern = { ...pattern, weekday: weekdayOf(pattern.start_date) };
+
+  const { data: subs, error: subsError } = await supabase
+    .from("subscriptions")
+    .select("id, weekday, dagdeel_id, frequency, start_date, active_until, status")
+    .eq("weekday", candidate.weekday)
+    .eq("dagdeel_id", candidate.dagdeel_id)
+    .or(
+      `status.in.(active,pending_first_payment),and(status.eq.cancelled,active_until.gte.${todayStr()})`
+    );
+  if (subsError) {
+    throw new Error(`Kon vaste reserveringen niet ophalen: ${subsError.message}`);
+  }
+
+  const clashing = ((subs ?? []) as (SubscriptionPattern & { id: string; status: string })[]).filter(
+    (s) => s.id !== excludeSubscriptionId && patternsCollide(candidate, s)
+  );
+  if (clashing.length > 0) {
+    // Alleen aflopende (opgezegde) reserveringen in de weg: dan is het slot later vrij.
+    const allRunningOut = clashing.every((s) => s.status === "cancelled" && s.active_until);
+    const freeFrom = allRunningOut
+      ? clashing
+          .map((s) => s.active_until as string)
+          .sort()
+          .at(-1)!
+      : null;
+    return { kind: "subscription", freeFrom };
+  }
+
+  const { data: bookings, error } = await supabase
     .from("bookings")
     .select("slot_date")
     .in("status", ["pending", "confirmed"])
-    .gte("slot_date", todayStr())
+    .gte("slot_date", candidate.start_date)
     .eq("slot_start_time", `${formatTime(dagdeel.startHour)}:00`);
-
   if (error) {
     throw new Error(`Kon boekingen niet ophalen: ${error.message}`);
   }
 
-  return (data ?? [])
+  const dates = (bookings ?? [])
     .map((b) => b.slot_date as string)
-    .filter((date) => new Date(date + "T00:00:00").getDay() === weekday)
+    .filter((date) => occursOn(candidate, date))
     .sort();
-}
-
-// Een opgezegde vaste reservering op dit weekdag+dagdeel die nog doorloopt (betaalde
-// maand nog niet om). Geeft de laatste dag terug, of null als het slot vrij is.
-export async function findRunningOutSubscriptionEnd(
-  weekday: number,
-  dagdeelId: string
-): Promise<string | null> {
-  const { data, error } = await supabase
-    .from("subscriptions")
-    .select("active_until")
-    .eq("status", "cancelled")
-    .eq("weekday", weekday)
-    .eq("dagdeel_id", dagdeelId)
-    .gte("active_until", todayStr())
-    .order("active_until", { ascending: false })
-    .limit(1);
-
-  if (error) {
-    throw new Error(`Kon vaste reserveringen niet ophalen: ${error.message}`);
-  }
-  return data?.[0]?.active_until ?? null;
+  return dates.length > 0 ? { kind: "bookings", dates } : null;
 }

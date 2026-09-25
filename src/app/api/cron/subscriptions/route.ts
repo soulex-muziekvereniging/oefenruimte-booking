@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { config } from "@/config";
 import { todayStr } from "@/lib/date";
-import { addDaysStr, addMonthsToMonthStr } from "@/lib/periods";
+import { addDaysStr } from "@/lib/periods";
+import { periodEndFor } from "@/lib/schedule";
 import { getActiveMemberEmails } from "@/lib/members";
 import {
   sendPeriodPaymentRequestEmail,
@@ -10,11 +11,9 @@ import {
   sendPeriodGraceWarningEmail,
   sendPeriodLapsedEmail,
   sendPeriodLapsedNotificationToOrg,
-  sendPackageRenewalReminderEmail,
   sendSafely,
 } from "@/lib/email";
-import type { BookingPackage, Subscription, SubscriptionPayment } from "@/lib/supabase";
-import { nextPackageFirstDate, packageDates, renewalDeadline } from "@/lib/packages";
+import type { Subscription, SubscriptionPayment } from "@/lib/supabase";
 
 // Eén dagelijkse huishoudtaak voor vaste reserveringen (Vercel Cron, zie vercel.json):
 // nieuwe periodes klaarzetten + betaalverzoek mailen, herinneren, en tijdsloten vrijgeven
@@ -23,7 +22,9 @@ import { nextPackageFirstDate, packageDates, renewalDeadline } from "@/lib/packa
 //
 // De *_sent_at-velden worden pas gezet nadat de mail echt verstuurd is. Mislukt een mail,
 // dan probeert de volgende run het gewoon opnieuw.
-const DAYS_BEFORE_DUE_TO_INVOICE = 14;
+// Periodes duren 4 weken en de coulance 14 dagen: met 10 dagen vooruit factureren komt
+// het volgende betaalverzoek pas nadat de coulance van de vorige periode voorbij is.
+const DAYS_BEFORE_DUE_TO_INVOICE = 10;
 const DAYS_AFTER_DUE_FOR_REMINDER = 7;
 const DAYS_BEFORE_GRACE_END_FOR_WARNING = 3;
 
@@ -47,57 +48,8 @@ export async function GET(request: NextRequest) {
   await sendReminders(today);
   await sendGraceWarnings(today);
   await applyLapses(today);
-  await sendPackageRenewalReminders(today);
 
   return NextResponse.json({ ok: true });
-}
-
-// Pakketten: na de tweede sessie een verlengmail, een paar dagen voor de uiterste
-// verlengdatum nog een laatste. Niet als het pakket al verlengd is.
-const DAYS_BEFORE_RENEW_DEADLINE_FOR_FINAL = 4;
-
-async function sendPackageRenewalReminders(today: string) {
-  const { data: packages } = await supabase
-    .from("booking_packages")
-    .select("*")
-    .eq("status", "paid")
-    .is("final_reminder_sent_at", null)
-    .gte("last_date", today);
-
-  for (const pkg of (packages ?? []) as BookingPackage[]) {
-    const deadline = renewalDeadline(pkg);
-    if (today >= deadline) continue;
-
-    const secondSession = packageDates(pkg.first_date)[1];
-    const finalDue = today >= addDaysStr(deadline, -DAYS_BEFORE_RENEW_DEADLINE_FOR_FINAL);
-    const firstDue = !pkg.reminder_sent_at && today > secondSession;
-    if (!firstDue && !finalDue) continue;
-
-    const { data: renewal } = await supabase
-      .from("booking_packages")
-      .select("id")
-      .eq("renewal_of", pkg.id)
-      .in("status", ["pending", "paid"])
-      .limit(1);
-    if ((renewal ?? []).length > 0) continue;
-
-    const bandEmails = await getActiveMemberEmails(pkg.band_name, pkg.contact_email);
-    const nextDates = packageDates(nextPackageFirstDate(pkg));
-    const sent = await trySend(`verlengherinnering pakket ${pkg.id}`, () =>
-      sendPackageRenewalReminderEmail(pkg, deadline, nextDates, finalDue, bandEmails)
-    );
-    if (!sent) continue;
-
-    const now = new Date().toISOString();
-    await supabase
-      .from("booking_packages")
-      .update(
-        finalDue
-          ? { final_reminder_sent_at: now, reminder_sent_at: pkg.reminder_sent_at ?? now }
-          : { reminder_sent_at: now }
-      )
-      .eq("id", pkg.id);
-  }
 }
 
 async function trySend(label: string, fn: () => Promise<unknown>): Promise<boolean> {
@@ -115,7 +67,7 @@ async function ensureNextPeriod(subscription: Subscription, today: string) {
     .from("subscription_payments")
     .select("*")
     .eq("subscription_id", subscription.id)
-    .order("period_month", { ascending: false })
+    .order("period_start", { ascending: false })
     .limit(1)
     .maybeSingle();
 
@@ -126,27 +78,28 @@ async function ensureNextPeriod(subscription: Subscription, today: string) {
     await sendInvoice(subscription, latest as SubscriptionPayment);
   }
 
-  const nextMonth = addMonthsToMonthStr(latest.period_month, 1);
-  const invoiceFrom = addDaysStr(nextMonth, -DAYS_BEFORE_DUE_TO_INVOICE);
-  if (today < invoiceFrom) return; // nog te vroeg om de volgende periode klaar te zetten
+  // Nooit een nieuwe periode klaarzetten zolang de vorige nog openstaat - die wordt óf
+  // alsnog betaald, óf de reservering vervalt na de coulance.
+  if (latest.status === "unpaid") return;
 
-  const dueDate = nextMonth;
-  const graceUntil = addDaysStr(dueDate, config.subscriptionGraceDays);
+  const nextStart = addDaysStr(latest.period_end, 1);
+  if (today < addDaysStr(nextStart, -DAYS_BEFORE_DUE_TO_INVOICE)) return; // nog te vroeg
 
   const { data: periodPayment } = await supabase
     .from("subscription_payments")
     .insert({
       subscription_id: subscription.id,
-      period_month: nextMonth,
+      period_start: nextStart,
+      period_end: periodEndFor(nextStart),
       amount_cents: subscription.price_cents,
-      due_date: dueDate,
-      grace_until: graceUntil,
+      due_date: nextStart,
+      grace_until: addDaysStr(nextStart, config.subscriptionGraceDays),
       status: "unpaid",
     })
     .select()
     .single();
 
-  // Geen rij terug = bestond al (unieke index op subscription_id + period_month).
+  // Geen rij terug = bestond al (unieke index op subscription_id + period_start).
   if (!periodPayment) return;
 
   await sendInvoice(subscription, periodPayment as SubscriptionPayment);
@@ -154,7 +107,7 @@ async function ensureNextPeriod(subscription: Subscription, today: string) {
 
 async function sendInvoice(subscription: Subscription, periodPayment: SubscriptionPayment) {
   const bandEmails = await getActiveMemberEmails(subscription.band_name, subscription.contact_email);
-  const sent = await trySend(`betaalverzoek ${subscription.band_name} ${periodPayment.period_month}`, () =>
+  const sent = await trySend(`betaalverzoek ${subscription.band_name} ${periodPayment.period_start}`, () =>
     sendPeriodPaymentRequestEmail(subscription, periodPayment, bandEmails)
   );
   if (sent) {

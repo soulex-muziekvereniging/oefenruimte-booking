@@ -29,8 +29,8 @@ function Confirmed({ subscriptionId }: { subscriptionId: string | null }) {
         <h2 className="text-2xl font-bold mb-2">Vaste reservering bevestigd!</h2>
         <p className="text-gray-600 mb-6">
           Je eerste betaling is ontvangen en het tijdslot is van jullie. Je ontvangt
-          een bevestigingsmail met alle details en een opzeglink. Elke maand krijg je
-          hiervoor een apart betaalverzoek per e-mail - er wordt niets automatisch
+          een bevestigingsmail met alle details en een opzeglink. Elke 4 weken krijg je
+          een apart betaalverzoek per e-mail - er wordt niets automatisch
           afgeschreven.
         </p>
         {subscriptionId && (

@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { config } from "@/config";
 import { verifyMagicLinkToken } from "@/lib/magicLink";
-import { toLocalDateStr, todayStr, nowInAmsterdam } from "@/lib/date";
-import { firstOfMonthStr, pickActionablePeriod } from "@/lib/periods";
+import { todayStr, hoursUntilSlot } from "@/lib/date";
+import { addDaysStr, pickActionablePeriod } from "@/lib/periods";
+import { occurrencesBetween, periodStartContaining, SubscriptionPattern } from "@/lib/schedule";
 
 export async function GET(request: NextRequest) {
   const token = request.nextUrl.searchParams.get("token");
@@ -59,7 +60,7 @@ export async function GET(request: NextRequest) {
   const { data: subscriptions } = await supabase
     .from("subscriptions")
     .select(
-      "id, band_name, contact_name, weekday, dagdeel_id, frequency, price_cents, status, cancel_token"
+      "id, band_name, contact_name, weekday, dagdeel_id, frequency, start_date, price_cents, status, cancel_token"
     )
     .or(ownerFilter)
     .in("status", ["pending_first_payment", "active", "lapsed"]);
@@ -68,9 +69,10 @@ export async function GET(request: NextRequest) {
     .filter((s) => s.status === "active")
     .map((s) => s.id);
 
-  type CurrentPeriod = {
+  type Period = {
     subscription_id: string;
-    period_month: string;
+    period_start: string;
+    period_end: string;
     amount_cents: number;
     due_date: string;
     grace_until: string;
@@ -78,32 +80,21 @@ export async function GET(request: NextRequest) {
     pay_token: string;
   };
 
-  const currentPeriods: CurrentPeriod[] =
+  const periods: Period[] =
     activeIds.length > 0
       ? ((
           await supabase
             .from("subscription_payments")
-            .select("subscription_id, period_month, amount_cents, due_date, grace_until, status, pay_token")
+            .select("subscription_id, period_start, period_end, amount_cents, due_date, grace_until, status, pay_token")
             .in("subscription_id", activeIds)
-            .order("period_month", { ascending: false })
         ).data ?? [])
       : [];
-
-  const currentMonth = firstOfMonthStr(nowInAmsterdam());
   const periodsFor = (subscriptionId: string) =>
-    currentPeriods.filter((p) => p.subscription_id === subscriptionId);
-
-  // Repetities tonen we voor de lopende maand - niet voor de nieuwste periode, want de
-  // cron zet de volgende maand al ~14 dagen van tevoren klaar.
-  function occurrencePeriod(subscriptionId: string): CurrentPeriod | undefined {
-    return periodsFor(subscriptionId)
-      .filter((p) => p.period_month >= currentMonth)
-      .sort((a, b) => a.period_month.localeCompare(b.period_month))[0];
-  }
+    periods.filter((p) => p.subscription_id === subscriptionId);
 
   type Swap = {
     subscription_id: string;
-    period_month: string;
+    period_start: string;
     original_date: string;
     new_date: string;
     new_dagdeel_id: string;
@@ -116,60 +107,41 @@ export async function GET(request: NextRequest) {
       : [];
 
   const today = todayStr();
+  const until = addDaysStr(today, config.subscriptionOverviewWeeks * 7);
 
-  type SubscriptionRow = {
-    id: string;
-    band_name: string;
-    weekday: number;
-    dagdeel_id: string;
-    frequency: "weekly";
-    price_cents: number;
-    status: string;
-    cancel_token: string;
-  };
+  // De komende repetities, met per keer of die nog verplaatst kan worden: niet al
+  // verplaatst, nog niet binnen de annuleringsgrens, en de band heeft in die
+  // betaalperiode nog verplaatsingen over.
+  function occurrencesFor(subscription: SubscriptionPattern & { id: string; status: string }) {
+    if (subscription.status !== "active") return [];
+    const dagdeel = config.dagdelen.find((d) => d.id === subscription.dagdeel_id);
+    const startTime = `${(dagdeel?.startHour ?? 0).toString().padStart(2, "0")}:00`;
+    const ownPeriods = periodsFor(subscription.id);
+    const ownSwaps = swaps.filter((s) => s.subscription_id === subscription.id);
 
-  function occurrencesFor(subscription: SubscriptionRow) {
-    const period = occurrencePeriod(subscription.id);
-    if (!period) return { occurrences: [], swapsUsed: 0 };
-
-    const periodMonth = period.period_month;
-    const [y, m] = periodMonth.split("-").map(Number);
-    const monthEnd = new Date(y, m, 0); // laatste dag van de maand
-    const start = new Date(Math.max(new Date(periodMonth + "T00:00:00").getTime(), new Date(today + "T00:00:00").getTime()));
-
-    const dates: string[] = [];
-    const d = new Date(start);
-    while (d <= monthEnd) {
-      if (d.getDay() === subscription.weekday) dates.push(toLocalDateStr(d));
-      d.setDate(d.getDate() + 1);
-    }
-
-    const swapsThisPeriod = swaps.filter(
-      (s) => s.subscription_id === subscription.id && s.period_month === periodMonth
-    );
-    const swapByOriginalDate = new Map(swapsThisPeriod.map((s) => [s.original_date, s]));
-
-    const occurrences = dates.map((date) => {
-      const swap = swapByOriginalDate.get(date);
-      return {
-        date,
-        swappedTo: swap ? { date: swap.new_date, dagdeelId: swap.new_dagdeel_id } : null,
-      };
-    });
-
-    return { occurrences, swapsUsed: swapsThisPeriod.length };
+    return occurrencesBetween(subscription, today, until)
+      .filter((date) => hoursUntilSlot(date, startTime) > 0)
+      .map((date) => {
+        const swap = ownSwaps.find((s) => s.original_date === date);
+        const periodStart = periodStartContaining(subscription.start_date, ownPeriods, date);
+        const swapsUsed = ownSwaps.filter((s) => s.period_start === periodStart).length;
+        return {
+          date,
+          swappedTo: swap ? { date: swap.new_date, dagdeelId: swap.new_dagdeel_id } : null,
+          canSwap:
+            !swap &&
+            swapsUsed < config.subscriptionMaxSwapsPerPeriod &&
+            hoursUntilSlot(date, startTime) >= config.cancellationCutoffHours,
+        };
+      });
   }
 
-  const subscriptionsWithPeriod = (subscriptions ?? []).map((s) => {
-    const { occurrences, swapsUsed } = occurrencesFor(s);
-    return {
-      ...s,
-      currentPeriod: pickActionablePeriod(periodsFor(s.id), currentMonth),
-      occurrences,
-      swapsUsed,
-      swapsAllowed: config.subscriptionMaxSwapsPerPeriod,
-    };
-  });
+  const subscriptionsWithPeriod = (subscriptions ?? []).map((s) => ({
+    ...s,
+    currentPeriod: pickActionablePeriod(periodsFor(s.id), today),
+    occurrences: occurrencesFor(s as SubscriptionPattern & { id: string; status: string }),
+    swapsAllowed: config.subscriptionMaxSwapsPerPeriod,
+  }));
 
   return NextResponse.json({
     bookings: bookings ?? [],

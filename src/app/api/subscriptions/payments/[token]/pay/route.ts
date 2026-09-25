@@ -52,7 +52,7 @@ export async function POST(
   try {
     const payment = (await mollie.payments.create({
       amount: { currency: config.currency, value: priceStr },
-      description: `${config.roomName} - vaste reservering ${subscription.band_name} - ${periodPayment.period_month}`,
+      description: `${config.roomName} - vaste reservering ${subscription.band_name} - ${periodPayment.period_start} t/m ${periodPayment.period_end}`,
       redirectUrl: `${appUrl}/vaste-reservering/betalen?token=${token}`,
       webhookUrl: `${appUrl}/api/webhooks/mollie-subscription`,
       metadata: { subscriptionId: subscription.id, periodPaymentId: periodPayment.id },

@@ -9,19 +9,13 @@ export const config = {
   ],
   operatingDays: [0, 1, 2, 3, 4, 5, 6] as number[],
   maxWeeksAhead: 4,
-  // Vaste (structureel terugkerende) reservering van hetzelfde weekdag+dagdeel, maandelijks
-  // geïncasseerd via Mollie. Zie BESTUUR.md voor de uitleg van dit model.
+  // Vaste reservering: hetzelfde dagdeel elke week of om de week, vanaf een zelfgekozen
+  // startdatum. Betalen per periode van periodWeeks weken (dus altijd evenveel keer per
+  // rekening), zonder automatische incasso. Tarief: €30 per keer. Besluit bestuur volgt.
+  periodWeeks: 4,
   subscriptionPricing: {
-    weekly: { label: "Wekelijks", priceCentsPerMonth: 11000 },
-  },
-  // Pakket voor bands die om de week komen: een vast aantal losse boekingen op hetzelfde
-  // dagdeel, in één keer betaald. Na afloop verlengen via een herinneringsmail - wie
-  // op tijd verlengt houdt hetzelfde slot. Tarief voorlopig, besluit bestuur volgt.
-  packagePricing: {
-    label: "Pakket om de week",
-    sessions: 4,
-    intervalWeeks: 2,
-    priceCents: 12000,
+    weekly: { label: "Elke week", sessionsPerPeriod: 4, priceCentsPerPeriod: 12000 },
+    biweekly: { label: "Om de week", sessionsPerPeriod: 2, priceCentsPerPeriod: 6000 },
   },
   // Echte mailbox (aangemaakt door Kimberly, sep 2026) - het afzenderadres van alle
   // systeemmails en het adres dat in "neem contact op"-teksten getoond wordt.
@@ -36,9 +30,13 @@ export const config = {
   // Aantal dagen na de betaaldatum dat een band nog mag betalen voordat het recht op
   // het vaste tijdslot voor de rest van het jaar vervalt. Besluit bestuur 2026-09-11.
   subscriptionGraceDays: 14,
-  // Hoe vaak een band per (kalendermaand-)periode een repetitie mag verplaatsen naar een
-  // ander vrij dagdeel. Besluit bestuur 2026-09-11.
+  // Verplaatsen van een repetitie van een vaste reservering (feedback bestuur, sep 2026):
+  // max. zoveel keer per betaalperiode, naar elk vrij dagdeel vanaf nu tot zoveel dagen na
+  // de oorspronkelijke datum. Meer nodig? Dan mailt de band het bestuur.
   subscriptionMaxSwapsPerPeriod: 2,
+  subscriptionSwapMaxDaysLater: 14,
+  // Hoeveel weken vooruit "Mijn boekingen" de komende repetities toont.
+  subscriptionOverviewWeeks: 8,
 };
 
 export type Config = typeof config;

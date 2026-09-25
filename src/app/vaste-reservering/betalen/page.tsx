@@ -6,19 +6,19 @@ import { useEffect, useState, Suspense } from "react";
 type PeriodInfo = {
   status: "unpaid" | "paid" | "waived" | "processing";
   amountCents: number;
-  periodMonth: string;
+  periodStart: string;
+  periodEnd: string;
   dueDate: string;
   graceUntil: string;
   bandName: string;
-  weekdayDagdeel: string;
+  rhythm: string;
   subscriptionStatus: string;
 };
 
-function formatMonth(dateStr: string): string {
-  return new Date(dateStr + "T00:00:00").toLocaleDateString("nl-NL", {
-    month: "long",
-    year: "numeric",
-  });
+function formatPeriod(start: string, end: string): string {
+  const short = (d: string) =>
+    new Date(d + "T00:00:00").toLocaleDateString("nl-NL", { day: "numeric", month: "short" });
+  return `${short(start)} t/m ${short(end)}`;
 }
 
 function formatDate(dateStr: string): string {
@@ -108,9 +108,11 @@ function BetalenContent() {
     <div className="max-w-lg mx-auto px-4 py-16">
       <div className="bg-white rounded-lg border border-gray-200 p-8">
         <h2 className="text-xl font-bold mb-1">
-          {info.bandName} - {formatMonth(info.periodMonth)}
+          {info.bandName} - {formatPeriod(info.periodStart, info.periodEnd)}
         </h2>
-        <p className="text-gray-600 mb-6">Elke {info.weekdayDagdeel}</p>
+        <p className="text-gray-600 mb-6">
+          {info.rhythm.charAt(0).toUpperCase() + info.rhythm.slice(1)}
+        </p>
 
         {info.status === "paid" ? (
           <p className="text-green-700 bg-green-50 border border-green-200 rounded-lg p-4">

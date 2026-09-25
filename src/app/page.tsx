@@ -5,7 +5,6 @@ import Image from "next/image";
 import { config } from "@/config";
 import { toLocalDateStr, hoursUntilSlot } from "@/lib/date";
 import SubscriptionSection from "./SubscriptionSection";
-import PackageSection from "./PackageSection";
 import MembershipRequestPrompt from "./MembershipRequestPrompt";
 import JoinRequestForm from "./JoinRequestForm";
 
@@ -60,7 +59,8 @@ function formatFullDate(dateStr: string): string {
 }
 
 export default function Home() {
-  const [mode, setMode] = useState<"once" | "package" | "subscription" | "join" | null>(null);
+  const [mode, setMode] = useState<"once" | "subscription" | "join" | null>(null);
+  const [subscriptionFrequency, setSubscriptionFrequency] = useState<"weekly" | "biweekly">("weekly");
   const [weekStart, setWeekStart] = useState<Date>(() =>
     getWeekStart(new Date())
   );
@@ -209,22 +209,34 @@ export default function Home() {
     const euro = (cents: number) => `€${(cents / 100).toFixed(2).replace(".", ",")}`;
     const options = [
       {
-        mode: "once" as const,
+        key: "once",
+        onClick: () => setMode("once"),
         title: "Eenmalige boeking",
         text: "Los dagdeel op een datum naar keuze",
         price: euro(config.pricePerSlotCents),
+        suffix: "per keer",
       },
       {
-        mode: "package" as const,
+        key: "biweekly",
+        onClick: () => {
+          setSubscriptionFrequency("biweekly");
+          setMode("subscription");
+        },
         title: "Om de week",
-        text: `Pakket van ${config.packagePricing.sessions}× hetzelfde dagdeel, om de ${config.packagePricing.intervalWeeks} weken`,
-        price: euro(config.packagePricing.priceCents),
+        text: "Vast hetzelfde dagdeel om de week, blijft van jullie zolang je betaalt",
+        price: euro(config.subscriptionPricing.biweekly.priceCentsPerPeriod),
+        suffix: `per ${config.periodWeeks} weken`,
       },
       {
-        mode: "subscription" as const,
-        title: "Vaste reservering",
-        text: "Elke week hetzelfde dagdeel, blijft van jullie zolang je betaalt",
-        price: `${euro(config.subscriptionPricing.weekly.priceCentsPerMonth)}/mnd`,
+        key: "weekly",
+        onClick: () => {
+          setSubscriptionFrequency("weekly");
+          setMode("subscription");
+        },
+        title: "Elke week",
+        text: "Vast hetzelfde dagdeel elke week, blijft van jullie zolang je betaalt",
+        price: euro(config.subscriptionPricing.weekly.priceCentsPerPeriod),
+        suffix: `per ${config.periodWeeks} weken`,
       },
     ];
 
@@ -255,8 +267,8 @@ export default function Home() {
           <div className="grid sm:grid-cols-3 gap-4">
             {options.map((o) => (
               <button
-                key={o.mode}
-                onClick={() => setMode(o.mode)}
+                key={o.key}
+                onClick={o.onClick}
                 className="group text-left bg-white border-2 border-gray-200 border-t-4 border-t-soulex-orange rounded-xl p-5 sm:p-6 hover:border-blue-400 hover:border-t-soulex-orange hover:shadow-md transition-all"
               >
                 <span className="block text-lg font-semibold mb-1 font-[family-name:var(--font-slab)] text-blue-900">
@@ -264,7 +276,10 @@ export default function Home() {
                 </span>
                 <span className="block text-sm text-gray-600 mb-3">{o.text}</span>
                 <span className="flex items-baseline justify-between">
-                  <span className="text-xl font-bold text-blue-600">{o.price}</span>
+                  <span>
+                    <span className="text-xl font-bold text-blue-600">{o.price}</span>{" "}
+                    <span className="text-xs text-gray-500">{o.suffix}</span>
+                  </span>
                   <span className="text-sm font-medium text-soulex-orange group-hover:translate-x-0.5 transition-transform">
                     Kies →
                   </span>
@@ -322,20 +337,6 @@ export default function Home() {
     return <JoinRequestForm onBack={() => setMode(null)} />;
   }
 
-  if (mode === "package") {
-    return (
-      <div className="max-w-5xl mx-auto px-3 sm:px-4 py-4 sm:py-8">
-        <button
-          onClick={() => setMode(null)}
-          className="text-sm text-blue-600 hover:text-blue-700 mb-4"
-        >
-          ← Andere optie kiezen
-        </button>
-        <PackageSection />
-      </div>
-    );
-  }
-
   if (mode === "subscription") {
     return (
       <div className="max-w-5xl mx-auto px-3 sm:px-4 py-4 sm:py-8">
@@ -345,7 +346,7 @@ export default function Home() {
         >
           ← Andere optie kiezen
         </button>
-        <SubscriptionSection />
+        <SubscriptionSection initialFrequency={subscriptionFrequency} />
       </div>
     );
   }

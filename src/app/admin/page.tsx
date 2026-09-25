@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { config } from "@/config";
 import { toLocalDateStr } from "@/lib/date";
 import AdminSettings from "./AdminSettings";
+import { formatRhythm, occursOn } from "@/lib/schedule";
 
 function getWeekStart(date: Date): Date {
   const d = new Date(date);
@@ -25,7 +26,6 @@ type Booking = {
   price_cents: number;
   status: string;
   mollie_payment_id: string | null;
-  package_id: string | null;
   created_at: string;
 };
 
@@ -38,7 +38,8 @@ type Member = {
 
 type SubscriptionPeriod = {
   id: string;
-  period_month: string;
+  period_start: string;
+  period_end: string;
   amount_cents: number;
   due_date: string;
   grace_until: string;
@@ -53,7 +54,8 @@ type Subscription = {
   contact_phone: string | null;
   weekday: number;
   dagdeel_id: string;
-  frequency: "weekly";
+  frequency: "weekly" | "biweekly";
+  start_date: string;
   price_cents: number;
   status: "pending_first_payment" | "active" | "lapsed" | "cancelled";
   active_until: string | null;
@@ -95,9 +97,9 @@ const DAY_NAMES_NL = [
   "Zaterdag",
 ];
 
-function formatWeekdayDagdeel(subscription: Subscription): string {
-  const dagdeel = config.dagdelen.find((d) => d.id === subscription.dagdeel_id);
-  return `${DAY_NAMES_NL[subscription.weekday]} ${dagdeel?.label ?? subscription.dagdeel_id}`;
+function formatRhythmLabel(subscription: Subscription): string {
+  const text = formatRhythm(subscription);
+  return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
 function formatPrice(cents: number): string {
@@ -105,7 +107,7 @@ function formatPrice(cents: number): string {
 }
 
 // Opgezegd én uitgelopen (of vervallen): mag weg uit het overzicht. Een opgezegde
-// reservering waarvan de betaalde maand nog loopt, houdt het slot nog vast.
+// reservering waarvan de betaalde periode nog loopt, houdt het slot nog vast.
 function isInactiveSubscription(s: Subscription): boolean {
   if (s.status === "lapsed") return true;
   if (s.status !== "cancelled") return false;
@@ -155,9 +157,8 @@ export default function AdminPage() {
     contactEmail: "",
     contactPhone: "",
     slotDate: "",
-    weekday: "1",
     dagdeelId: config.dagdelen[0].id,
-    recurrence: "once" as "once" | "weekly" | "package",
+    recurrence: "once" as "once" | "weekly" | "biweekly",
   });
   const [addingBooking, setAddingBooking] = useState(false);
   const [addBookingError, setAddBookingError] = useState("");
@@ -168,7 +169,8 @@ export default function AdminPage() {
     contactName: "",
     contactEmail: "",
     contactPhone: "",
-    weekday: "1",
+    startDate: "",
+    frequency: "weekly" as "weekly" | "biweekly",
     dagdeelId: config.dagdelen[0].id,
   });
   const [addingSubscription, setAddingSubscription] = useState(false);
@@ -496,47 +498,22 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
     setAddingBooking(true);
     setAddBookingError("");
 
-    const isRecurring = addBookingForm.recurrence === "weekly";
-    const isPackage = addBookingForm.recurrence === "package";
+    const isRecurring = addBookingForm.recurrence !== "once";
     const { bandName, contactName, contactEmail, contactPhone } = addBookingForm;
 
-    const endpoint = isRecurring
-      ? "/api/admin/subscriptions"
-      : isPackage
-        ? "/api/admin/packages"
-        : "/api/admin/bookings";
-    const res = await fetch(endpoint, {
+    const res = await fetch(isRecurring ? "/api/admin/subscriptions" : "/api/admin/bookings", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(
-        isRecurring
-          ? {
-              bandName,
-              contactName,
-              contactEmail,
-              contactPhone,
-              weekday: parseInt(addBookingForm.weekday, 10),
-              dagdeelId: addBookingForm.dagdeelId,
-              frequency: "weekly",
-            }
-          : isPackage
-            ? {
-                bandName,
-                contactName,
-                contactEmail,
-                contactPhone,
-                firstDate: addBookingForm.slotDate,
-                dagdeelId: addBookingForm.dagdeelId,
-              }
-            : {
-              bandName,
-              contactName,
-              contactEmail,
-              contactPhone,
-              slotDate: addBookingForm.slotDate,
-              dagdeelId: addBookingForm.dagdeelId,
-            }
-      ),
+      body: JSON.stringify({
+        bandName,
+        contactName,
+        contactEmail,
+        contactPhone,
+        dagdeelId: addBookingForm.dagdeelId,
+        ...(isRecurring
+          ? { startDate: addBookingForm.slotDate, frequency: addBookingForm.recurrence }
+          : { slotDate: addBookingForm.slotDate }),
+      }),
     });
     const data = await res.json();
 
@@ -552,7 +529,6 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
       contactEmail: "",
       contactPhone: "",
       slotDate: "",
-      weekday: "1",
       dagdeelId: config.dagdelen[0].id,
       recurrence: "once",
     });
@@ -575,8 +551,7 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         ...addSubscriptionForm,
-        frequency: "weekly",
-        weekday: parseInt(addSubscriptionForm.weekday, 10),
+        frequency: addSubscriptionForm.frequency,
       }),
     });
     const data = await res.json();
@@ -592,7 +567,8 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
       contactName: "",
       contactEmail: "",
       contactPhone: "",
-      weekday: "1",
+      startDate: "",
+      frequency: "weekly",
       dagdeelId: config.dagdelen[0].id,
     });
     setShowAddSubscription(false);
@@ -806,8 +782,9 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
               className="bg-white rounded-lg border border-gray-200 p-4 mb-4 space-y-3"
             >
               <p className="text-xs text-gray-500">
-                Voor het overzetten van een bestaande afspraak: geen betaling nodig, de lopende
-                periode wordt kwijtgescholden en telt pas vanaf volgende maand mee.
+                Voor het overzetten van een bestaande afspraak: geen betaling nodig. De eerste 4
+                weken vanaf de startdatum worden kwijtgescholden; daarna krijgt de band gewoon
+                betaalverzoeken.
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <input
@@ -850,18 +827,28 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
                   className="px-3 py-2.5 border border-gray-300 rounded-lg text-base"
                 />
                 <select
-                  value={addSubscriptionForm.weekday}
+                  value={addSubscriptionForm.frequency}
                   onChange={(e) =>
-                    setAddSubscriptionForm((f) => ({ ...f, weekday: e.target.value }))
+                    setAddSubscriptionForm((f) => ({
+                      ...f,
+                      frequency: e.target.value as "weekly" | "biweekly",
+                    }))
                   }
                   className="px-3 py-2.5 border border-gray-300 rounded-lg text-base"
                 >
-                  {DAY_NAMES_NL.map((name, i) => (
-                    <option key={i} value={i}>
-                      {name}
-                    </option>
-                  ))}
+                  <option value="weekly">Elke week</option>
+                  <option value="biweekly">Om de week</option>
                 </select>
+                <input
+                  type="date"
+                  required
+                  title="Eerste keer"
+                  value={addSubscriptionForm.startDate}
+                  onChange={(e) =>
+                    setAddSubscriptionForm((f) => ({ ...f, startDate: e.target.value }))
+                  }
+                  className="px-3 py-2.5 border border-gray-300 rounded-lg text-base"
+                />
                 <select
                   value={addSubscriptionForm.dagdeelId}
                   onChange={(e) =>
@@ -959,8 +946,9 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
                         </span>
                       </div>
                       <p className="text-sm text-gray-700">
-                        Elke {formatWeekdayDagdeel(subscription)} ·{" "}
-                        {formatPrice(subscription.price_cents)}/mnd
+                        {formatRhythmLabel(subscription)} · sinds{" "}
+                        {formatShortDate(subscription.start_date)} ·{" "}
+                        {formatPrice(subscription.price_cents)} per {config.periodWeeks} weken
                       </p>
                       <p className="text-sm text-gray-500 mt-1">
                         {subscription.contact_name} · {subscription.contact_email}
@@ -970,15 +958,18 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
                         <p className="text-sm mt-2">
                           {subscription.currentPeriod.status === "paid" ? (
                             <span className="text-green-700">
-                              Periode {formatShortDate(subscription.currentPeriod.period_month)}: betaald
+                              Periode {formatShortDate(subscription.currentPeriod.period_start)} t/m{" "}
+                              {formatShortDate(subscription.currentPeriod.period_end)}: betaald
                             </span>
                           ) : subscription.currentPeriod.status === "waived" ? (
                             <span className="text-blue-700">
-                              Periode {formatShortDate(subscription.currentPeriod.period_month)}: kwijtgescholden
+                              Periode {formatShortDate(subscription.currentPeriod.period_start)} t/m{" "}
+                              {formatShortDate(subscription.currentPeriod.period_end)}: kwijtgescholden
                             </span>
                           ) : (
                             <span className="text-amber-700">
-                              Periode {formatShortDate(subscription.currentPeriod.period_month)}: nog niet
+                              Periode {formatShortDate(subscription.currentPeriod.period_start)} t/m{" "}
+                              {formatShortDate(subscription.currentPeriod.period_end)}: nog niet
                               betaald · coulance tot {formatShortDate(subscription.currentPeriod.grace_until)}
                             </span>
                           )}
@@ -1235,39 +1226,23 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
               onChange={(e) =>
                 setAddBookingForm((f) => ({
                   ...f,
-                  recurrence: e.target.value as "once" | "weekly" | "package",
+                  recurrence: e.target.value as "once" | "weekly" | "biweekly",
                 }))
               }
               className="px-3 py-2.5 border border-gray-300 rounded-lg text-base sm:col-span-2"
             >
               <option value="once">Eenmalig, op een datum</option>
-              <option value="weekly">Doorlopend, elke week</option>
-              <option value="package">
-                Pakket: {config.packagePricing.sessions}× om de {config.packagePricing.intervalWeeks} weken
-              </option>
+              <option value="weekly">Vaste reservering, elke week</option>
+              <option value="biweekly">Vaste reservering, om de week</option>
             </select>
-            {addBookingForm.recurrence !== "weekly" ? (
-              <input
-                type="date"
-                title={addBookingForm.recurrence === "package" ? "Eerste datum" : "Datum"}
-                required
-                value={addBookingForm.slotDate}
-                onChange={(e) => setAddBookingForm((f) => ({ ...f, slotDate: e.target.value }))}
-                className="px-3 py-2.5 border border-gray-300 rounded-lg text-base"
-              />
-            ) : (
-              <select
-                value={addBookingForm.weekday}
-                onChange={(e) => setAddBookingForm((f) => ({ ...f, weekday: e.target.value }))}
-                className="px-3 py-2.5 border border-gray-300 rounded-lg text-base"
-              >
-                {DAY_NAMES_NL.map((name, i) => (
-                  <option key={i} value={i}>
-                    {name}
-                  </option>
-                ))}
-              </select>
-            )}
+            <input
+              type="date"
+              title={addBookingForm.recurrence === "once" ? "Datum" : "Eerste keer"}
+              required
+              value={addBookingForm.slotDate}
+              onChange={(e) => setAddBookingForm((f) => ({ ...f, slotDate: e.target.value }))}
+              className="px-3 py-2.5 border border-gray-300 rounded-lg text-base"
+            />
             <select
               value={addBookingForm.dagdeelId}
               onChange={(e) => setAddBookingForm((f) => ({ ...f, dagdeelId: e.target.value }))}
@@ -1294,9 +1269,7 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
               ? "Toevoegen..."
               : addBookingForm.recurrence === "once"
                 ? "Boeking toevoegen"
-                : addBookingForm.recurrence === "package"
-                  ? "Pakket toevoegen"
-                  : "Vaste reservering toevoegen"}
+                : "Vaste reservering toevoegen"}
           </button>
         </form>
       )}
@@ -1384,9 +1357,11 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
                         );
                         const subscription = subscriptions.find(
                           (s) =>
-                            s.status === "active" &&
+                            (s.status === "active" ||
+                              (s.status === "cancelled" && !!s.active_until)) &&
                             s.weekday === weekday &&
-                            s.dagdeel_id === dagdeel.id
+                            s.dagdeel_id === dagdeel.id &&
+                            occursOn(s, dateStr)
                         );
                         const swappedAway =
                           subscription &&
@@ -1425,9 +1400,6 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
                               <span className="block text-[10px] sm:text-xs truncate font-medium">
                                 {booking.band_name}
                               </span>
-                              {booking.package_id && (
-                                <span className="block text-[10px] opacity-75">pakket</span>
-                              )}
                             </button>
                           );
                         }

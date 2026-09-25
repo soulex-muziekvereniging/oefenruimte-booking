@@ -33,27 +33,6 @@ export type Booking = {
   status: "pending" | "confirmed" | "cancelled" | "expired";
   mollie_payment_id: string | null;
   cancel_token: string;
-  package_id: string | null;
-  created_at: string;
-  updated_at: string;
-};
-
-export type BookingPackage = {
-  id: string;
-  band_name: string;
-  contact_name: string;
-  contact_email: string;
-  contact_phone: string | null;
-  dagdeel_id: string;
-  first_date: string;
-  last_date: string;
-  price_cents: number;
-  status: "pending" | "paid" | "expired";
-  mollie_payment_id: string | null;
-  renew_token: string;
-  renewal_of: string | null;
-  reminder_sent_at: string | null;
-  final_reminder_sent_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -66,7 +45,9 @@ export type Subscription = {
   contact_phone: string | null;
   weekday: number;
   dagdeel_id: string;
-  frequency: "weekly";
+  frequency: "weekly" | "biweekly";
+  // Eerste repetitie; "om de week" telt vanaf deze dag.
+  start_date: string;
   price_cents: number;
   status: "pending_first_payment" | "active" | "lapsed" | "cancelled";
   mollie_customer_id: string | null;
@@ -83,7 +64,8 @@ export type Subscription = {
 export type SubscriptionPayment = {
   id: string;
   subscription_id: string;
-  period_month: string;
+  period_start: string;
+  period_end: string;
   amount_cents: number;
   due_date: string;
   grace_until: string;
@@ -101,7 +83,7 @@ export type SubscriptionPayment = {
 export type SubscriptionSwap = {
   id: string;
   subscription_id: string;
-  period_month: string;
+  period_start: string;
   original_date: string;
   new_date: string | null;
   new_dagdeel_id: string | null;

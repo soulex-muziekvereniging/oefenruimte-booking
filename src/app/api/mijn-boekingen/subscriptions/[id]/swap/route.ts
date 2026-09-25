@@ -3,14 +3,16 @@ import { supabase } from "@/lib/supabase";
 import { config } from "@/config";
 import { verifyMagicLinkToken } from "@/lib/magicLink";
 import { hoursUntilSlot } from "@/lib/date";
-import { firstOfMonthStr } from "@/lib/periods";
+import { addDaysStr } from "@/lib/periods";
+import { occursOn, periodStartContaining } from "@/lib/schedule";
 import { getSlotsForRange } from "@/lib/slots";
 import { getActiveMemberEmails } from "@/lib/members";
 import { sendSwapConfirmationEmail, sendSwapNotificationToOrg, sendSafely } from "@/lib/email";
 
-// Zelf één repetitie binnen de lopende periode verplaatsen naar een ander vrij
-// dagdeel - max. config.subscriptionMaxSwapsPerPeriod keer per kalendermaand, en
-// alleen tot config.cancellationCutoffHours uur van tevoren (besluit bestuur 2026-09-11).
+// Zelf één repetitie van een vaste reservering verplaatsen naar een ander vrij dagdeel:
+// vanaf nu tot config.subscriptionSwapMaxDaysLater dagen na de oorspronkelijke datum,
+// max. config.subscriptionMaxSwapsPerPeriod keer per betaalperiode, en alleen tot
+// config.cancellationCutoffHours uur van tevoren. Elk bandlid mag dit doen.
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -39,19 +41,25 @@ export async function POST(
     .from("subscriptions")
     .select("*")
     .eq("id", id)
-    .ilike("contact_email", email)
     .eq("status", "active")
     .maybeSingle();
 
-  if (!subscription) {
+  const bandEmails = subscription
+    ? await getActiveMemberEmails(subscription.band_name, subscription.contact_email)
+    : [];
+  const isBandMember =
+    !!subscription &&
+    (subscription.contact_email.toLowerCase() === email.toLowerCase() ||
+      bandEmails.some((e) => e.toLowerCase() === email.toLowerCase()));
+
+  if (!subscription || !isBandMember) {
     return NextResponse.json(
       { error: "Vaste reservering niet gevonden of niet actief" },
       { status: 404 }
     );
   }
 
-  const originalWeekday = new Date(originalDate + "T00:00:00").getDay();
-  if (originalWeekday !== subscription.weekday) {
+  if (!occursOn(subscription, originalDate)) {
     return NextResponse.json(
       { error: "Deze datum hoort niet bij jullie vaste tijdslot" },
       { status: 400 }
@@ -68,14 +76,20 @@ export async function POST(
     );
   }
 
-  const periodMonth = firstOfMonthStr(new Date(originalDate + "T00:00:00"));
-  const newPeriodMonth = firstOfMonthStr(new Date(newDate + "T00:00:00"));
-  if (newPeriodMonth !== periodMonth) {
+  if (newDate > addDaysStr(originalDate, config.subscriptionSwapMaxDaysLater)) {
     return NextResponse.json(
-      { error: "Je kunt alleen binnen dezelfde periode (kalendermaand) schuiven" },
+      {
+        error: `Je kunt tot ${config.subscriptionSwapMaxDaysLater} dagen later verplaatsen. Moet het anders? Mail dan naar ${config.organizationEmail}.`,
+      },
       { status: 400 }
     );
   }
+
+  const { data: periods } = await supabase
+    .from("subscription_payments")
+    .select("period_start, period_end")
+    .eq("subscription_id", id);
+  const periodStart = periodStartContaining(subscription.start_date, periods ?? [], originalDate);
 
   const newDagdeel = config.dagdelen.find((d) => d.id === newDagdeelId)!;
   if (hoursUntilSlot(newDate, `${newDagdeel.startHour.toString().padStart(2, "0")}:00:00`) < config.cancellationCutoffHours) {
@@ -91,12 +105,12 @@ export async function POST(
     .from("subscription_swaps")
     .select("id", { count: "exact", head: true })
     .eq("subscription_id", id)
-    .eq("period_month", periodMonth);
+    .eq("period_start", periodStart);
 
   if ((count ?? 0) >= config.subscriptionMaxSwapsPerPeriod) {
     return NextResponse.json(
       {
-        error: `Je hebt deze periode al ${config.subscriptionMaxSwapsPerPeriod} keer geschoven. Neem contact op met ${config.organizationName} als dit een keer extra moet.`,
+        error: `Je hebt in deze periode van ${config.periodWeeks} weken al ${config.subscriptionMaxSwapsPerPeriod} keer verplaatst. Moet het nog een keer? Mail dan naar ${config.organizationEmail}.`,
       },
       { status: 400 }
     );
@@ -112,7 +126,7 @@ export async function POST(
 
   const { error } = await supabase.from("subscription_swaps").insert({
     subscription_id: id,
-    period_month: periodMonth,
+    period_start: periodStart,
     original_date: originalDate,
     new_date: newDate,
     new_dagdeel_id: newDagdeelId,
@@ -128,7 +142,6 @@ export async function POST(
     return NextResponse.json({ error: "Kon niet verplaatsen" }, { status: 500 });
   }
 
-  const bandEmails = await getActiveMemberEmails(subscription.band_name, subscription.contact_email);
   await sendSafely("bevestiging ruiling", () =>
     sendSwapConfirmationEmail(subscription, originalDate, newDate, newDagdeelId, bandEmails)
   );

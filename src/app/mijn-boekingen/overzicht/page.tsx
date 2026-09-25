@@ -18,7 +18,8 @@ type Booking = {
 };
 
 type SubscriptionPeriod = {
-  period_month: string;
+  period_start: string;
+  period_end: string;
   amount_cents: number;
   due_date: string;
   grace_until: string;
@@ -29,6 +30,7 @@ type SubscriptionPeriod = {
 type Occurrence = {
   date: string;
   swappedTo: { date: string; dagdeelId: string } | null;
+  canSwap: boolean;
 };
 
 type Subscription = {
@@ -36,13 +38,13 @@ type Subscription = {
   band_name: string;
   weekday: number;
   dagdeel_id: string;
-  frequency: "weekly";
+  frequency: "weekly" | "biweekly";
+  start_date: string;
   price_cents: number;
   status: "pending_first_payment" | "active" | "lapsed";
   cancel_token: string;
   currentPeriod: SubscriptionPeriod | null;
   occurrences: Occurrence[];
-  swapsUsed: number;
   swapsAllowed: number;
 };
 
@@ -51,14 +53,6 @@ type SwapOption = {
   dagdeelId: string;
   dagdeelLabel: string;
 };
-
-function getWeekStart(date: Date): Date {
-  const d = new Date(date);
-  const day = d.getDay();
-  const diff = day === 0 ? -6 : 1 - day;
-  d.setDate(d.getDate() + diff);
-  return d;
-}
 
 function toLocalDateStr(date: Date): string {
   const y = date.getFullYear();
@@ -69,14 +63,6 @@ function toLocalDateStr(date: Date): string {
 
 function dagdeelLabelFor(dagdeelId: string): string {
   return config.dagdelen.find((d) => d.id === dagdeelId)?.label ?? dagdeelId;
-}
-
-// Zelfde grens als de server: schuiven kan tot cancellationCutoffHours voor aanvang.
-function canStillSwap(date: string, dagdeelId: string): boolean {
-  const dagdeel = config.dagdelen.find((d) => d.id === dagdeelId);
-  if (!dagdeel) return false;
-  const start = `${dagdeel.startHour.toString().padStart(2, "0")}:00:00`;
-  return hoursUntilSlot(date, start) >= config.cancellationCutoffHours;
 }
 
 function formatShortDate(dateStr: string): string {
@@ -114,11 +100,16 @@ function formatPrice(cents: number): string {
   return `€${(cents / 100).toFixed(2).replace(".", ",")}`;
 }
 
-function formatMonth(dateStr: string): string {
-  return new Date(dateStr + "T00:00:00").toLocaleDateString("nl-NL", {
-    month: "long",
-    year: "numeric",
-  });
+function formatPeriod(period: { period_start: string; period_end: string }): string {
+  const short = (d: string) =>
+    new Date(d + "T00:00:00").toLocaleDateString("nl-NL", { day: "numeric", month: "short" });
+  return `${short(period.period_start)} t/m ${short(period.period_end)}`;
+}
+
+function addDays(dateStr: string, days: number): string {
+  const d = new Date(dateStr + "T00:00:00");
+  d.setDate(d.getDate() + days);
+  return toLocalDateStr(d);
 }
 
 function formatWeekdayDagdeel(subscription: Subscription): string {
@@ -197,14 +188,12 @@ function OverzichtContent() {
     setSwapError("");
     setSwapOptionsLoading(true);
 
-    const weekStart = getWeekStart(new Date(date + "T00:00:00"));
-    const weekEnd = new Date(weekStart);
-    weekEnd.setDate(weekEnd.getDate() + 6);
-    const periodMonth = date.slice(0, 7);
+    // Elk vrij dagdeel vanaf nu tot subscriptionSwapMaxDaysLater dagen na de
+    // oorspronkelijke datum (zelfde regel als de server).
+    const from = toLocalDateStr(new Date());
+    const to = addDays(date, config.subscriptionSwapMaxDaysLater);
 
-    const res = await fetch(
-      `/api/slots?from=${toLocalDateStr(weekStart)}&to=${toLocalDateStr(weekEnd)}`
-    );
+    const res = await fetch(`/api/slots?from=${from}&to=${to}`);
     const data = await res.json();
 
     const options: SwapOption[] = [];
@@ -213,7 +202,6 @@ function OverzichtContent() {
         date: string;
         slots: { dagdeelId: string; startTime: string; available: boolean }[];
       }[]) {
-        if (day.date.slice(0, 7) !== periodMonth) continue;
         for (const slot of day.slots) {
           if (slot.available && hoursUntilSlot(day.date, slot.startTime) >= config.cancellationCutoffHours) {
             options.push({ date: day.date, dagdeelId: slot.dagdeelId, dagdeelLabel: dagdeelLabelFor(slot.dagdeelId) });
@@ -287,9 +275,9 @@ function OverzichtContent() {
               <div key={s.id} className="bg-white rounded-lg border border-gray-200 p-4">
                 <p className="font-medium">{s.band_name}</p>
                 <p className="text-sm text-gray-600">
-                  Elke {formatWeekdayDagdeel(s)} ·{" "}
-                  {config.subscriptionPricing[s.frequency].label} ·{" "}
-                  {formatPrice(s.price_cents)}/mnd
+                  {config.subscriptionPricing[s.frequency].label} op{" "}
+                  {formatWeekdayDagdeel(s).toLowerCase()} · {formatPrice(s.price_cents)} per{" "}
+                  {config.periodWeeks} weken
                 </p>
                 <p className="text-sm text-gray-500 mb-2">
                   {s.status === "active"
@@ -303,11 +291,11 @@ function OverzichtContent() {
                   <div className="mb-3">
                     {s.currentPeriod.status === "paid" ? (
                       <p className="text-sm text-green-700">
-                        Periode {formatMonth(s.currentPeriod.period_month)} betaald.
+                        Periode {formatPeriod(s.currentPeriod)} betaald.
                       </p>
                     ) : s.currentPeriod.status === "waived" ? (
                       <p className="text-sm text-blue-700">
-                        Periode {formatMonth(s.currentPeriod.period_month)}: kwijtgescholden, tijdslot blijft van jullie.
+                        Periode {formatPeriod(s.currentPeriod)}: kwijtgescholden, tijdslot blijft van jullie.
                       </p>
                     ) : (
                       <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
@@ -329,7 +317,12 @@ function OverzichtContent() {
                 {s.status === "active" && s.occurrences.length > 0 && (
                   <div className="mb-3">
                     <p className="text-sm font-medium text-gray-700 mb-2">
-                      Repetities deze periode ({s.swapsUsed}/{s.swapsAllowed} keer geschoven)
+                      Komende repetities
+                      <span className="block text-xs font-normal text-gray-500">
+                        Kan een keer niet? Verplaats naar een ander vrij moment, tot{" "}
+                        {config.subscriptionSwapMaxDaysLater} dagen later ({s.swapsAllowed}× per{" "}
+                        {config.periodWeeks} weken). Anders: mail {config.organizationEmail}.
+                      </span>
                     </p>
                     <ul className="space-y-1.5">
                       {s.occurrences.map((occ) => (
@@ -350,9 +343,7 @@ function OverzichtContent() {
                               formatShortDate(occ.date)
                             )}
                           </span>
-                          {!occ.swappedTo &&
-                            s.swapsUsed < s.swapsAllowed &&
-                            canStillSwap(occ.date, s.dagdeel_id) && (
+                          {occ.canSwap && (
                             <button
                               onClick={() => openSwapPanel(s.id, occ.date)}
                               className="text-blue-600 hover:text-blue-700 text-xs font-medium shrink-0"
@@ -367,14 +358,15 @@ function OverzichtContent() {
                     {swapPanelFor?.subscriptionId === s.id && (
                       <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                         <p className="text-sm text-blue-900 mb-2">
-                          Kies een ander moment in dezelfde week als{" "}
-                          {formatShortDate(swapPanelFor.date)}. Je ruilt in, je betaalt niets
-                          extra.
+                          Kies een ander vrij moment in plaats van{" "}
+                          {formatShortDate(swapPanelFor.date)} (tot{" "}
+                          {config.subscriptionSwapMaxDaysLater} dagen later). Je ruilt in, je
+                          betaalt niets extra.
                         </p>
                         {swapOptionsLoading ? (
                           <p className="text-sm text-gray-500">Laden...</p>
                         ) : swapOptions && swapOptions.length > 0 ? (
-                          <div className="flex flex-wrap gap-2">
+                          <div className="flex flex-wrap gap-2 max-h-64 overflow-y-auto">
                             {swapOptions.map((opt) => (
                               <button
                                 key={`${opt.date}-${opt.dagdeelId}`}

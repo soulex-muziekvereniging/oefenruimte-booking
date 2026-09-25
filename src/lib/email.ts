@@ -1,9 +1,9 @@
 import { Resend } from "resend";
 import { getOrgRecipients } from "./notifications";
+import { formatRhythm } from "./schedule";
 import { config } from "@/config";
 import {
   Booking,
-  BookingPackage,
   Subscription,
   MembershipRequest,
   SubscriptionPayment,
@@ -79,30 +79,19 @@ function formatPrice(cents: number): string {
   return `€${(cents / 100).toFixed(2).replace(".", ",")}`;
 }
 
-const DAY_NAMES_NL = [
-  "zondag",
-  "maandag",
-  "dinsdag",
-  "woensdag",
-  "donderdag",
-  "vrijdag",
-  "zaterdag",
-];
-
+// "elke maandagavond" of "om de week op maandagavond".
 function formatWeekdayDagdeel(subscription: Subscription): string {
-  const dagdeel = config.dagdelen.find((d) => d.id === subscription.dagdeel_id);
-  return `${DAY_NAMES_NL[subscription.weekday]} ${dagdeel?.label.toLowerCase() ?? subscription.dagdeel_id}`;
+  return formatRhythm(subscription);
 }
 
-function formatFrequency(frequency: Subscription["frequency"]): string {
-  return config.subscriptionPricing[frequency].label.toLowerCase();
+function capitalize(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
-function formatMonth(monthStr: string): string {
-  return new Date(monthStr + "T00:00:00").toLocaleDateString("nl-NL", {
-    month: "long",
-    year: "numeric",
-  });
+function formatPeriod(periodPayment: Pick<SubscriptionPayment, "period_start" | "period_end">): string {
+  const short = (d: string) =>
+    new Date(d + "T00:00:00").toLocaleDateString("nl-NL", { day: "numeric", month: "short" });
+  return `${short(periodPayment.period_start)} t/m ${short(periodPayment.period_end)}`;
 }
 
 export async function sendConfirmationEmail(booking: Booking, extraRecipients: string[] = []) {
@@ -276,14 +265,14 @@ export async function sendSubscriptionConfirmationEmail(
   await send({
     from: `${config.organizationName} <${config.senderEmail}>`,
     to: recipients,
-    subject: `Vaste reservering bevestigd: ${config.roomName} elke ${formatWeekdayDagdeel(subscription)}`,
+    subject: `Vaste reservering bevestigd: ${config.roomName} ${formatWeekdayDagdeel(subscription)}`,
     html: `
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
         <h2>Vaste reservering bevestigd!</h2>
         <p>Hallo ${subscription.contact_name},</p>
-        <p><strong>${formatWeekdayDagdeel(subscription)}</strong> is van <strong>${subscription.band_name}</strong>.
-        Zolang jullie elke maand op tijd betalen, blijft dat tijdslot het hele jaar voor
-        jullie gereserveerd - we geven het niet aan een andere band.</p>
+        <p><strong>${capitalize(formatWeekdayDagdeel(subscription))}</strong> is van <strong>${subscription.band_name}</strong>,
+        vanaf ${formatDate(subscription.start_date)}. Zolang jullie op tijd betalen, blijft dat
+        tijdslot voor jullie gereserveerd - we geven het niet aan een andere band.</p>
 
         <table style="border-collapse: collapse; width: 100%; margin: 20px 0;">
           <tr>
@@ -292,20 +281,17 @@ export async function sendSubscriptionConfirmationEmail(
           </tr>
           <tr>
             <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Dagdeel</td>
-            <td style="padding: 8px; border: 1px solid #ddd;">Elke ${formatWeekdayDagdeel(subscription)}</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">${capitalize(formatWeekdayDagdeel(subscription))}</td>
           </tr>
           <tr>
-            <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Frequentie</td>
-            <td style="padding: 8px; border: 1px solid #ddd;">${formatFrequency(subscription.frequency)}</td>
-          </tr>
-          <tr>
-            <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Bedrag per maand</td>
+            <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Bedrag per ${config.periodWeeks} weken</td>
             <td style="padding: 8px; border: 1px solid #ddd;">${formatPrice(subscription.price_cents)}</td>
           </tr>
         </table>
 
-        <p>Elke maand ontvangen jullie hiervoor een apart betaalverzoek per e-mail - er wordt
-        niets automatisch afgeschreven. Betaal je een keer niet op tijd, dan houden we het
+        <p>De eerste ${config.periodWeeks} weken zijn betaald. Daarna ontvangen jullie per
+        ${config.periodWeeks} weken een apart betaalverzoek per e-mail - er wordt niets
+        automatisch afgeschreven. Betaal je een keer niet op tijd, dan houden we het
         tijdslot nog ${config.subscriptionGraceDays} dagen coulant vast voordat het vrijkomt
         voor een andere band.</p>
 
@@ -325,7 +311,7 @@ export async function sendSubscriptionNotificationToOrg(subscription: Subscripti
   await send({
     from: `${config.organizationName} <${config.senderEmail}>`,
     to: await getOrgRecipients(),
-    subject: `Nieuwe vaste reservering: ${subscription.band_name} - elke ${formatWeekdayDagdeel(subscription)}`,
+    subject: `Nieuwe vaste reservering: ${subscription.band_name} - ${formatWeekdayDagdeel(subscription)}`,
     html: `
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
         <h2>Nieuwe vaste reservering</h2>
@@ -346,10 +332,10 @@ export async function sendSubscriptionNotificationToOrg(subscription: Subscripti
           </tr>
           <tr>
             <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Dagdeel</td>
-            <td style="padding: 8px; border: 1px solid #ddd;">Elke ${formatWeekdayDagdeel(subscription)} (${formatFrequency(subscription.frequency)})</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">${capitalize(formatWeekdayDagdeel(subscription))}</td>
           </tr>
           <tr>
-            <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Bedrag per maand</td>
+            <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Bedrag per ${config.periodWeeks} weken</td>
             <td style="padding: 8px; border: 1px solid #ddd;">${formatPrice(subscription.price_cents)}</td>
           </tr>
         </table>
@@ -443,16 +429,16 @@ export async function sendPeriodPaymentConfirmationEmail(
   await send({
     from: `${config.organizationName} <${config.senderEmail}>`,
     to: recipients,
-    subject: `Betaald — ${formatWeekdayDagdeel(subscription)} is van jullie in ${formatMonth(periodPayment.period_month)}`,
+    subject: `Betaald — ${formatWeekdayDagdeel(subscription)}, ${formatPeriod(periodPayment)}`,
     html: `
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
         <h2>Betaling ontvangen</h2>
         <p>Hoi ${subscription.contact_name},</p>
-        <p>De periode van <strong>${subscription.band_name}</strong> voor ${formatMonth(periodPayment.period_month)}
-        is betaald (${formatPrice(periodPayment.amount_cents)}). Elke ${formatWeekdayDagdeel(subscription)}
-        is deze maand van jullie.</p>
-        <p>De volgende betaalronde krijgen jullie automatisch per e-mail, ruim voordat de
-        nieuwe maand begint.</p>
+        <p>De periode ${formatPeriod(periodPayment)} van <strong>${subscription.band_name}</strong>
+        is betaald (${formatPrice(periodPayment.amount_cents)}). ${capitalize(formatWeekdayDagdeel(subscription))}
+        is in die periode van jullie.</p>
+        <p>Het volgende betaalverzoek krijgen jullie automatisch per e-mail, ruim voordat de
+        nieuwe periode begint.</p>
         <p>Met vriendelijke groet,<br>${config.organizationName}</p>
       </div>
     `,
@@ -475,7 +461,7 @@ export async function sendPeriodPaymentRequestEmail(
         <h2>Volgende periode klaar om te betalen</h2>
         <p>Hoi ${subscription.contact_name},</p>
         <p>De volgende periode voor <strong>${subscription.band_name}</strong>
-        (${formatMonth(periodPayment.period_month)}, elke ${formatWeekdayDagdeel(subscription)}) staat klaar.
+        (${formatPeriod(periodPayment)}, ${formatWeekdayDagdeel(subscription)}) staat klaar.
         Reken je ${formatPrice(periodPayment.amount_cents)} af vóór
         <strong>${formatDate(periodPayment.due_date)}</strong>, dan blijft het tijdslot gewoon van jullie.</p>
         <p><a href="${payPeriodUrl(periodPayment)}" style="display:inline-block;padding:10px 20px;background:#175670;color:#fff;border-radius:6px;text-decoration:none;">Periode betalen — ${formatPrice(periodPayment.amount_cents)}</a></p>
@@ -501,8 +487,8 @@ export async function sendPeriodReminderEmail(
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
         <h2>Even een herinnering</h2>
         <p>Hoi ${subscription.contact_name},</p>
-        <p>We zagen de betaling voor de periode ${formatMonth(periodPayment.period_month)}
-        (elke ${formatWeekdayDagdeel(subscription)}) nog niet binnenkomen. Geen paniek - betaal je
+        <p>We zagen de betaling voor de periode ${formatPeriod(periodPayment)}
+        (${formatWeekdayDagdeel(subscription)}) nog niet binnenkomen. Geen paniek - betaal je
         vóór <strong>${formatDate(periodPayment.grace_until)}</strong>, dan blijft het tijdslot gewoon van jullie.</p>
         <p><a href="${payPeriodUrl(periodPayment)}" style="display:inline-block;padding:10px 20px;background:#175670;color:#fff;border-radius:6px;text-decoration:none;">Periode betalen — ${formatPrice(periodPayment.amount_cents)}</a></p>
         <p>Met vriendelijke groet,<br>${config.organizationName}</p>
@@ -526,7 +512,7 @@ export async function sendPeriodGraceWarningEmail(
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
         <h2>Laatste kans om het tijdslot te behouden</h2>
         <p>Hoi ${subscription.contact_name},</p>
-        <p>We hebben de betaling voor ${subscription.band_name} (${formatMonth(periodPayment.period_month)})
+        <p>We hebben de betaling voor ${subscription.band_name} (${formatPeriod(periodPayment)})
         nog steeds niet ontvangen. We houden <strong>${formatWeekdayDagdeel(subscription)}</strong> nog vast
         <strong>tot en met ${formatDate(periodPayment.grace_until)}</strong>. Daarna geven we het tijdslot vrij
         aan een andere band, en is het dit jaar niet meer opnieuw te claimen.</p>
@@ -574,8 +560,8 @@ export async function sendPeriodLapsedNotificationToOrg(subscription: Subscripti
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
         <h2>Vaste reservering vervallen wegens niet-betalen</h2>
         <p><strong>${subscription.band_name}</strong> (${subscription.contact_name},
-        ${subscription.contact_email}) heeft de periode niet op tijd betaald. Elke
-        ${formatWeekdayDagdeel(subscription)} is vrijgegeven en weer beschikbaar.</p>
+        ${subscription.contact_email}) heeft de periode niet op tijd betaald. Hun dagdeel
+        (${formatWeekdayDagdeel(subscription)}) is vrijgegeven en weer beschikbaar.</p>
         <p>De eenmalige borg blijft ongewijzigd staan (hoort bij het lidmaatschap, niet bij dit
         tijdslot) - alleen relevant als deze band de vereniging helemaal verlaat.</p>
       </div>
@@ -634,7 +620,7 @@ export async function sendSubscriptionCancellationNotification(subscription: Sub
   await send({
     from: `${config.organizationName} <${config.senderEmail}>`,
     to: await getOrgRecipients(),
-    subject: `Vaste reservering opgezegd: ${subscription.band_name} - elke ${formatWeekdayDagdeel(subscription)}`,
+    subject: `Vaste reservering opgezegd: ${subscription.band_name} - ${formatWeekdayDagdeel(subscription)}`,
     html: `
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
         <h2>Vaste reservering opgezegd</h2>
@@ -651,7 +637,7 @@ export async function sendSubscriptionCancellationNotification(subscription: Sub
           </tr>
           <tr>
             <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Dagdeel</td>
-            <td style="padding: 8px; border: 1px solid #ddd;">Elke ${formatWeekdayDagdeel(subscription)}</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">${capitalize(formatWeekdayDagdeel(subscription))}</td>
           </tr>
         </table>
 
@@ -671,7 +657,7 @@ export async function sendSubscriptionCancelledConfirmationEmail(
   await send({
     from: `${config.organizationName} <${config.senderEmail}>`,
     to: recipients,
-    subject: `Opzegging bevestigd: elke ${formatWeekdayDagdeel(subscription)}`,
+    subject: `Opzegging bevestigd: ${formatWeekdayDagdeel(subscription)}`,
     html: `
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
         <h2>Vaste reservering opgezegd</h2>
@@ -691,103 +677,3 @@ export async function sendSubscriptionCancelledConfirmationEmail(
   });
 }
 
-function packageDatesTable(bookings: Booking[], withCancelLinks: boolean): string {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL!;
-  const rows = bookings
-    .map((b) => {
-      const cancel = withCancelLinks
-        ? `<td style="padding: 8px; border: 1px solid #ddd;"><a href="${appUrl}/booking/cancel?id=${b.id}&token=${b.cancel_token}">annuleren</a></td>`
-        : "";
-      return `<tr>
-            <td style="padding: 8px; border: 1px solid #ddd;">${formatDate(b.slot_date)}</td>
-            <td style="padding: 8px; border: 1px solid #ddd;">${formatTime(b.slot_start_time)} - ${formatTime(b.slot_end_time)}</td>
-            ${cancel}
-          </tr>`;
-    })
-    .join("");
-  return `<table style="border-collapse: collapse; width: 100%; margin: 20px 0;">${rows}</table>`;
-}
-
-function renewUrl(pkg: BookingPackage): string {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL!;
-  return `${appUrl}/pakket/verlengen?token=${pkg.renew_token}`;
-}
-
-export async function sendPackageConfirmationEmail(
-  pkg: BookingPackage,
-  bookings: Booking[],
-  renewBy: string,
-  extraRecipients: string[] = []
-) {
-  const recipients = Array.from(new Set([pkg.contact_email, ...extraRecipients]));
-
-  await send({
-    from: `${config.organizationName} <${config.senderEmail}>`,
-    to: recipients,
-    subject: `Pakket bevestigd: ${bookings.length}× ${config.roomName} om de week`,
-    html: `
-      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2>Pakket bevestigd!</h2>
-        <p>Hallo ${pkg.contact_name},</p>
-        <p>Het pakket van <strong>${pkg.band_name}</strong> is betaald (${formatPrice(pkg.price_cents)}).
-        Deze ${bookings.length} dagdelen zijn van jullie:</p>
-        ${packageDatesTable(bookings, true)}
-        <p>Kan een keer niet? Annuleren kan per datum tot uiterlijk ${config.cancellationCutoffHours} uur
-        van tevoren via de link achter die datum; je krijgt dan ${formatPrice(bookings[0]?.price_cents ?? 0)} terug.</p>
-        <p><strong>Hetzelfde tijdslot houden?</strong> We sturen je op tijd een herinnering om te verlengen.
-        Verleng je vóór ${formatDate(renewBy)}, dan houden jullie zeker hetzelfde dagdeel.
-        Je kunt ook nu al verlengen: <a href="${renewUrl(pkg)}">pakket verlengen</a>.</p>
-        <p>Met vriendelijke groet,<br>${config.organizationName}</p>
-      </div>
-    `,
-  });
-}
-
-export async function sendPackageNotificationToOrg(pkg: BookingPackage, bookings: Booking[]) {
-  await send({
-    from: `${config.organizationName} <${config.senderEmail}>`,
-    to: await getOrgRecipients(),
-    subject: `Nieuw pakket: ${pkg.band_name} - ${bookings.length}× ${dagdeelLabel(pkg.dagdeel_id)}`,
-    html: `
-      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2>Nieuw pakket${pkg.renewal_of ? " (verlenging)" : ""}</h2>
-        <p><strong>${pkg.band_name}</strong> (${pkg.contact_name}, ${pkg.contact_email},
-        ${pkg.contact_phone || "geen telefoon"}) heeft een pakket betaald (${formatPrice(pkg.price_cents)}):</p>
-        ${packageDatesTable(bookings, false)}
-      </div>
-    `,
-  });
-}
-
-export async function sendPackageRenewalReminderEmail(
-  pkg: BookingPackage,
-  renewBy: string,
-  nextDates: string[],
-  final: boolean,
-  extraRecipients: string[] = []
-) {
-  const recipients = Array.from(new Set([pkg.contact_email, ...extraRecipients]));
-  const dates = nextDates.map((d) => `<li>${formatDate(d)}</li>`).join("");
-
-  await send({
-    from: `${config.organizationName} <${config.senderEmail}>`,
-    to: recipients,
-    subject: final
-      ? `Laatste herinnering: verleng jullie pakket vóór ${formatDate(renewBy)}`
-      : `Tijd om te verlengen: ${config.roomName} om de week`,
-    html: `
-      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2>${final ? "Laatste herinnering" : "Wil je dit tijdslot houden?"}</h2>
-        <p>Hoi ${pkg.contact_name},</p>
-        <p>Het pakket van <strong>${pkg.band_name}</strong> loopt tot en met ${formatDate(pkg.last_date)}.
-        Verleng je vóór <strong>${formatDate(renewBy)}</strong>, dan houden jullie zeker hetzelfde dagdeel
-        (${dagdeelLabel(pkg.dagdeel_id)}) op deze data:</p>
-        <ul>${dates}</ul>
-        <p><a href="${renewUrl(pkg)}" style="display:inline-block;padding:10px 20px;background:#175670;color:#fff;border-radius:6px;text-decoration:none;">Pakket verlengen - ${formatPrice(config.packagePricing.priceCents)}</a></p>
-        <p>Daarna kan het nog steeds, maar dan kan een andere band het slot inmiddels geboekt hebben.
-        Geen interesse meer? Dan hoef je niets te doen.</p>
-        <p>Met vriendelijke groet,<br>${config.organizationName}</p>
-      </div>
-    `,
-  });
-}

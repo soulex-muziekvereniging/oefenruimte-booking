@@ -82,7 +82,7 @@ function CancelContent() {
         <h2 className="text-2xl font-bold mb-2">Vaste reservering opzeggen</h2>
         <p className="text-gray-600 mb-6">
           Weet je zeker dat je deze vaste reservering wilt opzeggen? Er worden
-          daarna geen betaalverzoeken meer verstuurd. Een al betaalde maand mag je
+          daarna geen betaalverzoeken meer verstuurd. Een al betaalde periode mag je
           gewoon nog afmaken.
         </p>
 

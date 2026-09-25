@@ -7,7 +7,6 @@ import {
 } from "@/lib/email";
 import { getActiveMemberEmails } from "@/lib/members";
 import { todayStr } from "@/lib/date";
-import { addDaysStr, addMonthsToMonthStr } from "@/lib/periods";
 
 export async function POST(
   request: NextRequest,
@@ -40,20 +39,18 @@ export async function POST(
   }
 
   // Wat al betaald (of kwijtgescholden) is, blijft van de band: het slot loopt door tot
-  // en met de laatste dag van de laatst betaalde maand.
+  // en met de laatste dag van de laatst betaalde periode.
   const { data: lastCovered } = await supabase
     .from("subscription_payments")
-    .select("period_month")
+    .select("period_end")
     .eq("subscription_id", id)
     .in("status", ["paid", "waived"])
-    .order("period_month", { ascending: false })
+    .order("period_start", { ascending: false })
     .limit(1)
     .maybeSingle();
 
-  const endOfPaidMonth = lastCovered
-    ? addDaysStr(addMonthsToMonthStr(lastCovered.period_month, 1), -1)
-    : null;
-  const activeUntil = endOfPaidMonth && endOfPaidMonth >= todayStr() ? endOfPaidMonth : null;
+  const endOfPaid = lastCovered?.period_end ?? null;
+  const activeUntil = endOfPaid && endOfPaid >= todayStr() ? endOfPaid : null;
 
   const { error: updateError } = await supabase
     .from("subscriptions")

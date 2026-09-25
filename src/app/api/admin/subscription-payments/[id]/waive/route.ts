@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyAdminPassword } from "@/lib/adminAuth";
 import { supabase } from "@/lib/supabase";
 
-// Handmatige "pauzeperiode"-hendel (besluit bestuur 2026-09-11): deze maand hoeft niet
+// Handmatige "pauzeperiode"-hendel (besluit bestuur 2026-09-11): deze periode hoeft niet
 // betaald te worden, maar het tijdslot blijft gewoon van de band. Bewust geen
 // geautomatiseerde regel/limiet - het bestuur beoordeelt dit per geval.
 export async function POST(

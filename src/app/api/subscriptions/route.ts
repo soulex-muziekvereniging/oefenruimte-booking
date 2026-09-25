@@ -3,35 +3,27 @@ import { supabase } from "@/lib/supabase";
 import { mollie } from "@/lib/mollie";
 import { config } from "@/config";
 import { expireStalePendingSubscriptions } from "@/lib/expire";
-import { firstOfMonthStr, addDaysStr } from "@/lib/periods";
-import { nowInAmsterdam } from "@/lib/date";
-import { findConflictingBookingDates, findRunningOutSubscriptionEnd } from "@/lib/slots";
+import { addDaysStr } from "@/lib/periods";
+import { findSubscriptionConflict } from "@/lib/slots";
+import { periodEndFor, weekdayOf } from "@/lib/schedule";
+import { checkStartDate, conflictMessage, parseSubscriptionInput } from "@/lib/subscriptionRequest";
 
 export async function POST(request: NextRequest) {
-  const body = await request.json();
-  const { bandName, contactName, contactEmail, contactPhone, weekday, dagdeelId, frequency } = body;
+  const body = await request.json().catch(() => ({}));
+  const { bandName, contactName, contactEmail, contactPhone } = body;
 
-  if (
-    !bandName ||
-    !contactName ||
-    !contactEmail ||
-    weekday === undefined ||
-    weekday === null ||
-    !dagdeelId ||
-    !frequency
-  ) {
-    return NextResponse.json(
-      { error: "Vul alle verplichte velden in" },
-      { status: 400 }
-    );
+  if (!bandName || !contactName || !contactEmail) {
+    return NextResponse.json({ error: "Vul alle verplichte velden in" }, { status: 400 });
   }
 
-  if (!config.dagdelen.some((d) => d.id === dagdeelId)) {
-    return NextResponse.json({ error: "Ongeldig dagdeel" }, { status: 400 });
+  const parsed = parseSubscriptionInput(body);
+  if (!parsed.ok) {
+    return NextResponse.json({ error: parsed.error }, { status: 400 });
   }
-
-  if (!(frequency in config.subscriptionPricing)) {
-    return NextResponse.json({ error: "Ongeldige frequentie" }, { status: 400 });
+  const { startDate, dagdeelId, frequency } = parsed.value;
+  const startError = checkStartDate(parsed.value);
+  if (startError) {
+    return NextResponse.json({ error: startError }, { status: 400 });
   }
 
   await expireStalePendingSubscriptions();
@@ -52,27 +44,16 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const runningOutUntil = await findRunningOutSubscriptionEnd(weekday, dagdeelId);
-  if (runningOutUntil) {
-    return NextResponse.json(
-      {
-        error: `Dit dagdeel is nog vast gereserveerd tot en met ${new Date(runningOutUntil + "T00:00:00").toLocaleDateString("nl-NL", { day: "numeric", month: "long" })}. Vraag het daarna opnieuw aan, of kies een ander moment.`,
-      },
-      { status: 409 }
-    );
+  const conflict = await findSubscriptionConflict({
+    dagdeel_id: dagdeelId,
+    frequency,
+    start_date: startDate,
+  });
+  if (conflict) {
+    return NextResponse.json({ error: conflictMessage(conflict) }, { status: 409 });
   }
 
-  const conflicts = await findConflictingBookingDates(weekday, dagdeelId);
-  if (conflicts.length > 0) {
-    return NextResponse.json(
-      {
-        error: "Op dit dagdeel staan de komende weken al losse boekingen van andere bands. Kies een ander moment of neem contact op met het bestuur.",
-      },
-      { status: 409 }
-    );
-  }
-
-  const priceCents = config.subscriptionPricing[frequency as "weekly"].priceCentsPerMonth;
+  const priceCents = config.subscriptionPricing[frequency].priceCentsPerPeriod;
 
   const { data: subscription, error } = await supabase
     .from("subscriptions")
@@ -81,9 +62,10 @@ export async function POST(request: NextRequest) {
       contact_name: contactName,
       contact_email: contactEmail,
       contact_phone: contactPhone || null,
-      weekday,
+      weekday: weekdayOf(startDate),
       dagdeel_id: dagdeelId,
       frequency,
+      start_date: startDate,
       price_cents: priceCents,
       status: "pending_first_payment",
     })
@@ -91,29 +73,34 @@ export async function POST(request: NextRequest) {
     .single();
 
   if (error) {
-    if (error.code === "23505") {
-      return NextResponse.json(
-        { error: "Dit weekdag en dagdeel is al vast gereserveerd door een andere band" },
-        { status: 409 }
-      );
-    }
     return NextResponse.json(
       { error: "Er ging iets mis bij het aanmaken van de vaste reservering" },
       { status: 500 }
     );
   }
 
-  // Eerste betaalperiode = de huidige kalendermaand. Latere maanden worden door de
-  // dagelijkse cron aangemaakt (zie /api/cron/subscriptions).
-  const periodMonth = firstOfMonthStr(nowInAmsterdam());
-  const dueDate = firstOfMonthStr(nowInAmsterdam());
+  // Nog een keer checken ná het opslaan: vangt twee aanvragen die tegelijk binnenkwamen
+  // (er is geen unieke index meer, want om de week mogen twee bands één dagdeel delen).
+  const raced = await findSubscriptionConflict(
+    { dagdeel_id: dagdeelId, frequency, start_date: startDate },
+    subscription.id
+  );
+  if (raced?.kind === "subscription") {
+    await supabase.from("subscriptions").delete().eq("id", subscription.id);
+    return NextResponse.json({ error: conflictMessage(raced) }, { status: 409 });
+  }
+
+  // Eerste betaalperiode = de eerste 4 weken vanaf de startdatum; die wordt nu meteen
+  // betaald. Volgende periodes zet de dagelijkse cron klaar (zie /api/cron/subscriptions).
+  const dueDate = startDate;
   const graceUntil = addDaysStr(dueDate, config.subscriptionGraceDays);
 
   const { data: periodPayment, error: periodError } = await supabase
     .from("subscription_payments")
     .insert({
       subscription_id: subscription.id,
-      period_month: periodMonth,
+      period_start: startDate,
+      period_end: periodEndFor(startDate),
       amount_cents: priceCents,
       due_date: dueDate,
       grace_until: graceUntil,
@@ -138,7 +125,7 @@ export async function POST(request: NextRequest) {
     // iDEAL en andere methodes beschikbaar, niet alleen creditcard.
     const payment = (await mollie.payments.create({
       amount: { currency: config.currency, value: priceStr },
-      description: `${config.roomName} - vaste reservering ${bandName} - ${periodMonth}`,
+      description: `${config.roomName} - vaste reservering ${bandName} - vanaf ${startDate}`,
       redirectUrl: `${appUrl}/subscription/success?id=${subscription.id}`,
       webhookUrl: `${appUrl}/api/webhooks/mollie-subscription`,
       metadata: { subscriptionId: subscription.id, periodPaymentId: periodPayment.id },
