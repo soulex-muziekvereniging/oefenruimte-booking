@@ -8,6 +8,7 @@ import { hoursUntilSlot } from "@/lib/date";
 type Booking = {
   id: string;
   band_name: string;
+  contact_name: string;
   slot_date: string;
   slot_start_time: string;
   slot_end_time: string;
@@ -434,7 +435,8 @@ function OverzichtContent() {
                   {formatTime(b.slot_end_time)} · {formatPrice(b.price_cents)}
                 </p>
                 <p className="text-sm text-gray-500 mb-3">
-                  {b.status === "confirmed" ? "Bevestigd" : "In afwachting"}
+                  {b.status === "confirmed" ? "Bevestigd" : "In afwachting"} · geboekt door{" "}
+                  {b.contact_name}
                 </p>
                 {b.status === "confirmed" &&
                   (hoursUntilSlot(b.slot_date, b.slot_start_time) >=

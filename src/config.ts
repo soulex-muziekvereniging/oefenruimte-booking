@@ -1,5 +1,5 @@
 export const config = {
-  roomName: "Oefenruimte",
+  roomName: "Soulex Oefenruimte",
   pricePerSlotCents: 4000, // €40,- losse huur van een dagdeel
   slotDurationMinutes: 240, // elk dagdeel duurt 4 uur
   dagdelen: [

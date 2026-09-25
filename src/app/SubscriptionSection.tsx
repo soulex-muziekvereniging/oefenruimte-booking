@@ -92,7 +92,7 @@ export default function SubscriptionSection() {
         {(config.subscriptionPricing.weekly.priceCentsPerMonth / 100).toFixed(2).replace(".", ",")}/mnd
       </h2>
       <p className="text-sm text-gray-600 mb-2">
-        Claim structureel hetzelfde weekdag + dagdeel. Elke maand krijg je een betaalverzoek per
+        Claim wekelijks hetzelfde dagdeel. Elke maand krijg je een betaalverzoek per
         e-mail, er wordt niets automatisch afgeschreven.
       </p>
       <ul className="text-sm text-gray-600 mb-4 list-disc pl-5 space-y-0.5">

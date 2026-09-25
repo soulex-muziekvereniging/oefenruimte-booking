@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
   const body = await request.json();
   const { bandName, contactName, contactEmail, contactPhone } = body;
 
-  if (!bandName || !contactName || !contactEmail) {
+  if (!bandName || !contactName || !contactEmail || !contactPhone?.trim()) {
     return NextResponse.json(
       { error: "Vul bandnaam, contactpersoon en e-mailadres in" },
       { status: 400 }

@@ -16,12 +16,42 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  // Eerst bepalen bij welke band dit e-mailadres hoort: het overzicht toont de boekingen
+  // van de hele band, niet alleen die van dit ene adres.
+  const { data: member } = await supabase
+    .from("members")
+    .select("name")
+    .ilike("email", email)
+    .eq("active", true)
+    .maybeSingle();
+
+  let bandName: string | null = null;
+  let bandMembers: string[] = [email.toLowerCase()];
+
+  if (member) {
+    bandName = member.name;
+    const { data: sameNameMembers } = await supabase
+      .from("members")
+      .select("email")
+      .ilike("name", member.name)
+      .eq("active", true);
+    bandMembers = Array.from(
+      new Set([email.toLowerCase(), ...(sameNameMembers ?? []).map((m) => m.email.toLowerCase())])
+    );
+  }
+
+  const quote = (v: string) => `"${v.replace(/"/g, "")}"`;
+  const ownerFilter = [
+    ...bandMembers.map((e) => `contact_email.ilike.${quote(e)}`),
+    ...(bandName ? [`band_name.ilike.${quote(bandName)}`] : []),
+  ].join(",");
+
   const { data: bookings } = await supabase
     .from("bookings")
     .select(
-      "id, band_name, slot_date, slot_start_time, slot_end_time, price_cents, status, cancel_token"
+      "id, band_name, contact_name, contact_email, slot_date, slot_start_time, slot_end_time, price_cents, status, cancel_token"
     )
-    .ilike("contact_email", email)
+    .or(ownerFilter)
     .in("status", ["pending", "confirmed"])
     .gte("slot_date", todayStr())
     .order("slot_date", { ascending: true });
@@ -29,9 +59,9 @@ export async function GET(request: NextRequest) {
   const { data: subscriptions } = await supabase
     .from("subscriptions")
     .select(
-      "id, band_name, weekday, dagdeel_id, frequency, price_cents, status, cancel_token"
+      "id, band_name, contact_name, weekday, dagdeel_id, frequency, price_cents, status, cancel_token"
     )
-    .ilike("contact_email", email)
+    .or(ownerFilter)
     .in("status", ["pending_first_payment", "active", "lapsed"]);
 
   const activeIds = (subscriptions ?? [])
@@ -140,26 +170,6 @@ export async function GET(request: NextRequest) {
       swapsAllowed: config.subscriptionMaxSwapsPerPeriod,
     };
   });
-
-  const { data: member } = await supabase
-    .from("members")
-    .select("name")
-    .ilike("email", email)
-    .eq("active", true)
-    .maybeSingle();
-
-  let bandName: string | null = null;
-  let bandMembers: string[] = [];
-
-  if (member) {
-    bandName = member.name;
-    const { data: sameNameMembers } = await supabase
-      .from("members")
-      .select("email")
-      .ilike("name", member.name)
-      .eq("active", true);
-    bandMembers = (sameNameMembers ?? []).map((m) => m.email);
-  }
 
   return NextResponse.json({
     bookings: bookings ?? [],

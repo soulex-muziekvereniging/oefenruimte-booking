@@ -308,8 +308,8 @@ export default function Home() {
                 <li>❄️ Airco</li>
               </ul>
               <p className="text-xs text-gray-500 mt-3">
-                Alleen voor leden van {config.organizationName}. Sleutel en borg regel je
-                eenmalig met het bestuur.
+                Alleen voor leden van {config.organizationName}. Sleutel, borg en
+                lidmaatschap regel je eenmalig met het bestuur.
               </p>
             </div>
           </section>

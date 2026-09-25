@@ -17,7 +17,7 @@ const slab = Zilla_Slab({
 });
 
 export const metadata: Metadata = {
-  title: "Oefenruimte boeken | Muziekvereniging Soulex",
+  title: "Soulex Oefenruimte boeken | Muziekvereniging Soulex",
   description:
     "Boek de geluidsdichte oefenruimte van Muziekvereniging Soulex in De Borgh, Budel - los, als pakket of vast.",
 };
@@ -43,7 +43,7 @@ export default function RootLayout({
               />
               <span className="min-w-0">
                 <span className="block text-lg sm:text-xl font-bold text-blue-600 leading-tight font-[family-name:var(--font-slab)]">
-                  Oefenruimte boeken
+                  Soulex Oefenruimte
                 </span>
                 <span className="block text-xs text-gray-500 truncate">
                   {config.organizationName}
