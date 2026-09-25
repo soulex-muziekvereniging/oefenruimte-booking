@@ -57,6 +57,8 @@ export type Subscription = {
   term_start_date: string | null;
   term_end_date: string | null;
   active_until: string | null;
+  // Bijgehuurde opslagruimte (zie config.storage), prijs zit in price_cents.
+  storage_unit: string | null;
   created_at: string;
   updated_at: string;
 };

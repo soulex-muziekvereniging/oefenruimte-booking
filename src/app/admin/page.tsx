@@ -56,6 +56,7 @@ type Subscription = {
   dagdeel_id: string;
   frequency: "weekly" | "biweekly";
   start_date: string;
+  storage_unit: string | null;
   price_cents: number;
   status: "pending_first_payment" | "active" | "lapsed" | "cancelled";
   active_until: string | null;
@@ -157,6 +158,7 @@ export default function AdminPage() {
     contactEmail: "",
     contactPhone: "",
     slotDate: "",
+    storageUnit: "",
     dagdeelId: config.dagdelen[0].id,
     recurrence: "once" as "once" | "weekly" | "biweekly",
   });
@@ -170,6 +172,7 @@ export default function AdminPage() {
     contactEmail: "",
     contactPhone: "",
     startDate: "",
+    storageUnit: "",
     frequency: "weekly" as "weekly" | "biweekly",
     dagdeelId: config.dagdelen[0].id,
   });
@@ -284,6 +287,39 @@ export default function AdminPage() {
 
     await fetchSubscriptions();
     setCancellingSubscription(null);
+  }
+
+  const storageUnitsInUse = subscriptions
+    .filter(
+      (s) =>
+        s.storage_unit &&
+        (s.status === "active" ||
+          s.status === "pending_first_payment" ||
+          (s.status === "cancelled" &&
+            !!s.active_until &&
+            s.active_until >= toLocalDateStr(new Date())))
+    )
+    .map((s) => s.storage_unit as string);
+
+  async function handleStorageChange(subscription: Subscription, storageUnit: string) {
+    const label = storageUnit ? `opslagruimte ${storageUnit}` : "geen opslagruimte";
+    if (
+      !confirm(
+        `${subscription.band_name}: ${label}? Het bedrag per ${config.periodWeeks} weken past zich aan vanaf het volgende betaalverzoek.`
+      )
+    ) {
+      return;
+    }
+    const res = await fetch(`/api/admin/subscriptions/${subscription.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ storageUnit }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      alert(data.error || "Opslaan is niet gelukt");
+    }
+    await fetchSubscriptions();
   }
 
   async function handleDeleteSubscriptions(targets: Subscription[]) {
@@ -511,7 +547,11 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
         contactPhone,
         dagdeelId: addBookingForm.dagdeelId,
         ...(isRecurring
-          ? { startDate: addBookingForm.slotDate, frequency: addBookingForm.recurrence }
+          ? {
+              startDate: addBookingForm.slotDate,
+              frequency: addBookingForm.recurrence,
+              storageUnit: addBookingForm.storageUnit,
+            }
           : { slotDate: addBookingForm.slotDate }),
       }),
     });
@@ -529,6 +569,7 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
       contactEmail: "",
       contactPhone: "",
       slotDate: "",
+      storageUnit: "",
       dagdeelId: config.dagdelen[0].id,
       recurrence: "once",
     });
@@ -568,6 +609,7 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
       contactEmail: "",
       contactPhone: "",
       startDate: "",
+      storageUnit: "",
       frequency: "weekly",
       dagdeelId: config.dagdelen[0].id,
     });
@@ -862,6 +904,19 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
                     </option>
                   ))}
                 </select>
+                <select
+                  value={addSubscriptionForm.storageUnit}
+                  onChange={(e) => setAddSubscriptionForm((f) => ({ ...f, storageUnit: e.target.value }))}
+                  className="px-3 py-2.5 border border-gray-300 rounded-lg text-base"
+                >
+                  <option value="">Geen opslagruimte</option>
+                  {config.storage.units.map((u) => (
+                    <option key={u} value={u} disabled={storageUnitsInUse.includes(u)}>
+                      Opslagruimte {u}
+                      {storageUnitsInUse.includes(u) ? " (bezet)" : ""}
+                    </option>
+                  ))}
+                </select>
               </div>
               {addSubscriptionError && (
                 <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
@@ -949,7 +1004,35 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
                         {formatRhythmLabel(subscription)} · sinds{" "}
                         {formatShortDate(subscription.start_date)} ·{" "}
                         {formatPrice(subscription.price_cents)} per {config.periodWeeks} weken
+                        {subscription.storage_unit ? " (incl. opslag)" : ""}
                       </p>
+                      {(subscription.status === "active" ||
+                        subscription.status === "pending_first_payment") && (
+                        <label className="flex items-center gap-2 text-sm text-gray-600 mt-1">
+                          📦 Opslagruimte:
+                          <select
+                            value={subscription.storage_unit ?? ""}
+                            onChange={(e) => handleStorageChange(subscription, e.target.value)}
+                            className="px-2 py-1 border border-gray-300 rounded text-sm"
+                          >
+                            <option value="">geen</option>
+                            {config.storage.units.map((u) => (
+                              <option
+                                key={u}
+                                value={u}
+                                disabled={
+                                  u !== subscription.storage_unit && storageUnitsInUse.includes(u)
+                                }
+                              >
+                                ruimte {u}
+                                {u !== subscription.storage_unit && storageUnitsInUse.includes(u)
+                                  ? " (bezet)"
+                                  : ""}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      )}
                       <p className="text-sm text-gray-500 mt-1">
                         {subscription.contact_name} · {subscription.contact_email}
                         {subscription.contact_phone ? ` · ${subscription.contact_phone}` : ""}
@@ -1254,6 +1337,21 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
                 </option>
               ))}
             </select>
+            {addBookingForm.recurrence !== "once" && (
+                  <select
+                    value={addBookingForm.storageUnit}
+                    onChange={(e) => setAddBookingForm((f) => ({ ...f, storageUnit: e.target.value }))}
+                    className="px-3 py-2.5 border border-gray-300 rounded-lg text-base"
+                  >
+                    <option value="">Geen opslagruimte</option>
+                    {config.storage.units.map((u) => (
+                      <option key={u} value={u} disabled={storageUnitsInUse.includes(u)}>
+                        Opslagruimte {u}
+                        {storageUnitsInUse.includes(u) ? " (bezet)" : ""}
+                      </option>
+                    ))}
+                  </select>
+            )}
           </div>
           {addBookingError && (
             <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">

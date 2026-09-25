@@ -44,6 +44,8 @@ export default function SubscriptionSection({
   const [startDate, setStartDate] = useState("");
   const [dagdeelId, setDagdeelId] = useState<string>(config.dagdelen[0].id);
   const [availability, setAvailability] = useState<Availability | null>(null);
+  const [storage, setStorage] = useState(false);
+  const [storageFree, setStorageFree] = useState<number | null>(null);
   const [formData, setFormData] = useState({
     bandName: "",
     contactName: "",
@@ -53,6 +55,13 @@ export default function SubscriptionSection({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [notAMember, setNotAMember] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/storage")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => setStorageFree(data ? data.free : 0))
+      .catch(() => setStorageFree(0));
+  }, []);
 
   useEffect(() => {
     if (!startDate) return;
@@ -73,6 +82,7 @@ export default function SubscriptionSection({
   }, [startDate, dagdeelId, frequency]);
 
   const pricing = config.subscriptionPricing[frequency];
+  const totalCents = pricing.priceCentsPerPeriod + (storage ? config.storage.priceCentsPerPeriod : 0);
 
   async function handleEmailBlur(email: string) {
     if (!email || !email.includes("@")) return;
@@ -92,7 +102,7 @@ export default function SubscriptionSection({
     const res = await fetch("/api/subscriptions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...formData, startDate, dagdeelId, frequency }),
+      body: JSON.stringify({ ...formData, startDate, dagdeelId, frequency, storage }),
     });
     const data = await res.json();
 
@@ -192,6 +202,30 @@ export default function SubscriptionSection({
           </div>
         )}
 
+        {storageFree === null ? null : storageFree > 0 ? (
+          <label className="flex items-start gap-2 border border-gray-300 rounded-lg px-3 py-2.5 cursor-pointer text-sm">
+            <input
+              type="checkbox"
+              checked={storage}
+              onChange={(e) => setStorage(e.target.checked)}
+              className="mt-0.5"
+            />
+            <span>
+              <span className="font-medium">Opslagruimte erbij</span> ·{" "}
+              {euro(config.storage.priceCentsPerPeriod)} per {config.periodWeeks} weken
+              <span className="block text-gray-500">
+                Om je spullen te laten staan. Nog {storageFree} van{" "}
+                {config.storage.units.length} vrij - vol is vol.
+              </span>
+            </span>
+          </label>
+        ) : (
+          <p className="text-sm text-gray-500">
+            Opslagruimte bijhuren: op dit moment zijn alle {config.storage.units.length}{" "}
+            opslagruimtes verhuurd.
+          </p>
+        )}
+
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Bandnaam *</label>
@@ -266,7 +300,7 @@ export default function SubscriptionSection({
         >
           {submitting
             ? "Even geduld..."
-            : `Aanvragen en eerste ${config.periodWeeks} weken betalen (${euro(pricing.priceCentsPerPeriod)}) →`}
+            : `Aanvragen en eerste ${config.periodWeeks} weken betalen (${euro(totalCents)}) →`}
         </button>
       </form>
     </div>

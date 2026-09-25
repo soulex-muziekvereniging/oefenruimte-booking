@@ -93,8 +93,8 @@ export const config = {
 };
 ```
 
-Dit dekt alleen de **losse eenmalige boeking** (€40 per dagdeel). De vaste maandelijkse
-reserveringen (€110/€55 per maand) volgen in een aparte `subscriptions`-tabel — zie
+Dit dekt alleen de **losse eenmalige boeking** (€40 per dagdeel). De vaste
+reserveringen (elke week €120 / om de week €60 per 4 weken) volgen in een aparte `subscriptions`-tabel — zie
 [BESTUUR.md](BESTUUR.md) voor de uitleg van het hele proces.
 
 Na het wijzigen: commit + push naar GitHub → Vercel deployed automatisch.

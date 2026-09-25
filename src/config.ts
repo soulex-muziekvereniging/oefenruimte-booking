@@ -17,6 +17,12 @@ export const config = {
     weekly: { label: "Elke week", sessionsPerPeriod: 4, priceCentsPerPeriod: 12000 },
     biweekly: { label: "Om de week", sessionsPerPeriod: 2, priceCentsPerPeriod: 6000 },
   },
+  // Opslagruimtes die bands kunnen bijhuren bij een vaste reservering (ruimte 1 en 5 zijn
+  // van Soulex zelf). Prijs per betaalperiode van 4 weken, komt op dezelfde rekening.
+  storage: {
+    units: ["2", "3", "4"] as string[],
+    priceCentsPerPeriod: 1500,
+  },
   // Echte mailbox (aangemaakt door Kimberly, sep 2026) - het afzenderadres van alle
   // systeemmails en het adres dat in "neem contact op"-teksten getoond wordt.
   organizationEmail: "beheer@soulex.nl",

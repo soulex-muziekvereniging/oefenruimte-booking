@@ -283,6 +283,14 @@ export async function sendSubscriptionConfirmationEmail(
             <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Dagdeel</td>
             <td style="padding: 8px; border: 1px solid #ddd;">${capitalize(formatWeekdayDagdeel(subscription))}</td>
           </tr>
+          ${
+            subscription.storage_unit
+              ? `<tr>
+            <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Opslagruimte</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">Ruimte ${subscription.storage_unit} (${formatPrice(config.storage.priceCentsPerPeriod)} per ${config.periodWeeks} weken, zit in het bedrag)</td>
+          </tr>`
+              : ""
+          }
           <tr>
             <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Bedrag per ${config.periodWeeks} weken</td>
             <td style="padding: 8px; border: 1px solid #ddd;">${formatPrice(subscription.price_cents)}</td>
@@ -334,6 +342,14 @@ export async function sendSubscriptionNotificationToOrg(subscription: Subscripti
             <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Dagdeel</td>
             <td style="padding: 8px; border: 1px solid #ddd;">${capitalize(formatWeekdayDagdeel(subscription))}</td>
           </tr>
+          ${
+            subscription.storage_unit
+              ? `<tr>
+            <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Opslagruimte</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">Ruimte ${subscription.storage_unit} (${formatPrice(config.storage.priceCentsPerPeriod)} per ${config.periodWeeks} weken, zit in het bedrag)</td>
+          </tr>`
+              : ""
+          }
           <tr>
             <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Bedrag per ${config.periodWeeks} weken</td>
             <td style="padding: 8px; border: 1px solid #ddd;">${formatPrice(subscription.price_cents)}</td>

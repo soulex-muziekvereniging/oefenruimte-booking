@@ -9,25 +9,24 @@ keuzes daarin al gemaakt zijn, en welke stappen buiten het systeem om handmatig 
 ## Wat het systeem gaat doen
 
 Bands kunnen via een website (los van soulex.nl, met een link/knop erop) een dagdeel in de
-oefenruimte boeken, zonder in te hoeven loggen. Drie soorten boekingen:
+oefenruimte boeken, zonder in te hoeven loggen. Twee soorten boekingen:
 
 1. **Losse boeking** — eenmalig een vrij dagdeel huren, prijs €40, direct afgerekend via Mollie
    (iDEAL e.d.). Bevestiging per e-mail met een unieke link om te annuleren.
-2. **Pakket om de week** — 4× hetzelfde dagdeel om de 2 weken, €120 in één keer betaald
-   (voorlopig tarief). Technisch zijn dat gewoon 4 losse boekingen, dus annuleren (€30 terug)
-   werkt per datum. Na de 2e sessie krijgt de band automatisch een verlengmail, vlak voor de
-   uiterste datum nog één. Wie op tijd verlengt houdt hetzelfde slot; daarna kan een andere
-   band het boeken. Vervangt de oude tweewekelijkse vaste reservering, die elke week het slot
-   bezet hield.
-3. **Vaste reservering** — een band claimt structureel hetzelfde dagdeel op dezelfde weekdag
-   (bijv. elke donderdagavond), elke week, €110/mnd. Er is **geen
-   automatische incasso**: elke kalendermaand krijgt de band (en alle bekende bandleden) een
-   apart betaalverzoek per e-mail met een eigen betaallink, dat ze zelf moeten afrekenen.
-   Zolang ze op tijd betalen blijft het tijdslot het hele jaar van hen. Betalen ze een keer
-   niet, dan blijft het tijdslot nog **14 dagen coulant** staan; daarna vervalt het recht op
-   dat tijdslot voor de rest van het jaar en komt het vrij voor een andere band. Opzeggen kan
-   de band zelf via een unieke link in hun bevestigingsmail (geen inloggen nodig); het slot
-   blijft dan van hen tot het einde van de laatst betaalde maand en ze krijgen een
+2. **Vaste reservering** — een band claimt hetzelfde dagdeel **elke week** (€120 per 4 weken)
+   of **om de week** (€60 per 4 weken), vanaf een zelfgekozen startdatum; €30 per keer
+   (voorlopig tarief). "Om de week" telt vanaf de eigen startdatum van de band (geen
+   weeknummers), zodat twee bands een dagdeel om en om kunnen delen. Er is **geen
+   automatische incasso**: per periode van 4 weken krijgt de band (en alle bekende
+   bandleden) een betaalverzoek per e-mail, ~10 dagen van tevoren. Elke rekening gaat dus
+   over precies evenveel keer. Zolang ze op tijd betalen blijft het tijdslot van hen.
+   Betalen ze een keer niet, dan blijft het tijdslot nog **14 dagen coulant** staan; daarna
+   vervalt het en komt het vrij. Bands mogen een repetitie zelf verplaatsen naar elk vrij
+   dagdeel tot 14 dagen later, 2x per 4 weken. **Opslagruimte** (ruimte 2, 3 en 4; 1 en 5
+   zijn van Soulex) kan erbij voor €15 per 4 weken, op dezelfde rekening; het bestuur kan
+   in het admin-scherm per reservering een ruimte toekennen of weghalen. Opzeggen kan de
+   band zelf via een unieke link in hun bevestigingsmail (geen inloggen nodig); het slot
+   blijft dan van hen tot het einde van de laatst betaalde periode en ze krijgen een
    bevestigingsmail. Opzeggen via het admin-scherm geeft het slot wél direct vrij.
 
    Dit draait op één dagelijkse achtergrondtaak (Vercel Cron, `/api/cron/subscriptions`) die

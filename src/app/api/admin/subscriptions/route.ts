@@ -8,6 +8,7 @@ import { todayStr } from "@/lib/date";
 import { findSubscriptionConflict } from "@/lib/slots";
 import { periodEndFor, weekdayOf } from "@/lib/schedule";
 import { checkStartDate, conflictMessage, parseSubscriptionInput } from "@/lib/subscriptionRequest";
+import { getFreeStorageUnits } from "@/lib/storage";
 import { sendSubscriptionConfirmationEmail, sendSafely } from "@/lib/email";
 import { getActiveMemberEmails } from "@/lib/members";
 
@@ -85,7 +86,24 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: conflictMessage(conflict, { admin: true }) }, { status: 409 });
   }
 
-  const priceCents = config.subscriptionPricing[frequency].priceCentsPerPeriod;
+  // Opslagruimte: bij het overzetten van bestaande afspraken kiest de beheerder zelf welke.
+  const storageUnit =
+    typeof body.storageUnit === "string" && body.storageUnit ? body.storageUnit : null;
+  if (storageUnit) {
+    if (!config.storage.units.includes(storageUnit)) {
+      return NextResponse.json({ error: "Onbekende opslagruimte" }, { status: 400 });
+    }
+    if (!(await getFreeStorageUnits()).includes(storageUnit)) {
+      return NextResponse.json(
+        { error: `Opslagruimte ${storageUnit} is al in gebruik` },
+        { status: 409 }
+      );
+    }
+  }
+
+  const priceCents =
+    config.subscriptionPricing[frequency].priceCentsPerPeriod +
+    (storageUnit ? config.storage.priceCentsPerPeriod : 0);
 
   const { data: subscription, error } = await supabase
     .from("subscriptions")
@@ -99,6 +117,7 @@ export async function POST(request: NextRequest) {
       frequency,
       start_date: startDate,
       price_cents: priceCents,
+      storage_unit: storageUnit,
       status: "active",
       term_start_date: startDate,
     })

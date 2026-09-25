@@ -7,10 +7,12 @@ import { addDaysStr } from "@/lib/periods";
 import { findSubscriptionConflict } from "@/lib/slots";
 import { periodEndFor, weekdayOf } from "@/lib/schedule";
 import { checkStartDate, conflictMessage, parseSubscriptionInput } from "@/lib/subscriptionRequest";
+import { getFreeStorageUnits, getOccupiedStorageUnits } from "@/lib/storage";
 
 export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => ({}));
   const { bandName, contactName, contactEmail, contactPhone } = body;
+  const wantsStorage = body.storage === true;
 
   if (!bandName || !contactName || !contactEmail) {
     return NextResponse.json({ error: "Vul alle verplichte velden in" }, { status: 400 });
@@ -53,7 +55,22 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: conflictMessage(conflict) }, { status: 409 });
   }
 
-  const priceCents = config.subscriptionPricing[frequency].priceCentsPerPeriod;
+  // Opslagruimte: de eerste vrije toewijzen. Vol is vol.
+  let storageUnit: string | null = null;
+  if (wantsStorage) {
+    const free = await getFreeStorageUnits();
+    if (free.length === 0) {
+      return NextResponse.json(
+        { error: "De opslagruimtes zijn helaas allemaal verhuurd. Vraag de reservering aan zonder opslag." },
+        { status: 409 }
+      );
+    }
+    storageUnit = free[0];
+  }
+
+  const priceCents =
+    config.subscriptionPricing[frequency].priceCentsPerPeriod +
+    (storageUnit ? config.storage.priceCentsPerPeriod : 0);
 
   const { data: subscription, error } = await supabase
     .from("subscriptions")
@@ -67,6 +84,7 @@ export async function POST(request: NextRequest) {
       frequency,
       start_date: startDate,
       price_cents: priceCents,
+      storage_unit: storageUnit,
       status: "pending_first_payment",
     })
     .select()
@@ -85,6 +103,15 @@ export async function POST(request: NextRequest) {
     { dagdeel_id: dagdeelId, frequency, start_date: startDate },
     subscription.id
   );
+  const storageRaced =
+    !!storageUnit && (await getOccupiedStorageUnits(subscription.id)).includes(storageUnit);
+  if (storageRaced) {
+    await supabase.from("subscriptions").delete().eq("id", subscription.id);
+    return NextResponse.json(
+      { error: "De laatste opslagruimte is net verhuurd. Probeer het opnieuw zonder opslag." },
+      { status: 409 }
+    );
+  }
   if (raced?.kind === "subscription") {
     await supabase.from("subscriptions").delete().eq("id", subscription.id);
     return NextResponse.json({ error: conflictMessage(raced) }, { status: 409 });

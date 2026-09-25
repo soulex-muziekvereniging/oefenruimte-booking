@@ -60,6 +60,13 @@ function formatFullDate(dateStr: string): string {
 
 export default function Home() {
   const [mode, setMode] = useState<"once" | "subscription" | "join" | null>(null);
+  const [storageFree, setStorageFree] = useState<number | null>(null);
+  useEffect(() => {
+    fetch("/api/storage")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => setStorageFree(data ? data.free : null))
+      .catch(() => setStorageFree(null));
+  }, []);
   const [subscriptionFrequency, setSubscriptionFrequency] = useState<"weekly" | "biweekly">("weekly");
   const [weekStart, setWeekStart] = useState<Date>(() =>
     getWeekStart(new Date())
@@ -322,6 +329,15 @@ export default function Home() {
                 <li>🔊 4× Electro Voice ELX 112 speakers</li>
                 <li>❄️ Airco</li>
               </ul>
+              <p className="text-sm text-gray-700 mt-3">
+                📦 Opslagruimte bijhuren bij een vaste reservering:{" "}
+                {euro(config.storage.priceCentsPerPeriod)} per {config.periodWeeks} weken.{" "}
+                {storageFree === null
+                  ? ""
+                  : storageFree > 0
+                    ? `Nog ${storageFree} van ${config.storage.units.length} vrij - vol is vol!`
+                    : "Op dit moment allemaal verhuurd."}
+              </p>
               <p className="text-xs text-gray-500 mt-3">
                 Alleen voor leden van {config.organizationName}. Sleutel, borg en
                 lidmaatschap regel je eenmalig met het bestuur.
