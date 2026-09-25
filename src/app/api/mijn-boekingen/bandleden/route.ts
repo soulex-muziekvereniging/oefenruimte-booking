@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { verifyMagicLinkToken } from "@/lib/magicLink";
+import { getActiveMemberEmails } from "@/lib/members";
+import { sendBandMemberAddedEmail, sendSafely } from "@/lib/email";
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
@@ -50,6 +52,13 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
+
+  // Iedereen in de band (ook het nieuwe lid) hoort wie er is toegevoegd en door wie.
+  const cleanEmail = newEmail.toLowerCase().trim();
+  const bandEmails = await getActiveMemberEmails(member.name);
+  await sendSafely("melding nieuw bandlid", () =>
+    sendBandMemberAddedEmail(member.name, cleanEmail, email, bandEmails)
+  );
 
   return NextResponse.json({ success: true });
 }

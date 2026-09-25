@@ -693,3 +693,28 @@ export async function sendSubscriptionCancelledConfirmationEmail(
   });
 }
 
+
+export async function sendBandMemberAddedEmail(
+  bandName: string,
+  newEmail: string,
+  addedBy: string,
+  bandEmails: string[]
+) {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL!;
+  await send({
+    from: `${config.organizationName} <${config.senderEmail}>`,
+    to: Array.from(new Set([newEmail, ...bandEmails])),
+    subject: `${newEmail} is toegevoegd aan ${bandName}`,
+    html: `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>Nieuw bandlid</h2>
+        <p><strong>${newEmail}</strong> is door ${addedBy} toegevoegd aan <strong>${bandName}</strong>.
+        Voortaan kan dit adres ook boeken en krijgt het de mails over jullie boekingen en vaste
+        reservering.</p>
+        <p>Je boekingen bekijken of beheren? Ga naar <a href="${appUrl}/mijn-boekingen">Mijn boekingen</a>.</p>
+        <p>Klopt dit niet? Mail dan naar <a href="mailto:${config.organizationEmail}">${config.organizationEmail}</a>.</p>
+        <p>Met vriendelijke groet,<br>${config.organizationName}</p>
+      </div>
+    `,
+  });
+}
