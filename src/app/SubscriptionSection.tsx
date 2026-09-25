@@ -23,7 +23,6 @@ export default function SubscriptionSection() {
   const [availability, setAvailability] = useState<Availability[]>([]);
   const [weekday, setWeekday] = useState<number>(config.operatingDays[0]);
   const [dagdeelId, setDagdeelId] = useState<string>(config.dagdelen[0].id);
-  const [frequency, setFrequency] = useState<"weekly" | "biweekly">("weekly");
   const [formData, setFormData] = useState({
     bandName: "",
     contactName: "",
@@ -70,7 +69,7 @@ export default function SubscriptionSection() {
         contactPhone: formData.contactPhone,
         weekday,
         dagdeelId,
-        frequency,
+        frequency: "weekly",
       }),
     });
 
@@ -88,13 +87,19 @@ export default function SubscriptionSection() {
 
   return (
     <div className="max-w-lg mx-auto mt-10 bg-white rounded-lg border border-gray-200 p-4 sm:p-6">
-      <h2 className="text-lg font-semibold mb-1">Vaste reservering aanvragen</h2>
-      <p className="text-sm text-gray-600 mb-4">
-        Claim structureel hetzelfde weekdag + dagdeel, elke week of elke twee
-        weken. Zolang je op tijd betaalt blijft dat tijdslot het hele jaar van
-        jullie - elke maand krijg je hiervoor een apart betaalverzoek per e-mail,
-        er wordt niets automatisch afgeschreven.
+      <h2 className="text-lg font-semibold mb-1">
+        Vaste reservering · elke week · €
+        {(config.subscriptionPricing.weekly.priceCentsPerMonth / 100).toFixed(2).replace(".", ",")}/mnd
+      </h2>
+      <p className="text-sm text-gray-600 mb-2">
+        Claim structureel hetzelfde weekdag + dagdeel. Elke maand krijg je een betaalverzoek per
+        e-mail, er wordt niets automatisch afgeschreven.
       </p>
+      <ul className="text-sm text-gray-600 mb-4 list-disc pl-5 space-y-0.5">
+        <li>Het voordeligst per keer</li>
+        <li>Het tijdslot blijft van jullie zolang je betaalt - nooit hoeven verlengen</li>
+        <li>Kan een keer niet? {config.subscriptionMaxSwapsPerPeriod}× per maand gratis schuiven naar een ander moment</li>
+      </ul>
 
       <form onSubmit={handleSubmit} className="space-y-3">
         <div className="grid grid-cols-2 gap-3">
@@ -137,36 +142,7 @@ export default function SubscriptionSection() {
             Dit weekdag + dagdeel is al vast gereserveerd door een andere band.
             Kies een andere combinatie.
           </div>
-        ) : (
-          <div className="grid grid-cols-2 gap-3">
-            {(Object.keys(config.subscriptionPricing) as Array<"weekly" | "biweekly">).map(
-              (key) => (
-                <label
-                  key={key}
-                  className={`flex items-center gap-2 border rounded-lg px-3 py-2.5 cursor-pointer text-sm ${
-                    frequency === key
-                      ? "border-blue-500 bg-blue-50"
-                      : "border-gray-300"
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="frequency"
-                    checked={frequency === key}
-                    onChange={() => setFrequency(key)}
-                  />
-                  <span>
-                    {config.subscriptionPricing[key].label} · €
-                    {(config.subscriptionPricing[key].priceCentsPerMonth / 100)
-                      .toFixed(2)
-                      .replace(".", ",")}
-                    /mnd
-                  </span>
-                </label>
-              )
-            )}
-          </div>
-        )}
+        ) : null}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>

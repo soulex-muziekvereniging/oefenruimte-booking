@@ -35,7 +35,7 @@ type Subscription = {
   band_name: string;
   weekday: number;
   dagdeel_id: string;
-  frequency: "weekly" | "biweekly";
+  frequency: "weekly";
   price_cents: number;
   status: "pending_first_payment" | "active" | "lapsed";
   cancel_token: string;

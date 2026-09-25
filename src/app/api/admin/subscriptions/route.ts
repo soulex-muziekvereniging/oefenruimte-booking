@@ -5,7 +5,7 @@ import type { SubscriptionPayment } from "@/lib/supabase";
 import { config } from "@/config";
 import { firstOfMonthStr, addDaysStr, pickActionablePeriod } from "@/lib/periods";
 import { nowInAmsterdam } from "@/lib/date";
-import { findConflictingBookingDates } from "@/lib/slots";
+import { findConflictingBookingDates, findRunningOutSubscriptionEnd } from "@/lib/slots";
 import { sendSubscriptionConfirmationEmail, sendSafely } from "@/lib/email";
 
 export async function GET(request: NextRequest) {
@@ -80,6 +80,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Ongeldige frequentie" }, { status: 400 });
   }
 
+  const runningOutUntil = await findRunningOutSubscriptionEnd(weekday, dagdeelId);
+  if (runningOutUntil) {
+    return NextResponse.json(
+      {
+        error: `Hier loopt nog een opgezegde vaste reservering tot en met ${new Date(runningOutUntil + "T00:00:00").toLocaleDateString("nl-NL", { day: "numeric", month: "long" })}. Verwijder die eerst (tab Vaste reserveringen) als het slot eerder vrij mag.`,
+      },
+      { status: 409 }
+    );
+  }
+
   const conflicts = await findConflictingBookingDates(weekday, dagdeelId);
   if (conflicts.length > 0) {
     return NextResponse.json(
@@ -91,7 +101,7 @@ export async function POST(request: NextRequest) {
   }
 
   const priceCents =
-    config.subscriptionPricing[frequency as "weekly" | "biweekly"].priceCentsPerMonth;
+    config.subscriptionPricing[frequency as "weekly"].priceCentsPerMonth;
   const periodMonth = firstOfMonthStr(nowInAmsterdam());
 
   const { data: subscription, error } = await supabase

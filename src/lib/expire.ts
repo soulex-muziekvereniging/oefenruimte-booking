@@ -16,6 +16,14 @@ export async function expireStalePendingBookings() {
     .update({ status: "expired", updated_at: new Date().toISOString() })
     .eq("status", "pending")
     .lt("created_at", cutoff);
+
+  // De boekingen van een onbetaald pakket vallen hierboven al vrij; het pakket zelf ook
+  // op verlopen zetten zodat de betaalpagina de juiste status toont.
+  await supabase
+    .from("booking_packages")
+    .update({ status: "expired", updated_at: new Date().toISOString() })
+    .eq("status", "pending")
+    .lt("created_at", cutoff);
 }
 
 export async function expireStalePendingSubscriptions() {

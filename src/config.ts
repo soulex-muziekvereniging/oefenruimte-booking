@@ -13,7 +13,15 @@ export const config = {
   // geïncasseerd via Mollie. Zie BESTUUR.md voor de uitleg van dit model.
   subscriptionPricing: {
     weekly: { label: "Wekelijks", priceCentsPerMonth: 11000 },
-    biweekly: { label: "Tweewekelijks", priceCentsPerMonth: 5500 },
+  },
+  // Pakket voor bands die om de week komen: een vast aantal losse boekingen op hetzelfde
+  // dagdeel, in één keer betaald. Na afloop verlengen via een herinneringsmail - wie
+  // op tijd verlengt houdt hetzelfde slot. Tarief voorlopig, besluit bestuur volgt.
+  packagePricing: {
+    label: "Pakket om de week",
+    sessions: 4,
+    intervalWeeks: 2,
+    priceCents: 12000,
   },
   // Echte mailbox (aangemaakt door Kimberly, sep 2026) - het afzenderadres van alle
   // systeemmails en het adres dat in "neem contact op"-teksten getoond wordt.

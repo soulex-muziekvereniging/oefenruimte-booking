@@ -10,9 +10,11 @@ import {
   sendPeriodGraceWarningEmail,
   sendPeriodLapsedEmail,
   sendPeriodLapsedNotificationToOrg,
+  sendPackageRenewalReminderEmail,
   sendSafely,
 } from "@/lib/email";
-import type { Subscription, SubscriptionPayment } from "@/lib/supabase";
+import type { BookingPackage, Subscription, SubscriptionPayment } from "@/lib/supabase";
+import { nextPackageFirstDate, packageDates, renewalDeadline } from "@/lib/packages";
 
 // Eén dagelijkse huishoudtaak voor vaste reserveringen (Vercel Cron, zie vercel.json):
 // nieuwe periodes klaarzetten + betaalverzoek mailen, herinneren, en tijdsloten vrijgeven
@@ -45,8 +47,57 @@ export async function GET(request: NextRequest) {
   await sendReminders(today);
   await sendGraceWarnings(today);
   await applyLapses(today);
+  await sendPackageRenewalReminders(today);
 
   return NextResponse.json({ ok: true });
+}
+
+// Pakketten: na de tweede sessie een verlengmail, een paar dagen voor de uiterste
+// verlengdatum nog een laatste. Niet als het pakket al verlengd is.
+const DAYS_BEFORE_RENEW_DEADLINE_FOR_FINAL = 4;
+
+async function sendPackageRenewalReminders(today: string) {
+  const { data: packages } = await supabase
+    .from("booking_packages")
+    .select("*")
+    .eq("status", "paid")
+    .is("final_reminder_sent_at", null)
+    .gte("last_date", today);
+
+  for (const pkg of (packages ?? []) as BookingPackage[]) {
+    const deadline = renewalDeadline(pkg);
+    if (today >= deadline) continue;
+
+    const secondSession = packageDates(pkg.first_date)[1];
+    const finalDue = today >= addDaysStr(deadline, -DAYS_BEFORE_RENEW_DEADLINE_FOR_FINAL);
+    const firstDue = !pkg.reminder_sent_at && today > secondSession;
+    if (!firstDue && !finalDue) continue;
+
+    const { data: renewal } = await supabase
+      .from("booking_packages")
+      .select("id")
+      .eq("renewal_of", pkg.id)
+      .in("status", ["pending", "paid"])
+      .limit(1);
+    if ((renewal ?? []).length > 0) continue;
+
+    const bandEmails = await getActiveMemberEmails(pkg.band_name);
+    const nextDates = packageDates(nextPackageFirstDate(pkg));
+    const sent = await trySend(`verlengherinnering pakket ${pkg.id}`, () =>
+      sendPackageRenewalReminderEmail(pkg, deadline, nextDates, finalDue, bandEmails)
+    );
+    if (!sent) continue;
+
+    const now = new Date().toISOString();
+    await supabase
+      .from("booking_packages")
+      .update(
+        finalDue
+          ? { final_reminder_sent_at: now, reminder_sent_at: pkg.reminder_sent_at ?? now }
+          : { reminder_sent_at: now }
+      )
+      .eq("id", pkg.id);
+  }
 }
 
 async function trySend(label: string, fn: () => Promise<unknown>): Promise<boolean> {

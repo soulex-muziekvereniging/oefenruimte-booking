@@ -5,7 +5,7 @@ import { config } from "@/config";
 import { expireStalePendingSubscriptions } from "@/lib/expire";
 import { firstOfMonthStr, addDaysStr } from "@/lib/periods";
 import { nowInAmsterdam } from "@/lib/date";
-import { findConflictingBookingDates } from "@/lib/slots";
+import { findConflictingBookingDates, findRunningOutSubscriptionEnd } from "@/lib/slots";
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
@@ -52,6 +52,16 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const runningOutUntil = await findRunningOutSubscriptionEnd(weekday, dagdeelId);
+  if (runningOutUntil) {
+    return NextResponse.json(
+      {
+        error: `Dit dagdeel is nog vast gereserveerd tot en met ${new Date(runningOutUntil + "T00:00:00").toLocaleDateString("nl-NL", { day: "numeric", month: "long" })}. Vraag het daarna opnieuw aan, of kies een ander moment.`,
+      },
+      { status: 409 }
+    );
+  }
+
   const conflicts = await findConflictingBookingDates(weekday, dagdeelId);
   if (conflicts.length > 0) {
     return NextResponse.json(
@@ -62,7 +72,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const priceCents = config.subscriptionPricing[frequency as "weekly" | "biweekly"].priceCentsPerMonth;
+  const priceCents = config.subscriptionPricing[frequency as "weekly"].priceCentsPerMonth;
 
   const { data: subscription, error } = await supabase
     .from("subscriptions")

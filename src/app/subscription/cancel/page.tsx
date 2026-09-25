@@ -11,6 +11,7 @@ function CancelContent() {
     "confirm" | "cancelling" | "done" | "error"
   >("confirm");
   const [errorMsg, setErrorMsg] = useState("");
+  const [activeUntil, setActiveUntil] = useState<string | null>(null);
 
   async function handleCancel() {
     if (!subscriptionId || !cancelToken) return;
@@ -29,6 +30,8 @@ function CancelContent() {
       return;
     }
 
+    const data = await res.json().catch(() => ({}));
+    setActiveUntil(data.activeUntil ?? null);
     setStatus("done");
   }
 
@@ -53,7 +56,13 @@ function CancelContent() {
           <h2 className="text-2xl font-bold mb-2">Vaste reservering opgezegd</h2>
           <p className="text-gray-600 mb-6">
             Je vaste reservering is opgezegd. Er worden geen betaalverzoeken
-            meer verstuurd.
+            meer verstuurd.{" "}
+            {activeUntil
+              ? `Wat al betaald is blijft van jullie: het tijdslot is nog voor jullie tot en met ${new Date(
+                  activeUntil + "T00:00:00"
+                ).toLocaleDateString("nl-NL", { day: "numeric", month: "long" })}.`
+              : "Het tijdslot is weer vrij voor andere bands."}{" "}
+            Je krijgt een bevestiging per e-mail.
           </p>
           <a
             href="/"
@@ -73,7 +82,8 @@ function CancelContent() {
         <h2 className="text-2xl font-bold mb-2">Vaste reservering opzeggen</h2>
         <p className="text-gray-600 mb-6">
           Weet je zeker dat je deze vaste reservering wilt opzeggen? Er worden
-          daarna geen betaalverzoeken meer verstuurd.
+          daarna geen betaalverzoeken meer verstuurd. Een al betaalde maand mag je
+          gewoon nog afmaken.
         </p>
 
         {status === "error" && (

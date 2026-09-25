@@ -92,7 +92,7 @@ export async function GET(request: NextRequest) {
     band_name: string;
     weekday: number;
     dagdeel_id: string;
-    frequency: "weekly" | "biweekly";
+    frequency: "weekly";
     price_cents: number;
     status: string;
     cancel_token: string;

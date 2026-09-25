@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { config } from "@/config";
 import { toLocalDateStr, hoursUntilSlot } from "@/lib/date";
 import SubscriptionSection from "./SubscriptionSection";
+import PackageSection from "./PackageSection";
 import MembershipRequestPrompt from "./MembershipRequestPrompt";
 import JoinRequestForm from "./JoinRequestForm";
 
@@ -58,7 +59,7 @@ function formatFullDate(dateStr: string): string {
 }
 
 export default function Home() {
-  const [mode, setMode] = useState<"once" | "subscription" | "join" | null>(null);
+  const [mode, setMode] = useState<"once" | "package" | "subscription" | "join" | null>(null);
   const [weekStart, setWeekStart] = useState<Date>(() =>
     getWeekStart(new Date())
   );
@@ -203,10 +204,6 @@ export default function Home() {
     window.location.href = data.checkoutUrl;
   }
 
-  const cheapestSubscriptionCents = Math.min(
-    ...Object.values(config.subscriptionPricing).map((p) => p.priceCentsPerMonth)
-  );
-
   if (mode === null) {
     return (
       <div className="max-w-3xl mx-auto px-4 py-12 sm:py-20 text-center">
@@ -215,9 +212,9 @@ export default function Home() {
         </h2>
         <p className="text-gray-600 mb-10 max-w-xl mx-auto">
           Reserveer een dagdeel (Ochtend, Middag of Avond, telkens 4 uur) voor je
-          band, of vraag een vaste wekelijkse of tweewekelijkse reservering aan.
+          band: los, als pakket om de week, of elke week vast.
         </p>
-        <div className="grid sm:grid-cols-2 gap-4 max-w-xl mx-auto">
+        <div className="grid sm:grid-cols-3 gap-4 max-w-3xl mx-auto">
           <button
             onClick={() => setMode("once")}
             className="text-left bg-white border-2 border-gray-200 rounded-xl p-5 sm:p-6 hover:border-blue-400 hover:shadow-md transition-all"
@@ -233,6 +230,21 @@ export default function Home() {
             </span>
           </button>
           <button
+            onClick={() => setMode("package")}
+            className="text-left bg-white border-2 border-gray-200 rounded-xl p-5 sm:p-6 hover:border-blue-400 hover:shadow-md transition-all"
+          >
+            <span className="block text-lg font-semibold mb-1">
+              Om de week
+            </span>
+            <span className="block text-sm text-gray-600 mb-3">
+              Pakket van {config.packagePricing.sessions}× hetzelfde dagdeel, om de
+              {" "}{config.packagePricing.intervalWeeks} weken
+            </span>
+            <span className="block text-xl font-bold text-blue-600">
+              €{(config.packagePricing.priceCents / 100).toFixed(2).replace(".", ",")}
+            </span>
+          </button>
+          <button
             onClick={() => setMode("subscription")}
             className="text-left bg-white border-2 border-gray-200 rounded-xl p-5 sm:p-6 hover:border-blue-400 hover:shadow-md transition-all"
           >
@@ -240,10 +252,10 @@ export default function Home() {
               Vaste reservering
             </span>
             <span className="block text-sm text-gray-600 mb-3">
-              Elke week of elke twee weken hetzelfde dagdeel
+              Elke week hetzelfde dagdeel, blijft van jullie zolang je betaalt
             </span>
             <span className="block text-xl font-bold text-blue-600">
-              vanaf €{(cheapestSubscriptionCents / 100).toFixed(2).replace(".", ",")}/mnd
+              €{(config.subscriptionPricing.weekly.priceCentsPerMonth / 100).toFixed(2).replace(".", ",")}/mnd
             </span>
           </button>
         </div>
@@ -259,6 +271,20 @@ export default function Home() {
 
   if (mode === "join") {
     return <JoinRequestForm onBack={() => setMode(null)} />;
+  }
+
+  if (mode === "package") {
+    return (
+      <div className="max-w-5xl mx-auto px-3 sm:px-4 py-4 sm:py-8">
+        <button
+          onClick={() => setMode(null)}
+          className="text-sm text-blue-600 hover:text-blue-700 mb-4"
+        >
+          ← Andere optie kiezen
+        </button>
+        <PackageSection />
+      </div>
+    );
   }
 
   if (mode === "subscription") {

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { expireStalePendingSubscriptions } from "@/lib/expire";
+import { todayStr } from "@/lib/date";
 
 export async function GET() {
   await expireStalePendingSubscriptions();
@@ -10,7 +11,8 @@ export async function GET() {
   const { data, error } = await supabase
     .from("subscriptions")
     .select("weekday, dagdeel_id")
-    .eq("status", "active");
+    // Ook opgezegde reserveringen waarvan de betaalde maand nog loopt.
+    .or(`status.eq.active,and(status.eq.cancelled,active_until.gte.${todayStr()})`);
 
   if (error) {
     return NextResponse.json(

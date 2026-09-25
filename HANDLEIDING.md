@@ -9,7 +9,7 @@ Alleen leden van Soulex. Bij het boeken wordt je e-mailadres gecheckt tegen de l
 je er niet op, dan vraagt de site je om eerst lidmaatschap aan te vragen (knop "Nog geen lid?
 Vraag hier toegang aan").
 
-## Twee manieren van boeken
+## Drie manieren van boeken
 
 ### 1. Eenmalige boeking (los dagdeel)
 
@@ -24,11 +24,27 @@ Vraag hier toegang aan").
 - **Annuleren** kan tot uiterlijk **48 uur van tevoren**, met volledige terugbetaling. Daarna
   kan een annulering niet meer via de site — neem dan contact op met Kimberly.
 
-### 2. Vaste reservering (wekelijks of tweewekelijks)
+### 2. Pakket om de week
 
-Voor bands die structureel op hetzelfde moment willen repeteren.
+Voor bands die om de week willen repeteren.
 
-- Kies wekelijks (**€110,00/mnd**) of tweewekelijks (**€55,00/mnd**).
+- Kies de datum van de eerste keer en het dagdeel. De site laat meteen zien of alle
+  **4 data** (om de 2 weken) vrij zijn.
+- Prijs: **€120,00** voor 4 keer (€30 per keer), in één keer betaald via Mollie.
+- De eerste keer mag maximaal 4 weken vooruit liggen; de volgende data mogen verder weg liggen.
+- In de bevestigingsmail staat per datum een annuleringslink. Annuleren kan tot **48 uur van
+  tevoren**; je krijgt dan €30 terug.
+- **Verlengen:** na de tweede keer krijg je een mail om te verlengen, en een paar dagen voor de
+  uiterste datum nog een herinnering. Verleng je op tijd, dan houd je zeker hetzelfde dagdeel.
+  Daarna kan het nog, maar dan kan een andere band het slot inmiddels hebben geboekt.
+- Tarieven zijn voorlopig; het bestuur stelt ze nog definitief vast.
+
+### 3. Vaste reservering (elke week)
+
+Voor bands die elke week op hetzelfde moment willen repeteren. Het voordeligst per keer, en je
+hoeft nooit te verlengen.
+
+- Prijs: **€110,00/mnd**.
 - Geen automatische incasso: elke maand krijg je (en je bandleden) een apart betaalverzoek per
   e-mail met een eigen betaallink.
 - Zolang je op tijd betaalt, blijft het tijdslot het hele jaar van jullie.
@@ -37,7 +53,9 @@ Voor bands die structureel op hetzelfde moment willen repeteren.
   komt het vrij voor een andere band.
 - Kun je een keer niet op je vaste moment? Je mag de repetitie die maand **maximaal 2 keer**
   verplaatsen naar een ander vrij dagdeel diezelfde week, via "Mijn boekingen" (zie hieronder).
-- Opzeggen kan altijd zelf via de link in je bevestigingsmail.
+- Opzeggen kan altijd zelf via de link in je bevestigingsmail. Wat al betaald is, blijft van
+  jullie: het tijdslot loopt door tot het einde van de laatst betaalde maand. Je krijgt een
+  bevestiging per e-mail.
 
 ## "Mijn boekingen" — je eigen overzicht inzien
 
