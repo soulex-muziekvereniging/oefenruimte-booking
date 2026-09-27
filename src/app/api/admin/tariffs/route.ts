@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminId, verifyAdminPassword } from "@/lib/adminAuth";
 import { supabase } from "@/lib/supabase";
-import { getTariffs, parseTariffs, subscriptionPrice } from "@/lib/tariffs";
+import { getTariffs, parseTariffs, subscriptionPrice, TARIFF_LABELS, type Tariffs } from "@/lib/tariffs";
+import { sendTariffChangeEmail, sendSafely } from "@/lib/email";
 
 export async function GET(request: NextRequest) {
   const authError = await verifyAdminPassword(request);
@@ -72,6 +73,20 @@ export async function POST(request: NextRequest) {
         .update({ price_cents: newPrice, updated_at: new Date().toISOString() })
         .eq("id", sub.id);
       if (!updateError) updatedSubscriptions++;
+    }
+  }
+
+  // Alle beheerders krijgen een bevestiging, zodat een (onbedoelde) wijziging opvalt.
+  const changes = (Object.keys(TARIFF_LABELS) as (keyof Tariffs)[])
+    .filter((k) => old[k] !== tariffs[k])
+    .map((k) => ({ label: TARIFF_LABELS[k], oldCents: old[k], newCents: tariffs[k] }));
+  if (changes.length > 0) {
+    const { data: admins } = await supabase.from("admin_users").select("email");
+    const adminEmails = (admins ?? []).map((a) => a.email as string);
+    if (adminEmails.length > 0) {
+      await sendSafely("melding tariefwijziging", () =>
+        sendTariffChangeEmail(adminEmails, changedBy, changes, body.applyToExisting === true, updatedSubscriptions)
+      );
     }
   }
 

@@ -748,3 +748,47 @@ export async function sendBandMemberAddedEmail(
     `,
   });
 }
+
+export async function sendTariffChangeEmail(
+  adminEmails: string[],
+  changedBy: string,
+  changes: { label: string; oldCents: number; newCents: number }[],
+  appliedToExisting: boolean,
+  updatedSubscriptions: number
+) {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL!;
+  const rows = changes
+    .map(
+      (c) => `<tr>
+            <td style="padding: 8px; border: 1px solid #ddd;">${c.label}</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">${formatPrice(c.oldCents)}</td>
+            <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">${formatPrice(c.newCents)}</td>
+          </tr>`
+    )
+    .join("");
+  await send({
+    from: `${config.organizationName} <${config.senderEmail}>`,
+    to: adminEmails,
+    subject: `Tarieven oefenruimte gewijzigd door ${changedBy}`,
+    html: `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>Tarieven gewijzigd</h2>
+        <p><strong>${changedBy}</strong> heeft de tarieven in het beheerpaneel aangepast:</p>
+        <table style="border-collapse: collapse; width: 100%; margin: 20px 0;">
+          <tr>
+            <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">Tarief</th>
+            <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">Was</th>
+            <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">Wordt</th>
+          </tr>
+          ${rows}
+        </table>
+        <p>${
+          appliedToExisting
+            ? `Ook doorgevoerd bij ${updatedSubscriptions} lopende vaste reservering(en), vanaf hun volgende betaalverzoek.`
+            : "Lopende vaste reserveringen houden hun huidige prijs; de nieuwe tarieven gelden voor nieuwe boekingen en aanvragen."
+        }</p>
+        <p>Klopt dit niet? Pas het terug aan via <a href="${appUrl}/admin">het beheerpaneel</a> (tab Instellingen).</p>
+      </div>
+    `,
+  });
+}
