@@ -6,7 +6,7 @@ import { getClientIp, isRateLimited } from "@/lib/rateLimit";
 
 const GENERIC_RESPONSE = {
   message:
-    "Als deze bandnaam en dit e-mailadres bij elkaar horen, ontvang je zo een e-mail met een link.",
+    "Staat dit e-mailadres op de ledenlijst, dan ontvang je zo een e-mail met een link.",
 };
 
 const MAX_ATTEMPTS = 5;
@@ -21,23 +21,22 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { bandName, email } = body;
+  const { email } = body;
 
-  if (!bandName || !email) {
-    return NextResponse.json(
-      { error: "Vul zowel je bandnaam als je e-mailadres in" },
-      { status: 400 }
-    );
+  if (typeof email !== "string" || !email.trim()) {
+    return NextResponse.json({ error: "Vul je e-mailadres in" }, { status: 400 });
   }
 
-  // Geen onderscheid maken tussen "band onbekend" en "e-mail onbekend" in de
-  // response - dat voorkomt dat iemand de ledenlijst kan aftasten.
+  // Alleen het e-mailadres: de link komt toch alleen in die mailbox terecht. Een extra
+  // bandnaam-check leverde vooral gemiste mails op (bands weten niet altijd precies hoe
+  // hun naam in de ledenlijst staat). Zelfde antwoord bij bekend en onbekend adres, zodat
+  // niemand de ledenlijst kan aftasten.
   const { data: member } = await supabase
     .from("members")
     .select("email")
-    .ilike("name", bandName.trim())
     .ilike("email", email.trim())
     .eq("active", true)
+    .limit(1)
     .maybeSingle();
 
   if (member) {

@@ -3,7 +3,6 @@
 import { useState } from "react";
 
 export default function MijnBoekingenPage() {
-  const [bandName, setBandName] = useState("");
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "sending" | "sent">("idle");
   const [error, setError] = useState("");
@@ -16,7 +15,7 @@ export default function MijnBoekingenPage() {
     const res = await fetch("/api/mijn-boekingen/request-link", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ bandName, email }),
+      body: JSON.stringify({ email }),
     });
 
     if (!res.ok) {
@@ -36,9 +35,9 @@ export default function MijnBoekingenPage() {
           <div className="text-5xl mb-4">📬</div>
           <h2 className="text-2xl font-bold mb-2">Check je mail</h2>
           <p className="text-gray-600">
-            Als deze bandnaam en dit e-mailadres bij elkaar horen, ontvang je zo een
-            e-mail met een link naar je boekingen. Geen mail ontvangen? Controleer ook
-            je spamfolder.
+            Staat dit e-mailadres op de ledenlijst, dan ontvang je zo een e-mail met een
+            link naar de boekingen van je band. Geen mail ontvangen? Controleer ook je
+            spamfolder, of mail naar beheer@soulex.nl.
           </p>
         </div>
       </div>
@@ -50,24 +49,12 @@ export default function MijnBoekingenPage() {
       <div className="bg-white rounded-lg border border-gray-200 p-8">
         <h2 className="text-2xl font-bold mb-2">Mijn boekingen</h2>
         <p className="text-gray-600 mb-6">
-          Vul je bandnaam en e-mailadres in. Kloppen die met elkaar, dan sturen we je
-          een tijdelijke link waarmee je je boekingen en vaste reservering kan
-          bekijken en beheren.
+          Vul het e-mailadres in waarmee je bij de band staat ingeschreven. We sturen je
+          een tijdelijke link waarmee je de boekingen en vaste reservering van je band
+          kunt bekijken en beheren.
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Bandnaam
-            </label>
-            <input
-              type="text"
-              required
-              value={bandName}
-              onChange={(e) => setBandName(e.target.value)}
-              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
-            />
-          </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               E-mailadres

@@ -168,7 +168,26 @@ export default function AdminPage() {
     contactPhone: string | null;
     subtitle?: string;
     booking?: Booking;
+    swapId?: string;
   } | null>(null);
+
+  async function handleUndoSwap(swapId: string, description: string) {
+    if (
+      !confirm(
+        `Verplaatsing terugdraaien?\n\n${description}\n\nDe repetitie gaat terug naar het oorspronkelijke moment en de band krijgt een mail.`
+      )
+    ) {
+      return false;
+    }
+    const res = await fetch(`/api/admin/subscription-swaps/${swapId}`, { method: "DELETE" });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      alert(data.error || "Terugdraaien is niet gelukt");
+      return false;
+    }
+    await fetchSwaps();
+    return true;
+  }
 
   function openCalDetail(detail: NonNullable<typeof calDetail>) {
     setCalDetail(detail);
@@ -1080,6 +1099,46 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
                           </select>
                         </label>
                       )}
+                      {(() => {
+                        const today = toLocalDateStr(new Date());
+                        const upcoming = swaps
+                          .filter(
+                            (sw) =>
+                              sw.subscription_id === subscription.id &&
+                              (sw.original_date >= today || (sw.new_date ?? "") >= today)
+                          )
+                          .sort((a, b) => a.original_date.localeCompare(b.original_date));
+                        if (upcoming.length === 0) return null;
+                        return (
+                          <div className="mt-2 text-sm">
+                            <p className="text-gray-600">Verplaatste repetities:</p>
+                            <ul className="space-y-1 mt-1">
+                              {upcoming.map((sw) => {
+                                const description = `${formatShortDate(sw.original_date)} → ${
+                                  sw.new_date ? formatShortDate(sw.new_date) : "vervallen"
+                                }${
+                                  sw.new_dagdeel_id
+                                    ? ` (${config.dagdelen.find((d) => d.id === sw.new_dagdeel_id)?.label ?? sw.new_dagdeel_id})`
+                                    : ""
+                                }`;
+                                return (
+                                  <li key={sw.id} className="flex items-center gap-2">
+                                    <span className="text-gray-700">{description}</span>
+                                    <button
+                                      onClick={() =>
+                                        handleUndoSwap(sw.id, `${subscription.band_name}: ${description}`)
+                                      }
+                                      className="text-xs text-amber-700 hover:text-amber-800 underline"
+                                    >
+                                      terugdraaien
+                                    </button>
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          </div>
+                        );
+                      })()}
                       <p className="text-sm text-gray-500 mt-1">
                         {subscription.contact_name} · {subscription.contact_email}
                         {subscription.contact_phone ? ` · ${subscription.contact_phone}` : ""}
@@ -1649,7 +1708,8 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
                                   contactName: swappedInSubscription.contact_name,
                                   contactEmail: swappedInSubscription.contact_email,
                                   contactPhone: swappedInSubscription.contact_phone,
-                                  subtitle: `Vaste reservering (${formatRhythm(swappedInSubscription)}), deze keer hierheen verplaatst`,
+                                  subtitle: `Vaste reservering (${formatRhythm(swappedInSubscription)}), deze keer hierheen verplaatst van ${formatShortDate(swappedIn!.original_date)}`,
+                                  swapId: swappedIn!.id,
                                 })
                               }
                               title={`${swappedInSubscription.contact_name} · ${swappedInSubscription.contact_email}${swappedInSubscription.contact_phone ? " · " + swappedInSubscription.contact_phone : ""}`}
@@ -1799,6 +1859,20 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
                 >
                   Bellen
                 </a>
+              )}
+              {calDetail.swapId && (
+                <button
+                  onClick={async () => {
+                    const ok = await handleUndoSwap(
+                      calDetail.swapId!,
+                      `${calDetail.bandName}: ${calDetail.subtitle ?? ""}`
+                    );
+                    if (ok) setCalDetail(null);
+                  }}
+                  className="flex-1 px-4 py-2.5 bg-amber-50 text-amber-800 border border-amber-200 rounded-lg font-medium hover:bg-amber-100 text-sm"
+                >
+                  Verplaatsing terugdraaien
+                </button>
               )}
               {calDetail.booking?.status === "confirmed" && (
                 <button

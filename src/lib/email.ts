@@ -792,3 +792,29 @@ export async function sendTariffChangeEmail(
     `,
   });
 }
+
+export async function sendSwapUndoneEmail(
+  subscription: Subscription,
+  originalDate: string,
+  newDate: string | null,
+  extraRecipients: string[] = []
+) {
+  const recipients = Array.from(new Set([subscription.contact_email, ...extraRecipients]));
+  await send({
+    from: `${config.organizationName} <${config.senderEmail}>`,
+    to: recipients,
+    subject: `Verplaatsing teruggedraaid: ${subscription.band_name}`,
+    html: `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>Verplaatsing teruggedraaid</h2>
+        <p>Hoi ${subscription.contact_name},</p>
+        <p>Het bestuur heeft de verplaatsing van jullie repetitie teruggedraaid. Jullie repetitie is
+        weer gewoon op <strong>${formatDate(originalDate)}</strong> (${formatWeekdayDagdeel(subscription)})${
+          newDate ? `, en niet meer op ${formatDate(newDate)}` : ""
+        }. Deze verplaatsing telt niet meer mee voor het maximum.</p>
+        <p>Vragen? Mail naar <a href="mailto:${config.organizationEmail}">${config.organizationEmail}</a>.</p>
+        <p>Met vriendelijke groet,<br>${config.organizationName}</p>
+      </div>
+    `,
+  });
+}
