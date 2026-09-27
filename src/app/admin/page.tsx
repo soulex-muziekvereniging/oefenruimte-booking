@@ -155,6 +155,25 @@ export default function AdminPage() {
   const [handlingRequest, setHandlingRequest] = useState<string | null>(null);
 
   const [calWeekStart, setCalWeekStart] = useState<Date>(() => getWeekStart(new Date()));
+  // Detailvenster bij een tik op een bezet blok in de kalender (ook op telefoon bruikbaar,
+  // in tegenstelling tot de hover-tooltip).
+  const [calDetail, setCalDetail] = useState<{
+    kind: "booking" | "subscription" | "swap";
+    date: string;
+    time: string;
+    dagdeelLabel: string;
+    bandName: string;
+    contactName: string;
+    contactEmail: string;
+    contactPhone: string | null;
+    subtitle?: string;
+    booking?: Booking;
+  } | null>(null);
+
+  function openCalDetail(detail: NonNullable<typeof calDetail>) {
+    setCalDetail(detail);
+    if (members.length === 0) fetchMembers();
+  }
 
   const [showAddBooking, setShowAddBooking] = useState(false);
   const [addBookingForm, setAddBookingForm] = useState({
@@ -1581,17 +1600,28 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
                             <button
                               key={dagdeel.id}
                               onClick={() =>
-                                booking.status === "confirmed" &&
-                                handleCancel(booking)
+                                openCalDetail({
+                                  kind: "booking",
+                                  date: dateStr,
+                                  time: `${startTime} – ${endTime}`,
+                                  dagdeelLabel: dagdeel.label,
+                                  bandName: booking.band_name,
+                                  contactName: booking.contact_name,
+                                  contactEmail: booking.contact_email,
+                                  contactPhone: booking.contact_phone,
+                                  subtitle:
+                                    booking.status === "confirmed"
+                                      ? "Losse boeking, bevestigd"
+                                      : "Losse boeking, wacht op betaling",
+                                  booking,
+                                })
                               }
-                              disabled={
-                                booking.status !== "confirmed" || cancelling === booking.id
-                              }
+                              disabled={cancelling === booking.id}
                               title={`${booking.contact_name} · ${booking.contact_email}${booking.contact_phone ? " · " + booking.contact_phone : ""}`}
                               className={`w-full text-left text-xs sm:text-sm py-2 sm:py-2.5 px-1.5 sm:px-2 rounded border ${
                                 booking.status === "confirmed"
                                   ? "bg-green-100 border-green-300 hover:bg-green-200 cursor-pointer"
-                                  : "bg-yellow-100 border-yellow-300 cursor-default"
+                                  : "bg-yellow-100 border-yellow-300 hover:bg-yellow-200 cursor-pointer"
                               }`}
                             >
                               <span className="block font-medium">{dagdeel.label}</span>
@@ -1607,10 +1637,23 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
 
                         if (swappedInSubscription) {
                           return (
-                            <div
+                            <button
                               key={dagdeel.id}
+                              onClick={() =>
+                                openCalDetail({
+                                  kind: "swap",
+                                  date: dateStr,
+                                  time: `${startTime} – ${endTime}`,
+                                  dagdeelLabel: dagdeel.label,
+                                  bandName: swappedInSubscription.band_name,
+                                  contactName: swappedInSubscription.contact_name,
+                                  contactEmail: swappedInSubscription.contact_email,
+                                  contactPhone: swappedInSubscription.contact_phone,
+                                  subtitle: `Vaste reservering (${formatRhythm(swappedInSubscription)}), deze keer hierheen verplaatst`,
+                                })
+                              }
                               title={`${swappedInSubscription.contact_name} · ${swappedInSubscription.contact_email}${swappedInSubscription.contact_phone ? " · " + swappedInSubscription.contact_phone : ""}`}
-                              className="w-full text-left text-xs sm:text-sm py-2 sm:py-2.5 px-1.5 sm:px-2 rounded border bg-blue-100 border-blue-300"
+                              className="w-full text-left text-xs sm:text-sm py-2 sm:py-2.5 px-1.5 sm:px-2 rounded border bg-blue-100 border-blue-300 hover:bg-blue-200 cursor-pointer"
                             >
                               <span className="block font-medium">{dagdeel.label}</span>
                               <span className="block text-[10px] sm:text-xs opacity-75">
@@ -1619,16 +1662,29 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
                               <span className="block text-[10px] sm:text-xs truncate font-medium">
                                 {swappedInSubscription.band_name}
                               </span>
-                            </div>
+                            </button>
                           );
                         }
 
                         if (subscription && !swappedAway) {
                           return (
-                            <div
+                            <button
                               key={dagdeel.id}
+                              onClick={() =>
+                                openCalDetail({
+                                  kind: "subscription",
+                                  date: dateStr,
+                                  time: `${startTime} – ${endTime}`,
+                                  dagdeelLabel: dagdeel.label,
+                                  bandName: subscription.band_name,
+                                  contactName: subscription.contact_name,
+                                  contactEmail: subscription.contact_email,
+                                  contactPhone: subscription.contact_phone,
+                                  subtitle: `Vaste reservering, ${formatRhythm(subscription)}${subscription.storage_unit ? ` · opslagruimte ${subscription.storage_unit}` : ""}`,
+                                })
+                              }
                               title={`${subscription.contact_name} · ${subscription.contact_email}${subscription.contact_phone ? " · " + subscription.contact_phone : ""}`}
-                              className="w-full text-left text-xs sm:text-sm py-2 sm:py-2.5 px-1.5 sm:px-2 rounded border bg-blue-100 border-blue-300"
+                              className="w-full text-left text-xs sm:text-sm py-2 sm:py-2.5 px-1.5 sm:px-2 rounded border bg-blue-100 border-blue-300 hover:bg-blue-200 cursor-pointer"
                             >
                               <span className="block font-medium">{dagdeel.label}</span>
                               <span className="block text-[10px] sm:text-xs opacity-75">
@@ -1637,7 +1693,7 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
                               <span className="block text-[10px] sm:text-xs truncate font-medium">
                                 {subscription.band_name}
                               </span>
-                            </div>
+                            </button>
                           );
                         }
 
@@ -1661,6 +1717,105 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
           </>
         );
       })()}
+      {calDetail && (
+        <div
+          className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center justify-center p-0 sm:p-4"
+          onClick={() => setCalDetail(null)}
+        >
+          <div
+            className="bg-white w-full sm:max-w-md rounded-t-2xl sm:rounded-xl p-5 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3 mb-3">
+              <div>
+                <h3 className="text-lg font-bold">{calDetail.bandName}</h3>
+                <p className="text-sm text-gray-600">
+                  {new Date(calDetail.date + "T00:00:00").toLocaleDateString("nl-NL", {
+                    weekday: "long",
+                    day: "numeric",
+                    month: "long",
+                  })}{" "}
+                  · {calDetail.dagdeelLabel} {calDetail.time}
+                </p>
+                {calDetail.subtitle && (
+                  <p className="text-xs text-gray-500 mt-0.5">{calDetail.subtitle}</p>
+                )}
+              </div>
+              <button
+                onClick={() => setCalDetail(null)}
+                className="p-2 -m-2 text-gray-400 hover:text-gray-600"
+                aria-label="Sluiten"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="text-sm space-y-1.5 mb-4">
+              <p className="font-medium">{calDetail.contactName}</p>
+              <p>
+                ✉️{" "}
+                <a href={`mailto:${calDetail.contactEmail}`} className="text-blue-600 hover:underline">
+                  {calDetail.contactEmail}
+                </a>
+              </p>
+              {calDetail.contactPhone && (
+                <p>
+                  📞{" "}
+                  <a href={`tel:${calDetail.contactPhone}`} className="text-blue-600 hover:underline">
+                    {calDetail.contactPhone}
+                  </a>
+                </p>
+              )}
+              {(() => {
+                const bandPhones = members.filter(
+                  (m) =>
+                    m.active &&
+                    m.phone &&
+                    m.name.trim().toLowerCase() === calDetail.bandName.trim().toLowerCase() &&
+                    m.phone !== calDetail.contactPhone
+                );
+                return bandPhones.length > 0 ? (
+                  <div className="pt-1">
+                    <p className="text-xs text-gray-500">Andere bandleden:</p>
+                    {bandPhones.map((m) => (
+                      <p key={m.id}>
+                        📞{" "}
+                        <a href={`tel:${m.phone}`} className="text-blue-600 hover:underline">
+                          {m.phone}
+                        </a>{" "}
+                        <span className="text-gray-500">({m.email})</span>
+                      </p>
+                    ))}
+                  </div>
+                ) : null;
+              })()}
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {calDetail.contactPhone && (
+                <a
+                  href={`tel:${calDetail.contactPhone}`}
+                  className="flex-1 text-center px-4 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 text-sm"
+                >
+                  Bellen
+                </a>
+              )}
+              {calDetail.booking?.status === "confirmed" && (
+                <button
+                  onClick={async () => {
+                    const booking = calDetail.booking!;
+                    setCalDetail(null);
+                    await handleCancel(booking);
+                  }}
+                  className="flex-1 px-4 py-2.5 bg-red-50 text-red-700 border border-red-200 rounded-lg font-medium hover:bg-red-100 text-sm"
+                >
+                  Boeking annuleren
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
         </>
       )}
     </div>
