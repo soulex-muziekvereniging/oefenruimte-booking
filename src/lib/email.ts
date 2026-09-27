@@ -304,7 +304,7 @@ export async function sendSubscriptionConfirmationEmail(
             subscription.storage_unit
               ? `<tr>
             <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Opslagruimte</td>
-            <td style="padding: 8px; border: 1px solid #ddd;">Ruimte ${subscription.storage_unit} (${formatPrice(config.storage.priceCentsPerPeriod)} per ${config.periodWeeks} weken, zit in het bedrag)</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">Ruimte ${subscription.storage_unit} (zit in het bedrag per ${config.periodWeeks} weken)</td>
           </tr>`
               : ""
           }
@@ -375,7 +375,7 @@ export async function sendSubscriptionNotificationToOrg(subscription: Subscripti
             subscription.storage_unit
               ? `<tr>
             <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Opslagruimte</td>
-            <td style="padding: 8px; border: 1px solid #ddd;">Ruimte ${subscription.storage_unit} (${formatPrice(config.storage.priceCentsPerPeriod)} per ${config.periodWeeks} weken, zit in het bedrag)</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">Ruimte ${subscription.storage_unit} (zit in het bedrag per ${config.periodWeeks} weken)</td>
           </tr>`
               : ""
           }

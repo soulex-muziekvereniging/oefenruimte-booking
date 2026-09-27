@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getTariffs } from "@/lib/tariffs";
 import { verifyAdminPassword } from "@/lib/adminAuth";
 import { supabase } from "@/lib/supabase";
 import { config } from "@/config";
@@ -91,9 +92,9 @@ export async function PATCH(
     }
   }
 
+  const { storageCents } = await getTariffs();
   const priceDelta =
-    (storageUnit ? config.storage.priceCentsPerPeriod : 0) -
-    (subscription.storage_unit ? config.storage.priceCentsPerPeriod : 0);
+    (storageUnit ? storageCents : 0) - (subscription.storage_unit ? storageCents : 0);
 
   const { error } = await supabase
     .from("subscriptions")

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getTariffs } from "@/lib/tariffs";
 import { verifyAdminPassword } from "@/lib/adminAuth";
 import { supabase } from "@/lib/supabase";
 import { config } from "@/config";
@@ -64,7 +65,7 @@ export async function POST(request: NextRequest) {
       slot_date: slotDate,
       slot_start_time: startTime,
       slot_end_time: endTime,
-      price_cents: config.pricePerSlotCents,
+      price_cents: (await getTariffs()).singleCents,
       status: "confirmed",
     })
     .select()

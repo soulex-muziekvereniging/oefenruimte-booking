@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
+import { useTariffs } from "./useTariffs";
 import { config } from "@/config";
 import { toLocalDateStr, hoursUntilSlot } from "@/lib/date";
 import SubscriptionSection from "./SubscriptionSection";
@@ -60,6 +61,7 @@ function formatFullDate(dateStr: string): string {
 
 export default function Home() {
   const [mode, setMode] = useState<"once" | "subscription" | "join" | null>(null);
+  const tariffs = useTariffs();
   const [storageFree, setStorageFree] = useState<number | null>(null);
   useEffect(() => {
     fetch("/api/storage")
@@ -220,7 +222,7 @@ export default function Home() {
         onClick: () => setMode("once"),
         title: "Eenmalige boeking",
         text: "Los dagdeel op een datum naar keuze",
-        price: euro(config.pricePerSlotCents),
+        price: euro(tariffs.singleCents),
         suffix: "per keer",
       },
       {
@@ -231,7 +233,7 @@ export default function Home() {
         },
         title: "Om de week",
         text: "Vast hetzelfde dagdeel om de week, blijft van jullie zolang je betaalt",
-        price: euro(config.subscriptionPricing.biweekly.priceCentsPerPeriod),
+        price: euro(tariffs.biweeklyCents),
         suffix: `per ${config.periodWeeks} weken`,
       },
       {
@@ -242,7 +244,7 @@ export default function Home() {
         },
         title: "Elke week",
         text: "Vast hetzelfde dagdeel elke week, blijft van jullie zolang je betaalt",
-        price: euro(config.subscriptionPricing.weekly.priceCentsPerPeriod),
+        price: euro(tariffs.weeklyCents),
         suffix: `per ${config.periodWeeks} weken`,
       },
     ];
@@ -331,7 +333,7 @@ export default function Home() {
               </ul>
               <p className="text-sm text-gray-700 mt-3">
                 📦 Opslagruimte bijhuren bij een vaste reservering:{" "}
-                {euro(config.storage.priceCentsPerPeriod)} per {config.periodWeeks} weken.{" "}
+                {euro(tariffs.storageCents)} per {config.periodWeeks} weken.{" "}
                 {storageFree === null
                   ? ""
                   : storageFree > 0
@@ -499,7 +501,7 @@ export default function Home() {
                     {selectedSlot.endTime.slice(0, 5)}
                     {" · "}
                     <span className="font-medium">
-                      €{(config.pricePerSlotCents / 100).toFixed(2).replace(".", ",")}
+                      €{(tariffs.singleCents / 100).toFixed(2).replace(".", ",")}
                     </span>
                   </p>
                 </div>

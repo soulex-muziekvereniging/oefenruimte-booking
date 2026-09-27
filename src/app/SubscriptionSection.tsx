@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { config } from "@/config";
 import { toLocalDateStr } from "@/lib/date";
 import MembershipRequestPrompt from "./MembershipRequestPrompt";
+import { useTariffs } from "./useTariffs";
 
 type Frequency = keyof typeof config.subscriptionPricing;
 
@@ -40,6 +41,8 @@ export default function SubscriptionSection({
     return toLocalDateStr(d);
   })();
 
+  const tariffs = useTariffs();
+  const periodPrice = (f: Frequency) => (f === "weekly" ? tariffs.weeklyCents : tariffs.biweeklyCents);
   const [frequency, setFrequency] = useState<Frequency>(initialFrequency);
   const [startDate, setStartDate] = useState("");
   const [dagdeelId, setDagdeelId] = useState<string>(config.dagdelen[0].id);
@@ -82,7 +85,7 @@ export default function SubscriptionSection({
   }, [startDate, dagdeelId, frequency]);
 
   const pricing = config.subscriptionPricing[frequency];
-  const totalCents = pricing.priceCentsPerPeriod + (storage ? config.storage.priceCentsPerPeriod : 0);
+  const totalCents = periodPrice(frequency) + (storage ? tariffs.storageCents : 0);
 
   async function handleEmailBlur(email: string) {
     if (!email || !email.includes("@")) return;
@@ -121,7 +124,7 @@ export default function SubscriptionSection({
       <h2 className="text-lg font-semibold mb-1">Vaste reservering</h2>
       <p className="text-sm text-gray-600 mb-2">
         Claim hetzelfde dagdeel, elke week of om de week. Je betaalt per {config.periodWeeks}{" "}
-        weken ({euro(pricing.priceCentsPerPeriod / pricing.sessionsPerPeriod)} per keer) via een
+        weken ({euro(periodPrice(frequency) / pricing.sessionsPerPeriod)} per keer) via een
         betaallink per e-mail; er wordt niets automatisch afgeschreven.
       </p>
       <ul className="text-sm text-gray-600 mb-4 list-disc pl-5 space-y-0.5">
@@ -151,7 +154,7 @@ export default function SubscriptionSection({
                 {config.subscriptionPricing[key].label}
               </span>
               <span className="text-gray-600 pl-6">
-                {euro(config.subscriptionPricing[key].priceCentsPerPeriod)} per{" "}
+                {euro(periodPrice(key))} per{" "}
                 {config.periodWeeks} weken
               </span>
             </label>
@@ -212,7 +215,7 @@ export default function SubscriptionSection({
             />
             <span>
               <span className="font-medium">Opslagruimte erbij</span> ·{" "}
-              {euro(config.storage.priceCentsPerPeriod)} per {config.periodWeeks} weken
+              {euro(tariffs.storageCents)} per {config.periodWeeks} weken
               <span className="block text-gray-500">
                 Om je spullen te laten staan. Nog {storageFree} van{" "}
                 {config.storage.units.length} vrij - vol is vol.

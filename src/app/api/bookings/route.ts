@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getTariffs } from "@/lib/tariffs";
 import { supabase } from "@/lib/supabase";
 import { mollie } from "@/lib/mollie";
 import { config } from "@/config";
@@ -61,6 +62,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Dit tijdslot is al geboekt" }, { status: 409 });
   }
 
+  const tariffs = await getTariffs();
   const endHour = startHour + config.slotDurationMinutes / 60;
   const endTime = `${endHour.toString().padStart(2, "0")}:00`;
 
@@ -74,7 +76,7 @@ export async function POST(request: NextRequest) {
       slot_date: slotDate,
       slot_start_time: slotStartTime,
       slot_end_time: endTime,
-      price_cents: config.pricePerSlotCents,
+      price_cents: tariffs.singleCents,
       status: "pending",
     })
     .select()
@@ -94,7 +96,7 @@ export async function POST(request: NextRequest) {
   }
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL!;
-  const priceStr = (config.pricePerSlotCents / 100).toFixed(2);
+  const priceStr = (tariffs.singleCents / 100).toFixed(2);
 
   try {
     const payment = (await mollie.payments.create({

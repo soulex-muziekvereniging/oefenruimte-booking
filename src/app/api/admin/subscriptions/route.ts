@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getTariffs, subscriptionPrice } from "@/lib/tariffs";
 import { verifyAdminPassword } from "@/lib/adminAuth";
 import { supabase } from "@/lib/supabase";
 import type { SubscriptionPayment } from "@/lib/supabase";
@@ -101,9 +102,7 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  const priceCents =
-    config.subscriptionPricing[frequency].priceCentsPerPeriod +
-    (storageUnit ? config.storage.priceCentsPerPeriod : 0);
+  const priceCents = subscriptionPrice(await getTariffs(), frequency, !!storageUnit);
 
   const { data: subscription, error } = await supabase
     .from("subscriptions")

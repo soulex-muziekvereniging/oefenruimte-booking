@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import TariffSettings from "./TariffSettings";
 
 type Recipient = { id: string; email: string };
 type AdminUser = { id: string; email: string; hasPassword: boolean; isMe: boolean };
 
-// Tab "Instellingen": wie de meldingen krijgt en wie er beheerder is. Allebei zonder
-// code-aanpassing of deploy te wijzigen.
+// Tab "Instellingen": tarieven, wie de meldingen krijgt en wie er beheerder is. Allemaal
+// zonder code-aanpassing of deploy te wijzigen.
 export default function AdminSettings() {
   const [recipients, setRecipients] = useState<Recipient[]>([]);
   const [admins, setAdmins] = useState<AdminUser[]>([]);
@@ -74,6 +75,8 @@ export default function AdminSettings() {
           {error}
         </div>
       )}
+
+      <TariffSettings />
 
       <section className="bg-white rounded-lg border border-gray-200 p-4 sm:p-5">
         <h2 className="text-lg font-bold mb-1">Meldingen</h2>
