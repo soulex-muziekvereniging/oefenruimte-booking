@@ -4,7 +4,9 @@ import { useState, useEffect } from "react";
 import { config } from "@/config";
 import { toLocalDateStr } from "@/lib/date";
 import AdminSettings from "./AdminSettings";
+import ZalenplannerTab from "./ZalenplannerTab";
 import { formatRhythm, occursOn } from "@/lib/schedule";
+import { whatsappLink } from "@/lib/whatsapp";
 
 function getWeekStart(date: Date): Date {
   const d = new Date(date);
@@ -121,7 +123,7 @@ export default function AdminPage() {
   const [authChecked, setAuthChecked] = useState(false);
   const [loggedIn, setLoggedIn] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
-  const [view, setView] = useState<"bookings" | "members" | "subscriptions" | "requests" | "settings">(
+  const [view, setView] = useState<"bookings" | "members" | "subscriptions" | "requests" | "planner" | "settings">(
     "bookings"
   );
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -771,6 +773,16 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
           )}
         </button>
         <button
+          onClick={() => setView("planner")}
+          className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px whitespace-nowrap ${
+            view === "planner"
+              ? "border-blue-600 text-blue-600"
+              : "border-transparent text-gray-500 hover:text-gray-700"
+          }`}
+        >
+          Zalenplanner
+        </button>
+        <button
           onClick={() => setView("settings")}
           className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px whitespace-nowrap ${
             view === "settings"
@@ -784,6 +796,8 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
 
       {view === "settings" ? (
         <AdminSettings />
+      ) : view === "planner" ? (
+        <ZalenplannerTab />
       ) : view === "requests" ? (
         <div>
           <div className="flex items-center justify-between mb-4">
@@ -1343,9 +1357,21 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
                             ) : (
                               <p className="text-sm text-gray-500">
                                 {member.phone ? (
-                                  <a href={`tel:${member.phone}`} className="hover:underline">
-                                    📞 {member.phone}
-                                  </a>
+                                  <>
+                                    <a href={`tel:${member.phone}`} className="hover:underline">
+                                      📞 {member.phone}
+                                    </a>
+                                    {whatsappLink(member.phone, `Hoi, hier ${config.organizationName} over de oefenruimte: `) && (
+                                      <a
+                                        href={whatsappLink(member.phone, `Hoi, hier ${config.organizationName} over de oefenruimte: `)!}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="ml-2 text-xs text-green-700 hover:underline"
+                                      >
+                                        WhatsApp
+                                      </a>
+                                    )}
+                                  </>
                                 ) : (
                                   <span className="text-gray-400">geen telefoonnummer</span>
                                 )}{" "}
@@ -1858,6 +1884,23 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
                   className="flex-1 text-center px-4 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 text-sm"
                 >
                   Bellen
+                </a>
+              )}
+              {whatsappLink(calDetail.contactPhone, "") && (
+                <a
+                  href={
+                    whatsappLink(
+                      calDetail.contactPhone,
+                      `Hoi ${calDetail.contactName}, hier ${config.organizationName} over jullie repetitie op ${new Date(
+                        calDetail.date + "T00:00:00"
+                      ).toLocaleDateString("nl-NL", { weekday: "long", day: "numeric", month: "long" })} (${calDetail.dagdeelLabel.toLowerCase()}): `
+                    )!
+                  }
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 text-center px-4 py-2.5 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 text-sm"
+                >
+                  WhatsApp
                 </a>
               )}
               {calDetail.swapId && (

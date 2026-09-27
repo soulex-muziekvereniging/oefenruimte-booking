@@ -4,6 +4,7 @@ import { useSearchParams } from "next/navigation";
 import { useEffect, useState, Suspense } from "react";
 import { config } from "@/config";
 import { hoursUntilSlot } from "@/lib/date";
+import BandCalendar, { type CalendarEntry } from "./BandCalendar";
 
 type Booking = {
   id: string;
@@ -268,9 +269,43 @@ function OverzichtContent() {
     );
   }
 
+  // Alles voor het maandoverzicht: losse boekingen en de komende repetities (verplaatste
+  // repetities op hun nieuwe datum).
+  const dagdeelByStart = (time: string) =>
+    config.dagdelen.find((d) => d.startHour === parseInt(time.slice(0, 2), 10))?.label ?? time.slice(0, 5);
+  const calendarEntries: CalendarEntry[] = [
+    ...bookings.map((b) => ({
+      date: b.slot_date,
+      dagdeelLabel: dagdeelByStart(b.slot_start_time),
+      kind: "booking" as const,
+      title: `Losse boeking (${b.contact_name})`,
+    })),
+    ...subscriptions
+      .filter((s) => s.status === "active")
+      .flatMap((s) =>
+        s.occurrences.map((occ) =>
+          occ.swappedTo
+            ? {
+                date: occ.swappedTo.date,
+                dagdeelLabel: dagdeelLabelFor(occ.swappedTo.dagdeelId),
+                kind: "moved" as const,
+                title: `Verplaatst van ${formatShortDate(occ.date)}`,
+              }
+            : {
+                date: occ.date,
+                dagdeelLabel: dagdeelLabelFor(s.dagdeel_id),
+                kind: "subscription" as const,
+                title: "Vaste reservering",
+              }
+        )
+      ),
+  ];
+
   return (
     <div className="max-w-2xl mx-auto px-4 py-8 sm:py-16 space-y-6">
       <h2 className="text-2xl font-bold">Mijn boekingen</h2>
+
+      {calendarEntries.length > 0 && <BandCalendar entries={calendarEntries} />}
 
       <div>
         <h3 className="font-semibold text-gray-700 mb-2">Vaste reservering</h3>
