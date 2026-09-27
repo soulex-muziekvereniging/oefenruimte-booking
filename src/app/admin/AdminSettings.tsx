@@ -78,7 +78,7 @@ export default function AdminSettings() {
       <section className="bg-white rounded-lg border border-gray-200 p-4 sm:p-5">
         <h2 className="text-lg font-bold mb-1">Meldingen</h2>
         <p className="text-sm text-gray-600 mb-4">
-          Deze adressen krijgen een mail bij elke nieuwe boeking, pakket of vaste reservering,
+          Deze adressen krijgen een mail bij elke nieuwe boeking of vaste reservering,
           bij opzeggingen en verplaatsingen, bij lidmaatschapsverzoeken en als er actie nodig
           is. Bands krijgen hun eigen bevestigingen los hiervan.
         </p>
