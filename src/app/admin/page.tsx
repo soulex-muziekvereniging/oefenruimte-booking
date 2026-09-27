@@ -7,6 +7,11 @@ import AdminSettings from "./AdminSettings";
 import ZalenplannerTab from "./ZalenplannerTab";
 import { formatRhythm, occursOn } from "@/lib/schedule";
 import { whatsappLink } from "@/lib/whatsapp";
+import {
+  defaultWhatsappTemplates,
+  fillTemplate,
+  type WhatsappTemplates,
+} from "@/lib/whatsappTemplates";
 
 function getWeekStart(date: Date): Date {
   const d = new Date(date);
@@ -157,6 +162,7 @@ export default function AdminPage() {
   const [handlingRequest, setHandlingRequest] = useState<string | null>(null);
 
   const [calWeekStart, setCalWeekStart] = useState<Date>(() => getWeekStart(new Date()));
+  const [waTemplates, setWaTemplates] = useState<WhatsappTemplates>(defaultWhatsappTemplates);
   // Detailvenster bij een tik op een bezet blok in de kalender (ook op telefoon bruikbaar,
   // in tegenstelling tot de hover-tooltip).
   const [calDetail, setCalDetail] = useState<{
@@ -190,6 +196,14 @@ export default function AdminPage() {
     await fetchSwaps();
     return true;
   }
+
+  useEffect(() => {
+    if (!loggedIn) return;
+    fetch("/api/admin/whatsapp-templates")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => data && setWaTemplates(data))
+      .catch(() => {});
+  }, [loggedIn, view]);
 
   function openCalDetail(detail: NonNullable<typeof calDetail>) {
     setCalDetail(detail);
@@ -1156,6 +1170,24 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
                       <p className="text-sm text-gray-500 mt-1">
                         {subscription.contact_name} · {subscription.contact_email}
                         {subscription.contact_phone ? ` · ${subscription.contact_phone}` : ""}
+                        {whatsappLink(subscription.contact_phone, "") && (
+                          <a
+                            href={
+                              whatsappLink(
+                                subscription.contact_phone,
+                                fillTemplate(waTemplates.general, {
+                                  naam: subscription.contact_name,
+                                  band: subscription.band_name,
+                                })
+                              )!
+                            }
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="ml-2 text-xs text-green-700 hover:underline"
+                          >
+                            WhatsApp
+                          </a>
+                        )}
                       </p>
                       {subscription.status === "active" && subscription.currentPeriod && (
                         <p className="text-sm mt-2">
@@ -1361,9 +1393,14 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
                                     <a href={`tel:${member.phone}`} className="hover:underline">
                                       📞 {member.phone}
                                     </a>
-                                    {whatsappLink(member.phone, `Hoi, hier ${config.organizationName} over de oefenruimte: `) && (
+                                    {whatsappLink(member.phone, "") && (
                                       <a
-                                        href={whatsappLink(member.phone, `Hoi, hier ${config.organizationName} over de oefenruimte: `)!}
+                                        href={
+                                          whatsappLink(
+                                            member.phone,
+                                            fillTemplate(waTemplates.general, { band: member.name })
+                                          )!
+                                        }
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         className="ml-2 text-xs text-green-700 hover:underline"
@@ -1891,9 +1928,16 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
                   href={
                     whatsappLink(
                       calDetail.contactPhone,
-                      `Hoi ${calDetail.contactName}, hier ${config.organizationName} over jullie repetitie op ${new Date(
-                        calDetail.date + "T00:00:00"
-                      ).toLocaleDateString("nl-NL", { weekday: "long", day: "numeric", month: "long" })} (${calDetail.dagdeelLabel.toLowerCase()}): `
+                      fillTemplate(waTemplates.repetition, {
+                        naam: calDetail.contactName,
+                        band: calDetail.bandName,
+                        datum: new Date(calDetail.date + "T00:00:00").toLocaleDateString("nl-NL", {
+                          weekday: "long",
+                          day: "numeric",
+                          month: "long",
+                        }),
+                        dagdeel: calDetail.dagdeelLabel.toLowerCase(),
+                      })
                     )!
                   }
                   target="_blank"

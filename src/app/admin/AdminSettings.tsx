@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import TariffSettings from "./TariffSettings";
+import WhatsappSettings from "./WhatsappSettings";
 
 type Recipient = { id: string; email: string };
 type AdminUser = { id: string; email: string; hasPassword: boolean; isMe: boolean };
@@ -77,6 +78,8 @@ export default function AdminSettings() {
       )}
 
       <TariffSettings />
+
+      <WhatsappSettings />
 
       <section className="bg-white rounded-lg border border-gray-200 p-4 sm:p-5">
         <h2 className="text-lg font-bold mb-1">Meldingen</h2>
