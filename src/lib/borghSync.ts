@@ -1,11 +1,21 @@
 import { config } from "@/config";
 import { supabase } from "./supabase";
 import { todayStr } from "./date";
-import { formatRhythm } from "./schedule";
+import { formatRhythm, occursOn, type SubscriptionPattern } from "./schedule";
 
 // Werklijst voor het handmatig overnemen van reserveringen in de zalenplanner van De Borgh
-// (VirtueelPlein, ruimte 0.37 - daar is geen koppeling mee). We vergelijken wat er nu
-// gepland staat met wat de beheerder als "verwerkt" heeft gemarkeerd (tabel borgh_sync).
+// (VirtueelPlein, ruimte 0.37 - daar is geen koppeling mee). De Borgh wil alleen weten
+// wánneer er iemand is, niet wie. Daarom rekenen we per bezet dagdeel:
+// - elke vaste reservering staat er als reeks in ("sub:<id>");
+// - losse data wijken daarvan af: bezet zonder reeks ("extra:<datum>|<dagdeel>") of een
+//   reeks-keer waarop niemand komt ("vrij:<datum>|<dagdeel>").
+// Wisselt alleen de band (verplaatsing naar een dagdeel dat een ander vrijmaakte), dan
+// verandert er voor De Borgh niets en komt het ook niet op de lijst.
+// Toevoegen doet de beheerder zelf in de zalenplanner; verwijderen moet via De Borgh
+// (mail). We vergelijken met wat als "verwerkt" is gemarkeerd (tabel borgh_sync).
+
+export const BORGH_ROOM_ID = 2; // 0.37 Pop-oefenruimte in de zalenplanner van De Borgh
+const BORGH_BASE = "https://deborghbudel.nl/mrbs";
 
 export type PlannerItem = {
   key: string;
@@ -21,7 +31,12 @@ export type WorkItem = {
   description: string;
   previous?: string; // wat er eerder in de planner is gezet (bij gewijzigd)
   sortDate: string;
+  addUrl?: string; // invulformulier van De Borgh, datum/tijd/ruimte al ingevuld
+  addNote?: string; // wat erbij moet (bijv. herhalen)
+  mailLine?: string; // wat De Borgh eruit moet halen
 };
+
+type SubRow = SubscriptionPattern & { id: string; band_name: string };
 
 function short(date: string): string {
   return new Date(date + "T00:00:00").toLocaleDateString("nl-NL", {
@@ -31,74 +46,175 @@ function short(date: string): string {
   });
 }
 
+function long(date: string): string {
+  return new Date(date + "T00:00:00").toLocaleDateString("nl-NL", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+}
+
 function hours(startHour: number): string {
   const end = startHour + config.slotDurationMinutes / 60;
   return `${String(startHour).padStart(2, "0")}:00-${String(end).padStart(2, "0")}:00`;
 }
 
+function dagdeel(id: string) {
+  return config.dagdelen.find((x) => x.id === id);
+}
+
 function dagdeelLabel(id: string): string {
-  const d = config.dagdelen.find((x) => x.id === id);
+  const d = dagdeel(id);
   return d ? `${d.label.toLowerCase()} (${hours(d.startHour)})` : id;
 }
 
-function dagdeelByTime(time: string): string {
-  const d = config.dagdelen.find((x) => x.startHour === parseInt(time.slice(0, 2), 10));
-  return d ? dagdeelLabel(d.id) : time.slice(0, 5);
+function dagdeelHours(id: string): string {
+  const d = dagdeel(id);
+  return d ? hours(d.startHour) : id;
 }
 
-export async function currentPlannerItems(): Promise<PlannerItem[]> {
-  const today = todayStr();
-  const items: PlannerItem[] = [];
+function dagdeelIdByTime(time: string): string | null {
+  const hour = parseInt(time.slice(0, 2), 10);
+  return config.dagdelen.find((x) => x.startHour === hour)?.id ?? null;
+}
 
-  const { data: subs } = await supabase
+export function borghWeekUrl(date = todayStr()): string {
+  const [y, m, d] = date.split("-").map(Number);
+  return `${BORGH_BASE}/Default.aspx?display=week&year=${y}&month=${m}&day=${d}&room=${BORGH_ROOM_ID}`;
+}
+
+function borghAddUrl(date: string, dagdeelId: string): string {
+  const [y, m, d] = date.split("-").map(Number);
+  const hour = dagdeel(dagdeelId)?.startHour ?? 0;
+  return (
+    `${BORGH_BASE}/Entry.aspx?action=newedit&display=day&year=${y}&month=${m}&day=${d}` +
+    `&hour=${hour}&minute=0&room=${BORGH_ROOM_ID}&id=0`
+  );
+}
+
+function firstOccurrenceFrom(s: SubscriptionPattern, from: string): string {
+  if (s.start_date >= from) return s.start_date;
+  const d = new Date(from + "T12:00:00Z");
+  for (let i = 0; i < 14; i++) {
+    const date = d.toISOString().slice(0, 10);
+    if (occursOn(s, date)) return date;
+    d.setUTCDate(d.getUTCDate() + 1);
+  }
+  return from;
+}
+
+function seriesState(s: SubRow): string {
+  return [s.frequency, s.weekday, s.dagdeel_id, s.start_date, s.active_until ?? ""].join("|");
+}
+
+function parseSeriesState(state: string) {
+  const [frequency, weekday, dagdeel_id, start_date, active_until] = state.split("|");
+  return { frequency, weekday, dagdeel_id, start_date, active_until };
+}
+
+function seriesText(s: Pick<SubscriptionPattern, "weekday" | "dagdeel_id" | "frequency">): string {
+  return `${formatRhythm(s)} (${dagdeelHours(s.dagdeel_id)})`;
+}
+
+function oldSeriesText(state: string): string {
+  const s = parseSeriesState(state);
+  return seriesText({
+    weekday: Number(s.weekday),
+    dagdeel_id: s.dagdeel_id,
+    frequency: s.frequency as SubscriptionPattern["frequency"],
+  });
+}
+
+async function loadSubscriptions(today: string): Promise<SubRow[]> {
+  const { data } = await supabase
     .from("subscriptions")
     .select("id, band_name, weekday, dagdeel_id, frequency, start_date, active_until, status")
     .or(`status.eq.active,and(status.eq.cancelled,active_until.gte.${today})`);
-  for (const s of subs ?? []) {
+  return (data ?? []) as SubRow[];
+}
+
+async function plannerItemsFor(subs: SubRow[], today: string): Promise<PlannerItem[]> {
+  const items: PlannerItem[] = [];
+
+  for (const s of subs) {
     items.push({
       key: `sub:${s.id}`,
-      state: [s.frequency, s.weekday, s.dagdeel_id, s.start_date, s.active_until ?? ""].join("|"),
+      state: seriesState(s),
       description:
-        `${s.band_name}: vaste reservering, ${formatRhythm(s)} - ${dagdeelLabel(s.dagdeel_id)}, vanaf ${short(s.start_date)}` +
-        (s.active_until ? `, t/m ${short(s.active_until)} (opgezegd)` : ""),
+        `Reeks ${seriesText(s)}, vanaf ${short(s.start_date)}` +
+        (s.active_until ? ` t/m ${short(s.active_until)}` : "") +
+        ` (nu: ${s.band_name})`,
       sortDate: s.start_date > today ? s.start_date : today,
-      endsOn: s.active_until,
+      endsOn: s.active_until ?? null,
     });
   }
 
+  // Afwijkingen per datum: alleen data met een losse boeking of verplaatsing kunnen
+  // afwijken van de reeksen.
   const { data: bookings } = await supabase
     .from("bookings")
-    .select("id, band_name, slot_date, slot_start_time")
+    .select("band_name, slot_date, slot_start_time")
     .eq("status", "confirmed")
     .gte("slot_date", today);
+
+  const subIds = subs.map((s) => s.id);
+  const { data: swaps } =
+    subIds.length > 0
+      ? await supabase
+          .from("subscription_swaps")
+          .select("subscription_id, original_date, new_date, new_dagdeel_id")
+          .in("subscription_id", subIds)
+          .or(`original_date.gte.${today},new_date.gte.${today}`)
+      : { data: [] };
+
+  const occupiedBy = new Map<string, string[]>(); // "datum|dagdeel" -> bandnamen
+  const addOccupant = (slot: string, band: string) =>
+    occupiedBy.set(slot, [...(occupiedBy.get(slot) ?? []), band]);
+  const candidates = new Set<string>();
+
   for (const b of bookings ?? []) {
-    items.push({
-      key: `booking:${b.id}`,
-      state: `${b.slot_date}|${b.slot_start_time}`,
-      description: `${b.band_name}: losse boeking ${short(b.slot_date)}, ${dagdeelByTime(b.slot_start_time)}`,
-      sortDate: b.slot_date,
-      endsOn: b.slot_date,
-    });
+    const d = dagdeelIdByTime(b.slot_start_time);
+    if (!d) continue;
+    const slot = `${b.slot_date}|${d}`;
+    candidates.add(slot);
+    addOccupant(slot, b.band_name);
+  }
+  const swappedAway = new Set<string>(); // "subId|datum"
+  for (const sw of swaps ?? []) {
+    const sub = subs.find((s) => s.id === sw.subscription_id);
+    if (!sub) continue;
+    swappedAway.add(`${sub.id}|${sw.original_date}`);
+    if (sw.original_date >= today) candidates.add(`${sw.original_date}|${sub.dagdeel_id}`);
+    if (sw.new_date && sw.new_date >= today) {
+      const slot = `${sw.new_date}|${sw.new_dagdeel_id ?? sub.dagdeel_id}`;
+      candidates.add(slot);
+      addOccupant(slot, sub.band_name);
+    }
   }
 
-  const subIds = (subs ?? []).map((s) => s.id);
-  if (subIds.length > 0) {
-    const { data: swaps } = await supabase
-      .from("subscription_swaps")
-      .select("id, subscription_id, original_date, new_date, new_dagdeel_id")
-      .in("subscription_id", subIds)
-      .or(`original_date.gte.${today},new_date.gte.${today}`);
-    for (const sw of swaps ?? []) {
-      const band = (subs ?? []).find((s) => s.id === sw.subscription_id)?.band_name ?? "";
-      const dates = [sw.original_date, sw.new_date ?? sw.original_date].sort();
+  for (const slot of candidates) {
+    const [date, dagdeelId] = slot.split("|");
+    const series = subs.filter((s) => s.dagdeel_id === dagdeelId && occursOn(s, date));
+    const occupants = [
+      ...(occupiedBy.get(slot) ?? []),
+      ...series.filter((s) => !swappedAway.has(`${s.id}|${date}`)).map((s) => s.band_name),
+    ];
+    const when = `${short(date)}, ${dagdeelLabel(dagdeelId)}`;
+    if (series.length > 0 && occupants.length === 0) {
       items.push({
-        key: `swap:${sw.id}`,
-        state: `${sw.original_date}|${sw.new_date ?? ""}|${sw.new_dagdeel_id ?? ""}`,
-        description:
-          `${band}: repetitie van ${short(sw.original_date)} verplaatst naar ` +
-          (sw.new_date ? `${short(sw.new_date)}, ${dagdeelLabel(sw.new_dagdeel_id ?? "")}` : "(vervallen)"),
-        sortDate: dates[0],
-        endsOn: dates[1],
+        key: `vrij:${slot}`,
+        state: "vrij",
+        description: `${when}: niemand aanwezig (reeks van ${series.map((s) => s.band_name).join(", ")} vervalt)`,
+        sortDate: date,
+        endsOn: date,
+      });
+    } else if (series.length === 0 && occupants.length > 0) {
+      items.push({
+        key: `extra:${slot}`,
+        state: "extra",
+        description: `${when}: extra bezet (${occupants.join(", ")})`,
+        sortDate: date,
+        endsOn: date,
       });
     }
   }
@@ -106,43 +222,134 @@ export async function currentPlannerItems(): Promise<PlannerItem[]> {
   return items;
 }
 
+export async function currentPlannerItems(): Promise<PlannerItem[]> {
+  const today = todayStr();
+  return plannerItemsFor(await loadSubscriptions(today), today);
+}
+
+function slotOfKey(key: string): { date: string; dagdeelId: string } {
+  const [date, dagdeelId] = key.slice(key.indexOf(":") + 1).split("|");
+  return { date, dagdeelId };
+}
+
+function slotText(date: string, dagdeelId: string): string {
+  return `${long(date)}, ${dagdeelLabel(dagdeelId)}`;
+}
+
+const KNOWN_PREFIXES = ["sub:", "vrij:", "extra:"];
+
 export async function workList(): Promise<WorkItem[]> {
   const today = todayStr();
-  const items = await currentPlannerItems();
+  const subList = await loadSubscriptions(today);
+  const subs = new Map(subList.map((s) => [`sub:${s.id}`, s]));
+  const items = await plannerItemsFor(subList, today);
   const { data: synced, error } = await supabase.from("borgh_sync").select("*");
   if (error) throw new Error(error.message);
-  const syncedByKey = new Map((synced ?? []).map((r) => [r.item_key as string, r]));
+  const rows = (synced ?? []).filter((r) =>
+    KNOWN_PREFIXES.some((p) => (r.item_key as string).startsWith(p))
+  );
+  const syncedByKey = new Map(rows.map((r) => [r.item_key as string, r]));
 
   const work: WorkItem[] = [];
   for (const item of items) {
     const row = syncedByKey.get(item.key);
-    if (!row) {
-      work.push({ key: item.key, status: "nieuw", description: item.description, sortDate: item.sortDate });
-    } else if (row.state !== item.state) {
+    if (row && row.state === item.state) continue;
+    const base = { key: item.key, description: item.description, sortDate: item.sortDate };
+
+    if (item.key.startsWith("sub:")) {
+      const s = subs.get(item.key)!;
+      const addSeries = {
+        addUrl: borghAddUrl(firstOccurrenceFrom(s, today), s.dagdeel_id),
+        addNote:
+          `Herhalen: ${s.frequency === "biweekly" ? "om de week" : "elke week"}` +
+          (s.active_until ? `, t/m ${short(s.active_until)}` : ""),
+      };
+      if (!row) {
+        work.push({ ...base, status: "nieuw", ...addSeries });
+        continue;
+      }
+      const old = parseSeriesState(row.state);
+      const onlyEndChanged =
+        old.frequency === s.frequency &&
+        Number(old.weekday) === s.weekday &&
+        old.dagdeel_id === s.dagdeel_id &&
+        old.start_date === s.start_date;
+      if (onlyEndChanged && s.active_until) {
+        work.push({
+          ...base,
+          status: "gewijzigd",
+          previous: row.description,
+          mailLine: `Reeks ${seriesText(s)}: laatste keer op ${long(s.active_until)}, de keren daarna graag verwijderen.`,
+        });
+      } else {
+        // Ritme gewijzigd (of opzegging teruggedraaid): oude reeks eruit, nieuwe erin.
+        work.push({
+          ...base,
+          status: "gewijzigd",
+          previous: row.description,
+          mailLine: `Reeks ${oldSeriesText(row.state)} graag helemaal verwijderen (wordt vervangen).`,
+          ...addSeries,
+        });
+      }
+    } else {
+      const { date, dagdeelId } = slotOfKey(item.key);
+      if (item.key.startsWith("extra:")) {
+        work.push({ ...base, status: "nieuw", addUrl: borghAddUrl(date, dagdeelId) });
+      } else {
+        work.push({
+          ...base,
+          status: "nieuw",
+          mailLine: `${slotText(date, dagdeelId)}: niemand aanwezig, graag verwijderen.`,
+        });
+      }
+    }
+  }
+
+  // Eerder verwerkt, maar nu niet meer van toepassing. Items waarvan de datum al voorbij
+  // is, vallen stil weg.
+  const currentKeys = new Set(items.map((i) => i.key));
+  for (const row of rows) {
+    if (currentKeys.has(row.item_key)) continue;
+    if (row.ends_on && row.ends_on < today) continue;
+    if (row.item_key.startsWith("sub:")) {
       work.push({
-        key: item.key,
+        key: row.item_key,
+        status: "verwijderen",
+        sortDate: today,
+        description: row.description,
+        mailLine: `Reeks ${oldSeriesText(row.state)} graag helemaal verwijderen.`,
+      });
+      continue;
+    }
+    const { date, dagdeelId } = slotOfKey(row.item_key);
+    const when = `${short(date)}, ${dagdeelLabel(dagdeelId)}`;
+    if (row.item_key.startsWith("extra:")) {
+      work.push({
+        key: row.item_key,
+        status: "verwijderen",
+        sortDate: date,
+        description: `${when}: toch niemand aanwezig`,
+        mailLine: `${slotText(date, dagdeelId)}: niemand aanwezig, graag verwijderen.`,
+      });
+    } else {
+      // Eerder als "niemand aanwezig" doorgegeven, nu toch weer bezet: opnieuw invullen.
+      work.push({
+        key: row.item_key,
         status: "gewijzigd",
-        description: item.description,
-        previous: row.description,
-        sortDate: item.sortDate,
+        sortDate: date,
+        description: `${when}: toch weer bezet`,
+        addUrl: borghAddUrl(date, dagdeelId),
       });
     }
   }
 
-  // Eerder overgenomen, maar nu niet meer gepland (geannuleerd, opgezegd, verplaatsing
-  // teruggedraaid): uit de planner halen. Items waarvan de datum al voorbij is, vallen stil weg.
-  const currentKeys = new Set(items.map((i) => i.key));
-  for (const row of synced ?? []) {
-    if (currentKeys.has(row.item_key)) continue;
-    if (row.ends_on && row.ends_on < today) continue;
-    work.push({ key: row.item_key, status: "verwijderen", description: row.description, sortDate: today });
-  }
-
   const order = { verwijderen: 0, gewijzigd: 1, nieuw: 2 };
-  return work.sort((a, b) => order[a.status] - order[b.status] || a.sortDate.localeCompare(b.sortDate));
+  return work.sort(
+    (a, b) => a.sortDate.localeCompare(b.sortDate) || order[a.status] - order[b.status]
+  );
 }
 
-// Markeer items als verwerkt in de zalenplanner (bij "verwijderen": als verwijderd).
+// Markeer items als verwerkt in de zalenplanner.
 export async function markProcessed(keys: string[], by: string) {
   const items = new Map((await currentPlannerItems()).map((i) => [i.key, i]));
   for (const key of keys) {
@@ -160,6 +367,18 @@ export async function markProcessed(keys: string[], by: string) {
       await supabase.from("borgh_sync").delete().eq("item_key", key);
     }
   }
-  // Opruimen: rijen van items die al voorbij zijn.
+  // Opruimen: voorbije items en rijen uit de eerdere indeling (per boeking/verplaatsing).
   await supabase.from("borgh_sync").delete().lt("ends_on", todayStr());
+  await supabase.from("borgh_sync").delete().like("item_key", "booking:%");
+  await supabase.from("borgh_sync").delete().like("item_key", "swap:%");
+}
+
+// Mailadres van De Borgh voor verwijderverzoeken (beheer > Zalenplanner).
+export async function getBorghEmail(): Promise<string> {
+  const { data } = await supabase
+    .from("settings")
+    .select("value")
+    .eq("key", "borgh_email")
+    .maybeSingle();
+  return typeof data?.value === "string" ? data.value : "";
 }
