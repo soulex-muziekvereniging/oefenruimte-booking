@@ -265,8 +265,11 @@ export default function Home() {
         </section>
 
         <div className="max-w-5xl mx-auto px-4 py-8 sm:py-12">
-          <div className="grid md:grid-cols-[2fr_1fr] gap-4 md:gap-0 md:bg-white md:rounded-2xl md:border md:border-gray-200 md:overflow-hidden">
-            <div className="bg-blue-50 rounded-2xl md:rounded-none border border-blue-100 md:border-0 p-5 sm:p-6">
+          {/* Twee kolommen met dezelfde opbouw (kop, uitleg, kaartje met prijs en knop). Via
+              subgrid delen ze dezelfde rijen, zodat kaartjes, prijzen en knoppen op één lijn
+              staan, ook als de uitleg links langer is. */}
+          <div className="grid gap-4 md:gap-0 md:grid-cols-[2fr_1fr] md:grid-rows-[auto_auto_1fr] md:bg-white md:rounded-2xl md:border md:border-gray-200 md:overflow-hidden">
+            <div className="bg-blue-50 rounded-2xl md:rounded-none border border-blue-100 md:border-0 p-5 sm:p-6 md:grid md:grid-rows-subgrid md:row-span-3">
               <h2 className="text-lg font-semibold font-[family-name:var(--font-slab)] text-blue-900">
                 Vaste plek
               </h2>
@@ -286,7 +289,7 @@ export default function Home() {
                       <span className="text-3xl font-bold text-blue-900">{euroShort(o.perSession)}</span>{" "}
                       <span className="text-sm text-gray-600">per keer</span>
                     </p>
-                    <p className="text-xs text-gray-600 mt-1">
+                    <p className="text-xs text-gray-600 mt-1 mb-4">
                       {euro(o.periodCents)} per {config.periodWeeks} weken ({o.sessions} keer)
                     </p>
                     <button
@@ -294,7 +297,7 @@ export default function Home() {
                         setSubscriptionFrequency(o.frequency);
                         setMode("subscription");
                       }}
-                      className="mt-4 w-full py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700"
+                      className="mt-auto w-full py-2.5 bg-blue-600 border-2 border-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 hover:border-blue-700"
                     >
                       Dagdeel kiezen
                     </button>
@@ -302,23 +305,27 @@ export default function Home() {
                 ))}
               </div>
             </div>
-            <div className="bg-white rounded-2xl border border-gray-200 md:border-0 md:border-l md:rounded-none p-5 sm:p-6">
+
+            <div className="bg-white rounded-2xl border border-gray-200 md:border-0 md:border-l md:rounded-none p-5 sm:p-6 md:grid md:grid-rows-subgrid md:row-span-3">
               <h2 className="text-lg font-semibold font-[family-name:var(--font-slab)] text-blue-900">
                 Een keer
               </h2>
               <p className="text-sm text-gray-600 mt-1">Een los dagdeel op een datum naar keuze.</p>
-              <p className="mt-4">
-                <span className="text-3xl font-bold text-blue-900">{euroShort(tariffs.singleCents)}</span>{" "}
-                <span className="text-sm text-gray-600">per keer</span>
-              </p>
-              <button
-                onClick={() => setMode("once")}
-                className="mt-5 w-full py-2.5 bg-white border-2 border-blue-600 text-blue-700 rounded-lg font-medium hover:bg-blue-50"
-              >
-                Datum kiezen
-              </button>
+              <div className="mt-4 bg-white rounded-xl border border-gray-200 p-4 flex flex-col">
+                <p className="font-semibold text-blue-900">Los dagdeel</p>
+                <p className="mt-2">
+                  <span className="text-3xl font-bold text-blue-900">{euroShort(tariffs.singleCents)}</span>{" "}
+                  <span className="text-sm text-gray-600">per keer</span>
+                </p>
+                <p className="text-xs text-gray-600 mt-1 mb-4">Per boeking vooraf betalen</p>
+                <button
+                  onClick={() => setMode("once")}
+                  className="mt-auto w-full py-2.5 bg-white border-2 border-blue-600 text-blue-700 rounded-lg font-medium hover:bg-blue-50"
+                >
+                  Datum kiezen
+                </button>
+              </div>
             </div>
-
           </div>
 
           <p className="mt-6 text-center text-sm text-ink-muted">
