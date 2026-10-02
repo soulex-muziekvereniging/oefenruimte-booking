@@ -7,8 +7,12 @@ export type CalendarEntry = {
   date: string;
   dagdeelLabel: string;
   kind: "booking" | "subscription" | "moved";
+  provisional?: boolean; // na de laatste betaalde periode: onder voorbehoud van betaling
   title: string; // tooltip, bv. "Vaste reservering (verplaatst van 7 okt)"
 };
+
+// Een jaar vooruit (config.subscriptionPlanningWeeks) = zoveel maanden bladeren.
+const MAX_MONTH_OFFSET = Math.ceil((config.subscriptionPlanningWeeks * 7) / 30.4);
 
 const WEEKDAYS = ["ma", "di", "wo", "do", "vr", "za", "zo"];
 
@@ -22,11 +26,20 @@ const KIND_STYLE: Record<CalendarEntry["kind"], string> = {
   moved: "bg-amber-100 text-amber-800",
 };
 
-// Maandoverzicht van alles wat de band gepland heeft (losse boekingen en de komende
-// repetities van de vaste reservering). Alleen weergave; acties staan eronder in de lijst.
-export default function BandCalendar({ entries }: { entries: CalendarEntry[] }) {
+// Maandoverzicht van alles wat de band gepland heeft (losse boekingen en de repetities
+// van de vaste reservering, een jaar vooruit). Alleen weergave; acties staan eronder in
+// de lijst.
+export default function BandCalendar({
+  entries,
+  graceDays,
+  hasSubscription,
+}: {
+  entries: CalendarEntry[];
+  graceDays: number;
+  hasSubscription: boolean;
+}) {
   const today = new Date();
-  const [offset, setOffset] = useState(0); // 0 = deze maand, 1 = volgende, 2 = die erna
+  const [offset, setOffset] = useState(0); // 0 = deze maand, 1 = volgende, ...
   const month = new Date(today.getFullYear(), today.getMonth() + offset, 1);
   const todayStr = toDateStr(today);
 
@@ -61,8 +74,8 @@ export default function BandCalendar({ entries }: { entries: CalendarEntry[] }) 
           {month.toLocaleDateString("nl-NL", { month: "long", year: "numeric" })}
         </p>
         <button
-          onClick={() => setOffset((o) => Math.min(2, o + 1))}
-          disabled={offset === 2}
+          onClick={() => setOffset((o) => Math.min(MAX_MONTH_OFFSET, o + 1))}
+          disabled={offset === MAX_MONTH_OFFSET}
           className="px-3 py-1 text-sm rounded border border-gray-300 disabled:opacity-30"
           aria-label="Volgende maand"
         >
@@ -92,7 +105,9 @@ export default function BandCalendar({ entries }: { entries: CalendarEntry[] }) 
                 <span
                   key={i}
                   title={e.title}
-                  className={`block truncate rounded px-0.5 text-[10px] leading-4 ${KIND_STYLE[e.kind]}`}
+                  className={`block truncate rounded px-0.5 text-[10px] leading-4 ${KIND_STYLE[e.kind]} ${
+                    e.provisional ? "opacity-60 border border-dashed border-current" : ""
+                  }`}
                 >
                   {e.dagdeelLabel}
                 </span>
@@ -112,10 +127,22 @@ export default function BandCalendar({ entries }: { entries: CalendarEntry[] }) 
         <span className="flex items-center gap-1">
           <span className="w-3 h-3 rounded bg-green-100 inline-block" /> losse boeking
         </span>
+        {hasSubscription && (
+          <span className="flex items-center gap-1">
+            <span className="w-3 h-3 rounded bg-blue-100 opacity-60 border border-dashed border-blue-800 inline-block" />{" "}
+            nog te betalen
+          </span>
+        )}
       </div>
-      <p className="text-[11px] text-gray-400 mt-1">
-        Vaste repetities worden {config.subscriptionOverviewWeeks} weken vooruit getoond.
-      </p>
+      {hasSubscription && (
+        <p className="text-xs text-gray-600 mt-2">
+          Jullie vaste repetities staan een jaar vooruit ingepland. Ze blijven staan zolang elke
+          periode van {config.periodWeeks} weken op tijd betaald is. Is een betaling{" "}
+          {graceDays} dagen na de vervaldatum nog niet binnen, dan vervallen de komende
+          repetities en komt het dagdeel vrij voor andere bands. De planning loopt door; het
+          tarief per periode kan wijzigen.
+        </p>
+      )}
     </div>
   );
 }

@@ -35,6 +35,7 @@ type SubscriptionPeriod = {
 type Occurrence = {
   date: string;
   swappedTo: { date: string; dagdeelId: string } | null;
+  provisional: boolean;
   canSwap: boolean;
 };
 
@@ -130,6 +131,8 @@ function OverzichtContent() {
   const [subscriptions, setSubscriptions] = useState<Subscription[] | null>(null);
   const [bandName, setBandName] = useState<string | null>(null);
   const [bandMembers, setBandMembers] = useState<string[]>([]);
+  const [listUntil, setListUntil] = useState("");
+  const [graceDays, setGraceDays] = useState<number>(config.subscriptionGraceDays);
   const [error, setError] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [newPhone, setNewPhone] = useState("");
@@ -158,6 +161,8 @@ function OverzichtContent() {
         }
         setBookings(data.bookings);
         setSubscriptions(data.subscriptions);
+        setListUntil(data.listUntil ?? "");
+        if (typeof data.graceDays === "number") setGraceDays(data.graceDays);
         setBandName(data.bandName);
         setBandMembers(data.bandMembers ?? []);
       })
@@ -273,6 +278,10 @@ function OverzichtContent() {
   // repetities op hun nieuwe datum).
   const dagdeelByStart = (time: string) =>
     config.dagdelen.find((d) => d.startHour === parseInt(time.slice(0, 2), 10))?.label ?? time.slice(0, 5);
+  // De lijst (met verplaatsknoppen) toont alleen de eerste weken; de kalender het hele jaar.
+  const listOccurrences = (s: Subscription) =>
+    s.occurrences.filter((occ) => !listUntil || occ.date <= listUntil);
+
   const calendarEntries: CalendarEntry[] = [
     ...bookings.map((b) => ({
       date: b.slot_date,
@@ -289,13 +298,17 @@ function OverzichtContent() {
                 date: occ.swappedTo.date,
                 dagdeelLabel: dagdeelLabelFor(occ.swappedTo.dagdeelId),
                 kind: "moved" as const,
+                provisional: occ.provisional,
                 title: `Verplaatst van ${formatShortDate(occ.date)}`,
               }
             : {
                 date: occ.date,
                 dagdeelLabel: dagdeelLabelFor(s.dagdeel_id),
                 kind: "subscription" as const,
-                title: "Vaste reservering",
+                provisional: occ.provisional,
+                title: occ.provisional
+                  ? "Vaste reservering (onder voorbehoud van betaling)"
+                  : "Vaste reservering (betaald)",
               }
         )
       ),
@@ -305,7 +318,13 @@ function OverzichtContent() {
     <div className="max-w-2xl mx-auto px-4 py-8 sm:py-16 space-y-6">
       <h2 className="text-2xl font-bold">Mijn boekingen</h2>
 
-      {calendarEntries.length > 0 && <BandCalendar entries={calendarEntries} />}
+      {calendarEntries.length > 0 && (
+        <BandCalendar
+          entries={calendarEntries}
+          graceDays={graceDays}
+          hasSubscription={subscriptions.some((s) => s.status === "active")}
+        />
+      )}
 
       <div>
         <h3 className="font-semibold text-gray-700 mb-2">Vaste reservering</h3>
@@ -389,7 +408,7 @@ function OverzichtContent() {
                   </div>
                 )}
 
-                {s.status === "active" && s.occurrences.length > 0 && (
+                {s.status === "active" && listOccurrences(s).length > 0 && (
                   <div className="mb-3">
                     <p className="text-sm font-medium text-gray-700 mb-2">
                       Komende repetities
@@ -400,7 +419,7 @@ function OverzichtContent() {
                       </span>
                     </p>
                     <ul className="space-y-1.5">
-                      {s.occurrences.map((occ) => (
+                      {listOccurrences(s).map((occ) => (
                         <li
                           key={occ.date}
                           className="flex items-center justify-between gap-2 text-sm bg-gray-50 rounded-lg px-3 py-2"

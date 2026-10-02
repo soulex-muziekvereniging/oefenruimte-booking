@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import TariffSettings from "./TariffSettings";
+import PaymentTermsSettings from "./PaymentTermsSettings";
 import WhatsappSettings from "./WhatsappSettings";
 
 type Recipient = { id: string; email: string };
@@ -78,6 +79,8 @@ export default function AdminSettings() {
       )}
 
       <TariffSettings />
+
+      <PaymentTermsSettings />
 
       <WhatsappSettings />
 

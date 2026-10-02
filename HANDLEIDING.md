@@ -56,7 +56,8 @@ Sta je niet meer bij je bevestigingsmail? Via **"Mijn boekingen"** (link onderaa
 kun je met je e-mailadres een nieuwe inloglink opvragen. Daar zie je:
 
 - Alle lopende en aankomende boekingen van jullie band (losse en vaste), en wie er geboekt heeft
-- De komende 8 weken van jullie vaste reservering
+- De planning van jullie vaste reservering, een jaar vooruit in de kalender (onder voorbehoud
+  van betaling); de komende 8 weken ook als lijst, waar je een keer kunt verplaatsen
 - De betaalstatus van je vaste reservering
 - Een knop om een repetitie te verplaatsen of de vaste reservering op te zeggen
 - De bandleden die namens jullie mogen boeken/beheren, met een optie om iemand toe te voegen

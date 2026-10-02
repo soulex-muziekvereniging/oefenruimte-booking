@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
-import { config } from "@/config";
 import { todayStr } from "@/lib/date";
 import { addDaysStr } from "@/lib/periods";
 import { periodEndFor } from "@/lib/schedule";
 import { getActiveMemberEmails } from "@/lib/members";
+import { getGraceDays } from "@/lib/paymentTerms";
 import {
   sendPeriodPaymentRequestEmail,
   sendPeriodReminderEmail,
@@ -22,7 +22,7 @@ import type { Subscription, SubscriptionPayment } from "@/lib/supabase";
 //
 // De *_sent_at-velden worden pas gezet nadat de mail echt verstuurd is. Mislukt een mail,
 // dan probeert de volgende run het gewoon opnieuw.
-// Periodes duren 4 weken en de coulance 14 dagen: met 10 dagen vooruit factureren komt
+// Periodes duren 4 weken en de coulance 7-21 dagen (instelbaar): met 10 dagen vooruit factureren komt
 // het volgende betaalverzoek pas nadat de coulance van de vorige periode voorbij is.
 const DAYS_BEFORE_DUE_TO_INVOICE = 10;
 const DAYS_AFTER_DUE_FOR_REMINDER = 7;
@@ -93,7 +93,7 @@ async function ensureNextPeriod(subscription: Subscription, today: string) {
       period_end: periodEndFor(nextStart),
       amount_cents: subscription.price_cents,
       due_date: nextStart,
-      grace_until: addDaysStr(nextStart, config.subscriptionGraceDays),
+      grace_until: addDaysStr(nextStart, await getGraceDays()),
       status: "unpaid",
     })
     .select()

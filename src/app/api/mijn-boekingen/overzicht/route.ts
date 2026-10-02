@@ -5,6 +5,7 @@ import { verifyMagicLinkToken } from "@/lib/magicLink";
 import { todayStr, hoursUntilSlot } from "@/lib/date";
 import { addDaysStr, pickActionablePeriod } from "@/lib/periods";
 import { occurrencesBetween, periodStartContaining, SubscriptionPattern } from "@/lib/schedule";
+import { getGraceDays } from "@/lib/paymentTerms";
 
 export async function GET(request: NextRequest) {
   const token = request.nextUrl.searchParams.get("token");
@@ -109,17 +110,24 @@ export async function GET(request: NextRequest) {
       : [];
 
   const today = todayStr();
-  const until = addDaysStr(today, config.subscriptionOverviewWeeks * 7);
+  // De kalender toont een jaar vooruit, de lijst met verplaatsknoppen alleen de eerste
+  // weken.
+  const until = addDaysStr(today, config.subscriptionPlanningWeeks * 7);
+  const listUntil = addDaysStr(today, config.subscriptionOverviewWeeks * 7);
 
   // De komende repetities, met per keer of die nog verplaatst kan worden: niet al
-  // verplaatst, nog niet binnen de annuleringsgrens, en de band heeft in die
-  // betaalperiode nog verplaatsingen over.
+  // verplaatst, nog niet binnen de annuleringsgrens, binnen de lijst-periode, en de band
+  // heeft in die betaalperiode nog verplaatsingen over. Alles na de laatste betaalde
+  // periode is onder voorbehoud van betaling (provisional).
   function occurrencesFor(subscription: SubscriptionPattern & { id: string; status: string }) {
     if (subscription.status !== "active") return [];
     const dagdeel = config.dagdelen.find((d) => d.id === subscription.dagdeel_id);
     const startTime = `${(dagdeel?.startHour ?? 0).toString().padStart(2, "0")}:00`;
     const ownPeriods = periodsFor(subscription.id);
     const ownSwaps = swaps.filter((s) => s.subscription_id === subscription.id);
+    const paidThrough = ownPeriods
+      .filter((p) => p.status === "paid" || p.status === "waived")
+      .reduce((max, p) => (p.period_end > max ? p.period_end : max), "");
 
     return occurrencesBetween(subscription, today, until)
       .filter((date) => hoursUntilSlot(date, startTime) > 0)
@@ -130,7 +138,9 @@ export async function GET(request: NextRequest) {
         return {
           date,
           swappedTo: swap ? { date: swap.new_date, dagdeelId: swap.new_dagdeel_id } : null,
+          provisional: date > paidThrough,
           canSwap:
+            date <= listUntil &&
             !swap &&
             swapsUsed < config.subscriptionMaxSwapsPerPeriod &&
             hoursUntilSlot(date, startTime) >= config.cancellationCutoffHours,
@@ -156,6 +166,8 @@ export async function GET(request: NextRequest) {
       paidOnline: !!mollie_payment_id,
     })),
     subscriptions: subscriptionsWithPeriod,
+    listUntil,
+    graceDays: await getGraceDays(),
     bandName,
     bandMembers,
   });

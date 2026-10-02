@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getGraceDays } from "@/lib/paymentTerms";
 import { getTariffs, subscriptionPrice } from "@/lib/tariffs";
 import { supabase } from "@/lib/supabase";
 import { mollie } from "@/lib/mollie";
@@ -119,7 +120,7 @@ export async function POST(request: NextRequest) {
   // Eerste betaalperiode = de eerste 4 weken vanaf de startdatum; die wordt nu meteen
   // betaald. Volgende periodes zet de dagelijkse cron klaar (zie /api/cron/subscriptions).
   const dueDate = startDate;
-  const graceUntil = addDaysStr(dueDate, config.subscriptionGraceDays);
+  const graceUntil = addDaysStr(dueDate, await getGraceDays());
 
   const { data: periodPayment, error: periodError } = await supabase
     .from("subscription_payments")

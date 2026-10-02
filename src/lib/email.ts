@@ -1,6 +1,7 @@
 import { Resend } from "resend";
 import { getOrgRecipients } from "./notifications";
 import { formatRhythm } from "./schedule";
+import { getGraceDays } from "./paymentTerms";
 import { config } from "@/config";
 import {
   Booking,
@@ -278,6 +279,7 @@ export async function sendSubscriptionConfirmationEmail(
   const recipients = Array.from(
     new Set([subscription.contact_email, ...extraRecipients])
   );
+  const graceDays = await getGraceDays();
 
   await send({
     from: `${config.organizationName} <${config.senderEmail}>`,
@@ -329,8 +331,9 @@ export async function sendSubscriptionConfirmationEmail(
         <p>De eerste ${config.periodWeeks} weken zijn betaald. Daarna ontvangen jullie per
         ${config.periodWeeks} weken een apart betaalverzoek per e-mail - er wordt niets
         automatisch afgeschreven. Betaal je een keer niet op tijd, dan houden we het
-        tijdslot nog ${config.subscriptionGraceDays} dagen coulant vast voordat het vrijkomt
-        voor een andere band.</p>
+        tijdslot nog ${graceDays} dagen coulant vast voordat het vrijkomt
+        voor een andere band. In "Mijn boekingen" zien jullie de planning een jaar vooruit,
+        onder voorbehoud van betaling.</p>
 
         <p>Let op: de eenmalige borg voor de sleutel wordt apart geregeld, zie
         <a href="mailto:${config.organizationEmail}">${config.organizationEmail}</a>.</p>

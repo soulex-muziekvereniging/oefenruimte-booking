@@ -35,14 +35,19 @@ export const config = {
   cancellationCutoffHours: 48,
   // Aantal dagen na de betaaldatum dat een band nog mag betalen voordat het recht op
   // het vaste tijdslot voor de rest van het jaar vervalt. Besluit bestuur 2026-09-11.
+  // Standaardwaarde: instelbaar in beheer > Instellingen (zie src/lib/paymentTerms.ts).
   subscriptionGraceDays: 14,
   // Verplaatsen van een repetitie van een vaste reservering (feedback bestuur, sep 2026):
   // max. zoveel keer per betaalperiode, naar elk vrij dagdeel vanaf nu tot zoveel dagen na
   // de oorspronkelijke datum. Meer nodig? Dan mailt de band het bestuur.
   subscriptionMaxSwapsPerPeriod: 2,
   subscriptionSwapMaxDaysLater: 14,
-  // Hoeveel weken vooruit "Mijn boekingen" de komende repetities toont.
+  // Hoeveel weken vooruit "Mijn boekingen" de komende repetities als lijst toont (met
+  // verplaatsknop).
   subscriptionOverviewWeeks: 8,
+  // Hoeveel weken vooruit de kalender in "Mijn boekingen" de vaste repetities toont
+  // (onder voorbehoud van betaling).
+  subscriptionPlanningWeeks: 52,
 };
 
 export type Config = typeof config;

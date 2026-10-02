@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getGraceDays } from "@/lib/paymentTerms";
 import { getTariffs, subscriptionPrice } from "@/lib/tariffs";
 import { verifyAdminPassword } from "@/lib/adminAuth";
 import { supabase } from "@/lib/supabase";
@@ -136,7 +137,7 @@ export async function POST(request: NextRequest) {
     period_end: periodEndFor(startDate),
     amount_cents: priceCents,
     due_date: startDate,
-    grace_until: addDaysStr(startDate, config.subscriptionGraceDays),
+    grace_until: addDaysStr(startDate, await getGraceDays()),
     status: "waived",
   });
 
