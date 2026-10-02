@@ -236,9 +236,9 @@ export default function Home() {
       { label: "Drums", value: "Sonor Select Force Stage 2" },
       { label: "Gitaar", value: "Orange Crush Pro CR60 en Marshall DSL20CR" },
       { label: "Bas", value: "Hartke HD150" },
-      { label: "Zang", value: "Yamaha EMX 312 SC, 4× Shure SM58, 1× Shure Beta 57A" },
+      { label: "Zang", value: "Yamaha EMX 312 SC, 4× Shure SM58, Shure Beta 57A" },
       { label: "Speakers", value: "4× Electro-Voice ELX 112" },
-      { label: "Klimaat", value: "Airco, volledig geluidsdicht" },
+      { label: "Ruimte", value: "Airco, volledig geluidsdicht" },
     ];
 
     return (
@@ -265,14 +265,27 @@ export default function Home() {
         </section>
 
         <div className="max-w-5xl mx-auto px-4 py-8 sm:py-12">
+          <h2 className="text-2xl font-bold text-ink font-[family-name:var(--font-slab)]">
+            Hoe wil je repeteren?
+          </h2>
+          <p className="mt-1 mb-5 text-sm text-ink-muted">
+            Alleen voor leden van {config.organizationName}.{" "}
+            <button
+              onClick={() => setMode("join")}
+              className="text-ink underline underline-offset-2 hover:text-white"
+            >
+              Nog geen lid? Vraag toegang aan
+            </button>
+          </p>
+
           {/* Twee kolommen met dezelfde opbouw (kop, uitleg, kaartje met prijs en knop). Via
               subgrid delen ze dezelfde rijen, zodat kaartjes, prijzen en knoppen op één lijn
               staan, ook als de uitleg links langer is. */}
           <div className="grid gap-4 md:gap-0 md:grid-cols-[2fr_1fr] md:grid-rows-[auto_auto_1fr] md:bg-white md:rounded-2xl md:border md:border-gray-200 md:overflow-hidden">
             <div className="bg-blue-50 rounded-2xl md:rounded-none border border-blue-100 md:border-0 p-5 sm:p-6 md:grid md:grid-rows-subgrid md:row-span-3">
-              <h2 className="text-lg font-semibold font-[family-name:var(--font-slab)] text-blue-900">
+              <h3 className="text-lg font-semibold font-[family-name:var(--font-slab)] text-blue-900">
                 Vaste plek
-              </h2>
+              </h3>
               <p className="text-sm text-gray-700 mt-1">
                 Steeds hetzelfde dagdeel, het hele jaar door. Je betaalt per {config.periodWeeks}{" "}
                 weken vooraf, er wordt niets automatisch afgeschreven.
@@ -307,9 +320,9 @@ export default function Home() {
             </div>
 
             <div className="bg-white rounded-2xl border border-gray-200 md:border-0 md:border-l md:rounded-none p-5 sm:p-6 md:grid md:grid-rows-subgrid md:row-span-3">
-              <h2 className="text-lg font-semibold font-[family-name:var(--font-slab)] text-blue-900">
+              <h3 className="text-lg font-semibold font-[family-name:var(--font-slab)] text-blue-900">
                 Een keer
-              </h2>
+              </h3>
               <p className="text-sm text-gray-600 mt-1">Een los dagdeel op een datum naar keuze.</p>
               <div className="mt-4 bg-white rounded-xl border border-gray-200 p-4 flex flex-col">
                 <p className="font-semibold text-blue-900">Los dagdeel</p>
@@ -328,16 +341,6 @@ export default function Home() {
             </div>
           </div>
 
-          <p className="mt-6 text-center text-sm text-ink-muted">
-            Alleen voor leden van {config.organizationName}.{" "}
-            <button
-              onClick={() => setMode("join")}
-              className="text-ink underline underline-offset-2 hover:text-white"
-            >
-              Nog geen lid? Vraag toegang aan
-            </button>
-          </p>
-
           <section className="mt-12 grid md:grid-cols-2 gap-6 items-center bg-white rounded-2xl border border-gray-200 overflow-hidden">
             <div className="relative h-56 md:h-full min-h-56">
               <Image
@@ -352,11 +355,11 @@ export default function Home() {
               <h2 className="text-xl font-bold text-blue-900 font-[family-name:var(--font-slab)] mb-3">
                 Wat staat er klaar?
               </h2>
-              <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
+              <dl className="grid grid-cols-2 gap-2">
                 {gear.map((g) => (
-                  <div key={g.label} className="contents">
-                    <dt className="text-gray-500">{g.label}</dt>
-                    <dd className="text-gray-900">{g.value}</dd>
+                  <div key={g.label} className="rounded-lg bg-blue-50 border border-blue-100 px-3 py-2.5">
+                    <dt className="text-xs font-medium text-blue-700">{g.label}</dt>
+                    <dd className="text-sm text-gray-900 mt-0.5 leading-snug">{g.value}</dd>
                   </div>
                 ))}
               </dl>
