@@ -216,96 +216,122 @@ export default function Home() {
 
   if (mode === null) {
     const euro = (cents: number) => `€${(cents / 100).toFixed(2).replace(".", ",")}`;
-    const options = [
-      {
-        key: "once",
-        onClick: () => setMode("once"),
-        title: "Eenmalige boeking",
-        text: "Los dagdeel op een datum naar keuze",
-        price: euro(tariffs.singleCents),
-        suffix: "per keer",
-      },
-      {
-        key: "biweekly",
-        onClick: () => {
-          setSubscriptionFrequency("biweekly");
-          setMode("subscription");
-        },
-        title: "Om de week",
-        text: "Vast hetzelfde dagdeel om de week, blijft van jullie zolang je betaalt",
-        price: euro(tariffs.biweeklyCents),
-        suffix: `per ${config.periodWeeks} weken`,
-      },
-      {
-        key: "weekly",
-        onClick: () => {
-          setSubscriptionFrequency("weekly");
-          setMode("subscription");
-        },
-        title: "Elke week",
-        text: "Vast hetzelfde dagdeel elke week, blijft van jullie zolang je betaalt",
-        price: euro(tariffs.weeklyCents),
-        suffix: `per ${config.periodWeeks} weken`,
-      },
+    const euroShort = (cents: number) =>
+      cents % 100 === 0 ? `€${cents / 100}` : euro(cents);
+    const fixed = (frequency: "weekly" | "biweekly") => {
+      const periodCents = frequency === "weekly" ? tariffs.weeklyCents : tariffs.biweeklyCents;
+      const sessions = config.subscriptionPricing[frequency].sessionsPerPeriod;
+      const perSession = Math.round(periodCents / sessions);
+      return { periodCents, sessions, perSession };
+    };
+    const fixedOptions = (["biweekly", "weekly"] as const).map((frequency) => ({
+      frequency,
+      title: frequency === "weekly" ? "Elke week" : "Om de week",
+      ...fixed(frequency),
+    }));
+    // Hoeveel goedkoper per keer dan een losse boeking (alleen tonen als dat zo is).
+    const saving = tariffs.singleCents - Math.max(...fixedOptions.map((o) => o.perSession));
+
+    const gear: { label: string; value: string }[] = [
+      { label: "Drums", value: "Sonor Select Force Stage 2" },
+      { label: "Gitaar", value: "Orange Crush Pro CR60 en Marshall DSL20CR" },
+      { label: "Bas", value: "Hartke HD150" },
+      { label: "Zang", value: "Yamaha EMX 312 SC, 4× Shure SM58, 1× Shure Beta 57A" },
+      { label: "Speakers", value: "4× Electro-Voice ELX 112" },
+      { label: "Klimaat", value: "Airco, volledig geluidsdicht" },
     ];
 
     return (
       <div>
-        <section className="relative h-56 sm:h-80 overflow-hidden">
+        <section className="relative h-60 sm:h-80 overflow-hidden">
           <Image
             src="/oefenruimte-overzicht.jpg"
             alt="De oefenruimte van Soulex met drumstel, versterkers en speakers"
             fill
             priority
             sizes="100vw"
-            className="object-cover"
+            className="object-cover object-[50%_30%]"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-blue-900/90 via-blue-900/40 to-blue-900/10" />
           <div className="absolute inset-x-0 bottom-0 max-w-5xl mx-auto px-4 pb-6 sm:pb-8 text-white">
-            <h2 className="text-3xl sm:text-5xl font-bold font-[family-name:var(--font-slab)] drop-shadow">
-              Boek de oefenruimte
-            </h2>
+            <h1 className="text-3xl sm:text-5xl font-bold font-[family-name:var(--font-slab)] drop-shadow">
+              De oefenruimte van Soulex
+            </h1>
             <p className="mt-2 max-w-xl text-sm sm:text-base text-blue-50">
-              Geluidsdicht, met airco en complete backline. Reserveer een dagdeel
-              (ochtend, middag of avond, telkens 4 uur): los, om de week of elke week vast.
+              In gemeenschapshuis De Borgh in Budel. Geluidsdicht, met airco en een complete
+              backline: neem alleen je eigen instrument mee. Je boekt per dagdeel van 4 uur.
             </p>
           </div>
         </section>
 
         <div className="max-w-5xl mx-auto px-4 py-8 sm:py-12">
-          <div className="grid sm:grid-cols-3 gap-4">
-            {options.map((o) => (
+          <div className="grid md:grid-cols-[1fr_2fr] gap-4 md:gap-0 md:bg-white md:rounded-2xl md:border md:border-gray-200 md:overflow-hidden">
+            <div className="bg-white rounded-2xl border border-gray-200 md:border-0 md:rounded-none p-5 sm:p-6">
+              <h2 className="text-lg font-semibold font-[family-name:var(--font-slab)] text-blue-900">
+                Een keer
+              </h2>
+              <p className="text-sm text-gray-600 mt-1">Een los dagdeel op een datum naar keuze.</p>
+              <p className="mt-4">
+                <span className="text-3xl font-bold text-blue-900">{euroShort(tariffs.singleCents)}</span>{" "}
+                <span className="text-sm text-gray-600">per keer</span>
+              </p>
               <button
-                key={o.key}
-                onClick={o.onClick}
-                className="group text-left bg-white border-2 border-gray-200 border-t-4 border-t-soulex-orange rounded-xl p-5 sm:p-6 hover:border-blue-400 hover:border-t-soulex-orange hover:shadow-md transition-all"
+                onClick={() => setMode("once")}
+                className="mt-5 w-full py-2.5 bg-white border-2 border-blue-600 text-blue-700 rounded-lg font-medium hover:bg-blue-50"
               >
-                <span className="block text-lg font-semibold mb-1 font-[family-name:var(--font-slab)] text-blue-900">
-                  {o.title}
-                </span>
-                <span className="block text-sm text-gray-600 mb-3">{o.text}</span>
-                <span className="flex items-baseline justify-between">
-                  <span>
-                    <span className="text-xl font-bold text-blue-600">{o.price}</span>{" "}
-                    <span className="text-xs text-gray-500">{o.suffix}</span>
-                  </span>
-                  <span className="text-sm font-medium text-soulex-orange group-hover:translate-x-0.5 transition-transform">
-                    Kies →
-                  </span>
-                </span>
+                Datum kiezen
               </button>
-            ))}
-          </div>
-          <div className="text-center">
-            <button
-              onClick={() => setMode("join")}
-              className="mt-6 text-sm text-blue-600 hover:text-blue-700"
-            >
-              Nog geen lid? Vraag hier toegang aan →
-            </button>
+            </div>
+
+            <div className="bg-blue-50 rounded-2xl md:rounded-none border border-blue-100 md:border-0 md:border-l md:border-gray-200 p-5 sm:p-6">
+              <h2 className="text-lg font-semibold font-[family-name:var(--font-slab)] text-blue-900">
+                Vaste plek
+              </h2>
+              <p className="text-sm text-gray-700 mt-1">
+                Steeds hetzelfde dagdeel, het hele jaar door. Je betaalt per {config.periodWeeks}{" "}
+                weken vooraf, er wordt niets automatisch afgeschreven.
+                {saving > 0 && <> Per keer {euroShort(saving)} goedkoper dan los.</>}
+              </p>
+              <div className="grid sm:grid-cols-2 gap-3 mt-4">
+                {fixedOptions.map((o) => (
+                  <div
+                    key={o.frequency}
+                    className="bg-white rounded-xl border border-blue-100 p-4 flex flex-col"
+                  >
+                    <p className="font-semibold text-blue-900">{o.title}</p>
+                    <p className="mt-2">
+                      <span className="text-3xl font-bold text-blue-900">{euroShort(o.perSession)}</span>{" "}
+                      <span className="text-sm text-gray-600">per keer</span>
+                    </p>
+                    <p className="text-xs text-gray-600 mt-1">
+                      {euro(o.periodCents)} per {config.periodWeeks} weken ({o.sessions} keer)
+                    </p>
+                    <button
+                      onClick={() => {
+                        setSubscriptionFrequency(o.frequency);
+                        setMode("subscription");
+                      }}
+                      className="mt-4 w-full py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700"
+                    >
+                      Dagdeel kiezen
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
 
-          <section className="mt-12 grid md:grid-cols-2 gap-6 items-center bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <p className="mt-6 text-center text-sm text-gray-600">
+            Alleen voor leden van {config.organizationName}.{" "}
+            <button
+              onClick={() => setMode("join")}
+              className="text-blue-700 underline underline-offset-2 hover:text-blue-900"
+            >
+              Nog geen lid? Vraag toegang aan
+            </button>
+          </p>
+
+          <section className="mt-12 grid md:grid-cols-2 gap-6 items-center bg-white rounded-2xl border border-gray-200 overflow-hidden">
             <div className="relative h-56 md:h-full min-h-56">
               <Image
                 src="/oefenruimte-drums.jpg"
@@ -316,33 +342,28 @@ export default function Home() {
               />
             </div>
             <div className="p-5 sm:p-6">
-              <h3 className="text-xl font-bold text-blue-900 font-[family-name:var(--font-slab)] mb-2">
+              <h2 className="text-xl font-bold text-blue-900 font-[family-name:var(--font-slab)] mb-3">
                 Wat staat er klaar?
-              </h3>
-              <p className="text-sm text-gray-600 mb-3">
-                Een volledig geluidsdichte ruimte in gemeenschapshuis De Borgh in Budel.
-                Alle muziekstijlen welkom.
-              </p>
-              <ul className="text-sm text-gray-700 space-y-1">
-                <li>🥁 Sonor Select Force Stage 2 drumstel</li>
-                <li>🎸 Orange Crush Pro CR60 en Marshall DSL20CR gitaarversterkers</li>
-                <li>🎸 Hartke HD150 basversterker</li>
-                <li>🎤 Yamaha EMX 312 SC zangversterker, 4× Shure SM58 en 1× Shure Beta 57A</li>
-                <li>🔊 4× Electro Voice ELX 112 speakers</li>
-                <li>❄️ Airco</li>
-              </ul>
-              <p className="text-sm text-gray-700 mt-3">
-                📦 Opslagruimte bijhuren bij een vaste reservering:{" "}
-                {euro(tariffs.storageCents)} per {config.periodWeeks} weken.{" "}
+              </h2>
+              <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
+                {gear.map((g) => (
+                  <div key={g.label} className="contents">
+                    <dt className="text-gray-500">{g.label}</dt>
+                    <dd className="text-gray-900">{g.value}</dd>
+                  </div>
+                ))}
+              </dl>
+              <p className="text-sm text-gray-700 mt-4">
+                Opslagruimte bijhuren bij een vaste plek: {euro(tariffs.storageCents)} per{" "}
+                {config.periodWeeks} weken.{" "}
                 {storageFree === null
                   ? ""
                   : storageFree > 0
-                    ? `Nog ${storageFree} van ${config.storage.units.length} vrij - vol is vol!`
+                    ? `Nog ${storageFree} van ${config.storage.units.length} vrij.`
                     : "Op dit moment allemaal verhuurd."}
               </p>
               <p className="text-xs text-gray-500 mt-3">
-                Alleen voor leden van {config.organizationName}. Sleutel, borg en
-                lidmaatschap regel je eenmalig met het bestuur.
+                Sleutel, borg en lidmaatschap regel je eenmalig met het bestuur.
               </p>
             </div>
           </section>
@@ -388,7 +409,10 @@ export default function Home() {
           <span className="hidden sm:inline">&larr; Vorige week</span>
         </button>
         <h2 className="text-sm sm:text-lg font-semibold text-center min-w-0">
-          {formatDisplayDate(weekStartStr)} –{" "}
+          {formatDisplayDate(
+            weekStartStr > formatDateStr(today) ? weekStartStr : formatDateStr(today)
+          )}{" "}
+          –{" "}
           {formatDisplayDate(weekEndStr)}
         </h2>
         <button
@@ -425,24 +449,27 @@ export default function Home() {
           {loadError}
         </div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-2 sm:gap-3">
-          {days.map((day) => {
+        // Op de telefoon één rij per dag (dagdelen naast elkaar), vanaf tablet een week in
+        // kolommen. Dagen die al voorbij zijn, laten we weg.
+        <div className="grid grid-cols-1 md:grid-flow-col md:auto-cols-fr gap-2 sm:gap-3">
+          {days.filter((day) => day.date >= formatDateStr(today)).map((day) => {
             return (
               <div
                 key={day.date}
                 className="bg-white rounded-lg border border-gray-200 p-2 sm:p-3"
               >
-                <div className="text-sm font-semibold text-gray-700 mb-2 text-center">
+                <div className="text-sm font-semibold text-gray-700 mb-2 md:text-center">
                   {day.dayLabel}
-                  <br />
-                  <span className="text-xs text-gray-500">
+                  <br className="hidden md:inline" />
+                  <span className="text-xs text-gray-500 font-normal">
+                    {" "}
                     {new Date(day.date + "T00:00:00").toLocaleDateString(
                       "nl-NL",
                       { day: "numeric", month: "short" }
                     )}
                   </span>
                 </div>
-                <div className="space-y-1.5">
+                <div className="grid grid-cols-3 md:grid-cols-1 gap-1.5">
                   {day.slots.map((slot) => {
                     // Voorbij (ook een eerder dagdeel van vandaag) of verder dan het
                     // boekingsvenster - de server weigert die ook.
