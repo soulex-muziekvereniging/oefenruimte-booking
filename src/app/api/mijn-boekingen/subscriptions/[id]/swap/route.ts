@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { noteBorghChanges } from "@/lib/borghSync";
 import { supabase } from "@/lib/supabase";
 import { config } from "@/config";
 import { verifyMagicLinkToken } from "@/lib/magicLink";
@@ -149,5 +150,6 @@ export async function POST(
     sendSwapNotificationToOrg(subscription, originalDate, newDate, newDagdeelId)
   );
 
+  await noteBorghChanges();
   return NextResponse.json({ success: true });
 }

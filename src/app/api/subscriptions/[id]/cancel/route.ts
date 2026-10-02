@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { noteBorghChanges } from "@/lib/borghSync";
 import { supabase } from "@/lib/supabase";
 import {
   sendSubscriptionCancellationNotification,
@@ -76,5 +77,6 @@ export async function POST(
   );
   await sendSafely("melding opzegging", () => sendSubscriptionCancellationNotification(subscription));
 
+  await noteBorghChanges();
   return NextResponse.json({ success: true, activeUntil });
 }

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { noteBorghChanges } from "@/lib/borghSync";
 import { supabase } from "@/lib/supabase";
 import { mollie } from "@/lib/mollie";
 import {
@@ -81,5 +82,6 @@ export async function POST(
   );
   await sendSafely("annuleringsmelding", () => sendCancellationNotification(booking, refunded));
 
+  await noteBorghChanges();
   return NextResponse.json({ success: true });
 }

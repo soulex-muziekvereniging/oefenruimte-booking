@@ -793,6 +793,31 @@ export async function sendTariffChangeEmail(
   });
 }
 
+// Automatisch bericht aan De Borgh: deze tijden is er niemand in de oefenruimte. Zonder
+// bandnamen (De Borgh hoeft alleen te weten dat de ruimte vrijkomt). Antwoorden gaan naar
+// het verenigingsadres; de meldingsontvangers krijgen een kopie (bcc).
+export async function sendBorghFreedEmail(to: string, lines: string[]) {
+  await send({
+    from: `${config.organizationName} <${config.senderEmail}>`,
+    to,
+    bcc: await getOrgRecipients(),
+    replyTo: config.organizationEmail,
+    subject: "Oefenruimte 0.37: niemand aanwezig - graag uit de zalenplanner halen",
+    html: `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+        <p>Beste medewerker van De Borgh,</p>
+        <p>Op de volgende tijden is er niemand in de Pop-oefenruimte (0.37). Willen jullie
+        deze uit de zalenplanner halen?</p>
+        <ul>${lines.map((l) => `<li>${l}</li>`).join("")}</ul>
+        <p>Alvast bedankt!</p>
+        <p>Met vriendelijke groet,<br>${config.organizationName}</p>
+        <p style="color: #888; font-size: 12px;">Dit bericht is automatisch verstuurd door het
+        boekingssysteem van de oefenruimte. Vragen? Beantwoord deze mail gewoon.</p>
+      </div>
+    `,
+  });
+}
+
 export async function sendSwapUndoneEmail(
   subscription: Subscription,
   originalDate: string,

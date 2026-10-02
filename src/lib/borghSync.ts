@@ -1,6 +1,6 @@
 import { config } from "@/config";
 import { supabase } from "./supabase";
-import { todayStr } from "./date";
+import { nowInAmsterdam, todayStr } from "./date";
 import { formatRhythm, occursOn, type SubscriptionPattern } from "./schedule";
 
 // Werklijst voor het handmatig overnemen van reserveringen in de zalenplanner van De Borgh
@@ -23,6 +23,7 @@ export type PlannerItem = {
   description: string;
   sortDate: string;
   endsOn: string | null; // na deze dag is het item niet meer relevant
+  seriesKeys?: string[]; // bij "vrij": de reeks(en) waar deze keer bij hoort
 };
 
 export type WorkItem = {
@@ -34,6 +35,8 @@ export type WorkItem = {
   addUrl?: string; // invulformulier van De Borgh, datum/tijd/ruimte al ingevuld
   addNote?: string; // wat erbij moet (bijv. herhalen)
   mailLine?: string; // wat De Borgh eruit moet halen
+  autoMail?: boolean; // mag automatisch naar De Borgh (alleen "ruimte komt vrij")
+  pendingSince?: string; // sinds wanneer het klaarstaat (voor de wachttijd)
 };
 
 type SubRow = SubscriptionPattern & { id: string; band_name: string };
@@ -204,6 +207,7 @@ async function plannerItemsFor(subs: SubRow[], today: string): Promise<PlannerIt
       items.push({
         key: `vrij:${slot}`,
         state: "vrij",
+        seriesKeys: series.map((s) => `sub:${s.id}`),
         description: `${when}: niemand aanwezig (reeks van ${series.map((s) => s.band_name).join(", ")} vervalt)`,
         sortDate: date,
         endsOn: date,
@@ -343,6 +347,46 @@ export async function workList(): Promise<WorkItem[]> {
     }
   }
 
+  // Wat alleen "de ruimte komt vrij" doorgeeft, mag automatisch naar De Borgh. Een vrij
+  // gekomen keer van een reeks alleen als die reeks al in hun planner staat, en alleen
+  // zolang het dagdeel nog niet begonnen is.
+  const syncedKeys = new Set(rows.map((r) => r.item_key as string));
+  const itemByKey = new Map(items.map((i) => [i.key, i]));
+  const nowHour = nowInAmsterdam().getHours();
+  for (const w of work) {
+    if (!w.mailLine || w.addUrl) continue;
+    if (w.key.startsWith("sub:")) {
+      w.autoMail = true;
+      continue;
+    }
+    const { date, dagdeelId } = slotOfKey(w.key);
+    const started =
+      date < today || (date === today && (dagdeel(dagdeelId)?.startHour ?? 0) <= nowHour);
+    if (started) continue;
+    w.autoMail = w.key.startsWith("vrij:")
+      ? (itemByKey.get(w.key)?.seriesKeys ?? []).some((k) => syncedKeys.has(k))
+      : true;
+  }
+
+  // Bijhouden sinds wanneer elk item klaarstaat. Verdwijnt het tussendoor (vergissing
+  // hersteld), dan begint de wachttijd bij een nieuwe annulering opnieuw.
+  const pending = await getSetting<Record<string, string>>("borgh_pending", {});
+  const nextPending: Record<string, string> = {};
+  const nowIso = new Date().toISOString();
+  for (const w of work) {
+    if (!w.autoMail) continue;
+    nextPending[w.key] = pending[w.key] ?? nowIso;
+    w.pendingSince = nextPending[w.key];
+  }
+  if (JSON.stringify(nextPending) !== JSON.stringify(pending)) {
+    await supabase.from("settings").upsert({
+      key: "borgh_pending",
+      value: nextPending,
+      updated_at: nowIso,
+      updated_by: "systeem",
+    });
+  }
+
   const order = { verwijderen: 0, gewijzigd: 1, nieuw: 2 };
   return work.sort(
     (a, b) => a.sortDate.localeCompare(b.sortDate) || order[a.status] - order[b.status]
@@ -373,12 +417,87 @@ export async function markProcessed(keys: string[], by: string) {
   await supabase.from("borgh_sync").delete().like("item_key", "swap:%");
 }
 
+async function getSetting<T>(key: string, fallback: T): Promise<T> {
+  const { data } = await supabase.from("settings").select("value").eq("key", key).maybeSingle();
+  return (data?.value as T) ?? fallback;
+}
+
 // Mailadres van De Borgh voor verwijderverzoeken (beheer > Zalenplanner).
 export async function getBorghEmail(): Promise<string> {
+  const value = await getSetting<unknown>("borgh_email", "");
+  return typeof value === "string" ? value : "";
+}
+
+// Automatisch doorgeven dat de ruimte vrijkomt (beheer > Zalenplanner). Staat standaard
+// uit; de wachttijd geeft ruimte om een vergissing te herstellen.
+export type BorghAuto = { enabled: boolean; delayHours: number };
+export const BORGH_DELAY_OPTIONS = [1, 2, 3, 6, 12, 24];
+
+export function parseBorghAuto(input: unknown): BorghAuto {
+  const obj = (input ?? {}) as Record<string, unknown>;
+  const delay = Number(obj.delayHours);
+  return {
+    enabled: obj.enabled === true,
+    delayHours: BORGH_DELAY_OPTIONS.includes(delay) ? delay : 3,
+  };
+}
+
+export async function getBorghAuto(): Promise<BorghAuto> {
+  return parseBorghAuto(await getSetting<unknown>("borgh_auto", {}));
+}
+
+export type BorghMailLog = { at: string; lines: string[] } | null;
+
+export async function getLastBorghMail(): Promise<BorghMailLog> {
   const { data } = await supabase
-    .from("settings")
-    .select("value")
-    .eq("key", "borgh_email")
+    .from("settings_history")
+    .select("new_value, changed_at")
+    .eq("key", "borgh_mail")
+    .order("changed_at", { ascending: false })
+    .limit(1)
     .maybeSingle();
-  return typeof data?.value === "string" ? data.value : "";
+  if (!data) return null;
+  const lines = (data.new_value as { lines?: string[] })?.lines ?? [];
+  return { at: data.changed_at as string, lines };
+}
+
+// Na een annulering of verplaatsing: werklijst bijwerken, zodat de wachttijd vanaf nu
+// telt. Mag de actie zelf nooit laten mislukken.
+export async function noteBorghChanges() {
+  try {
+    await workList();
+  } catch (err) {
+    console.error("[zalenplanner] bijwerken mislukt:", err);
+  }
+}
+
+// Voor de cron (een paar keer per dag): alles wat langer dan de wachttijd klaarstaat in
+// één mail naar De Borgh, daarna als verwerkt markeren.
+export async function sendPendingBorghMail(
+  send: (to: string, lines: string[]) => Promise<void>
+): Promise<{ sent: number; skipped?: string }> {
+  const auto = await getBorghAuto();
+  if (!auto.enabled) return { sent: 0, skipped: "automatisch mailen staat uit" };
+  const to = await getBorghEmail();
+  if (!to) return { sent: 0, skipped: "geen mailadres van De Borgh ingevuld" };
+
+  const cutoff = Date.now() - auto.delayHours * 3_600_000;
+  const due = (await workList()).filter(
+    (w) => w.autoMail && w.pendingSince && Date.parse(w.pendingSince) <= cutoff
+  );
+  if (due.length === 0) return { sent: 0 };
+
+  const lines = due.map((w) => w.mailLine!);
+  await send(to, lines);
+  await markProcessed(
+    due.map((w) => w.key),
+    "automatisch gemaild"
+  );
+  await supabase.from("settings_history").insert({
+    key: "borgh_mail",
+    old_value: null,
+    new_value: { to, lines },
+    changed_by: "automatisch",
+  });
+  return { sent: due.length };
 }

@@ -11,12 +11,35 @@ type WorkItem = {
   addUrl?: string;
   addNote?: string;
   mailLine?: string;
+  autoMail?: boolean;
+  pendingSince?: string;
 };
 
-type Snapshot = { items: WorkItem[]; borghEmail: string; weekUrl: string };
+type BorghAuto = { enabled: boolean; delayHours: number };
+
+type Snapshot = {
+  items: WorkItem[];
+  borghEmail: string;
+  borghAuto: BorghAuto;
+  lastAutoMail: { at: string; lines: string[] } | null;
+  weekUrl: string;
+};
+
+const DELAY_OPTIONS = [1, 2, 3, 6, 12, 24];
+
+function timeLabel(iso: string): string {
+  return new Date(iso).toLocaleString("nl-NL", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
 
 // Wat moet Kimberly (of een andere beheerder) met een regel doen?
-function actionLabel(item: WorkItem): { label: string; className: string } {
+function actionLabel(item: WorkItem, auto: boolean): { label: string; className: string } {
+  if (auto) return { label: "Gaat vanzelf naar De Borgh", className: "bg-blue-100 text-blue-800" };
   if (item.addUrl && item.mailLine)
     return { label: "Aanpassen", className: "bg-amber-100 text-amber-800" };
   if (item.addUrl) return { label: "Toevoegen", className: "bg-green-100 text-green-800" };
@@ -64,7 +87,13 @@ export default function ZalenplannerTab() {
       .then(({ ok, data }) => {
         if (!ok) {
           setError(data.error || "Kon de werklijst niet laden");
-          setSnap({ items: [], borghEmail: "", weekUrl: "" });
+          setSnap({
+            items: [],
+            borghEmail: "",
+            borghAuto: { enabled: false, delayHours: 3 },
+            lastAutoMail: null,
+            weekUrl: "",
+          });
           return;
         }
         setSnap(data);
@@ -100,8 +129,11 @@ export default function ZalenplannerTab() {
   }
 
   const items = snap?.items ?? [];
-  const mailLines = items.filter((i) => i.mailLine).map((i) => i.mailLine!);
   const borghEmail = snap?.borghEmail ?? "";
+  const borghAuto = snap?.borghAuto ?? { enabled: false, delayHours: 3 };
+  const autoOn = borghAuto.enabled && !!borghEmail;
+  const isAuto = (i: WorkItem) => autoOn && !!i.autoMail;
+  const mailLines = items.filter((i) => i.mailLine && !isAuto(i)).map((i) => i.mailLine!);
 
   return (
     <div>
@@ -180,6 +212,69 @@ export default function ZalenplannerTab() {
         </button>
       </form>
 
+      <div className="mb-4 p-3 bg-white rounded-lg border border-gray-200 text-sm">
+        <label className="flex items-start gap-2">
+          <input
+            type="checkbox"
+            checked={borghAuto.enabled}
+            disabled={busy !== null}
+            onChange={(e) =>
+              post({ borghAuto: { ...borghAuto, enabled: e.target.checked } }, "auto")
+            }
+            className="mt-1"
+          />
+          <span>
+            <span className="font-medium">Vrijgekomen tijden automatisch mailen naar De Borgh</span>
+            <span className="block text-xs text-gray-600">
+              Komt de ruimte vrij (een keer afgezegd, verplaatst of een reeks die stopt), dan
+              gaat dat vanzelf naar De Borgh - zonder bandnamen, alles van dat moment in één
+              mail. Verstuurd rond 7:00, 12:00 en 17:00 (in de winter een uur eerder). De
+              meldingsontvangers krijgen een kopie; antwoorden komen bij{" "}
+              {config.organizationEmail}.
+            </span>
+          </span>
+        </label>
+        <label className="flex items-center gap-2 mt-2 ml-6">
+          <span className="text-gray-700">Wachttijd na een annulering:</span>
+          <select
+            value={borghAuto.delayHours}
+            disabled={busy !== null}
+            onChange={(e) =>
+              post({ borghAuto: { ...borghAuto, delayHours: Number(e.target.value) } }, "auto")
+            }
+            className="px-2 py-1 border border-gray-300 rounded-lg text-base"
+          >
+            {DELAY_OPTIONS.map((h) => (
+              <option key={h} value={h}>
+                {h} uur
+              </option>
+            ))}
+          </select>
+        </label>
+        <p className="text-xs text-gray-500 mt-1 ml-6">
+          Wordt een annulering binnen de wachttijd teruggedraaid of het dagdeel opnieuw
+          geboekt, dan gaat er niets naar De Borgh.
+        </p>
+        {borghAuto.enabled && !borghEmail && (
+          <p className="text-xs text-red-700 mt-2 ml-6">
+            Vul hierboven eerst het mailadres van De Borgh in - tot die tijd wordt er niets
+            verstuurd.
+          </p>
+        )}
+        {snap?.lastAutoMail && (
+          <details className="mt-2 ml-6 text-xs text-gray-600">
+            <summary className="cursor-pointer">
+              Laatste automatische mail: {timeLabel(snap.lastAutoMail.at)}
+            </summary>
+            <ul className="list-disc pl-5 mt-1">
+              {snap.lastAutoMail.lines.map((l) => (
+                <li key={l}>{l}</li>
+              ))}
+            </ul>
+          </details>
+        )}
+      </div>
+
       {error && (
         <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm mb-4">
           {error}
@@ -224,7 +319,8 @@ export default function ZalenplannerTab() {
         <>
           <ul className="space-y-2">
             {items.map((item) => {
-              const action = actionLabel(item);
+              const auto = isAuto(item);
+              const action = actionLabel(item, auto);
               return (
                 <li
                   key={item.key}
@@ -242,7 +338,20 @@ export default function ZalenplannerTab() {
                     )}
                     {item.addNote && <p className="text-xs text-gray-600">{item.addNote}</p>}
                     {item.mailLine && (
-                      <p className="text-xs text-red-700">Aan De Borgh: {item.mailLine}</p>
+                      <p className={`text-xs ${auto ? "text-blue-800" : "text-red-700"}`}>
+                        Aan De Borgh: {item.mailLine}
+                      </p>
+                    )}
+                    {auto && item.pendingSince && (
+                      <p className="text-xs text-gray-500">
+                        Wordt verstuurd bij de eerste verzendronde na{" "}
+                        {timeLabel(
+                          new Date(
+                            Date.parse(item.pendingSince) + borghAuto.delayHours * 3_600_000
+                          ).toISOString()
+                        )}
+                        . Niets meer aan doen.
+                      </p>
                     )}
                   </div>
                   <div className="flex flex-wrap gap-2 shrink-0">
@@ -256,7 +365,7 @@ export default function ZalenplannerTab() {
                         Invullen bij De Borgh ↗
                       </a>
                     )}
-                    {item.mailLine && (
+                    {item.mailLine && !auto && (
                       <a
                         href={mailtoLink(borghEmail, [item.mailLine])}
                         className="px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm hover:bg-gray-50"
