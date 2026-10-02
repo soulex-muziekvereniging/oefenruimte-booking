@@ -29,7 +29,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="nl" className={`${geist.variable} ${slab.variable} h-full`}>
-      <body className="min-h-full flex flex-col bg-gray-50 text-gray-900 font-[family-name:var(--font-geist)]">
+      <body className="min-h-full flex flex-col bg-page text-gray-900 font-[family-name:var(--font-geist)]">
         <header className="bg-white border-b-4 border-soulex-orange">
           <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
             <a href="/" className="flex items-center gap-3 min-w-0">
@@ -59,7 +59,7 @@ export default function RootLayout({
           </div>
         </header>
         <main className="flex-1">{children}</main>
-        <footer className="bg-blue-900 text-blue-100 mt-auto">
+        <footer className="bg-blue-900 text-blue-100 mt-auto border-t border-page-line">
           <div className="max-w-5xl mx-auto px-4 py-6 text-sm flex flex-col sm:flex-row items-center justify-between gap-3">
             <Image src="/soulex-wordmark.png" alt="Soulex" width={110} height={34} />
             <p className="text-center">

@@ -28,7 +28,7 @@ export default function JoinRequestForm({ onBack }: { onBack: () => void }) {
     <div className="max-w-lg mx-auto px-4 py-12 sm:py-20">
       <button
         onClick={onBack}
-        className="text-sm text-blue-600 hover:text-blue-700 mb-4"
+        className="text-sm text-ink-muted hover:text-ink mb-4"
       >
         ← Andere optie kiezen
       </button>

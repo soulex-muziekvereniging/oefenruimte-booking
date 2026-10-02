@@ -100,7 +100,7 @@ function BetalenContent() {
 
   if (!info) {
     return (
-      <div className="max-w-lg mx-auto px-4 py-16 text-center text-gray-500">Laden...</div>
+      <div className="max-w-lg mx-auto px-4 py-16 text-center text-ink-muted">Laden...</div>
     );
   }
 
@@ -167,7 +167,7 @@ export default function BetalenPage() {
   return (
     <Suspense
       fallback={
-        <div className="max-w-lg mx-auto px-4 py-16 text-center text-gray-500">Laden...</div>
+        <div className="max-w-lg mx-auto px-4 py-16 text-center text-ink-muted">Laden...</div>
       }
     >
       <BetalenContent />

@@ -17,4 +17,17 @@
 
   --color-soulex-orange: #f66a10;
   --color-soulex-orange-dark: #d4560a;
+
+  /* Paginakleur van de publieke site: donker petrol, de inhoud staat in witte kaders.
+     Tekst die direct op deze achtergrond staat gebruikt "ink" (licht) of "ink-muted".
+     Het beheerpaneel blijft licht (zie src/app/admin/layout.tsx). */
+  --color-page: #1b323b;
+  --color-page-line: #2f4a55;
+  --color-ink: #eef4f6;
+  --color-ink-muted: #b4c7ce;
+}
+
+/* Beheerpaneel: lichte achtergrond over de hele hoogte van <main>. */
+main:has(> .admin-shell) {
+  background-color: var(--color-gray-50);
 }

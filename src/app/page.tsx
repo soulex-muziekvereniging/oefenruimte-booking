@@ -252,7 +252,7 @@ export default function Home() {
             sizes="100vw"
             className="object-cover object-[50%_30%]"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-blue-900/90 via-blue-900/40 to-blue-900/10" />
+          <div className="absolute inset-0 bg-gradient-to-t from-page via-page/50 to-blue-900/10" />
           <div className="absolute inset-x-0 bottom-0 max-w-5xl mx-auto px-4 pb-6 sm:pb-8 text-white">
             <h1 className="text-3xl sm:text-5xl font-bold font-[family-name:var(--font-slab)] drop-shadow">
               De oefenruimte van Soulex
@@ -321,11 +321,11 @@ export default function Home() {
             </div>
           </div>
 
-          <p className="mt-6 text-center text-sm text-gray-600">
+          <p className="mt-6 text-center text-sm text-ink-muted">
             Alleen voor leden van {config.organizationName}.{" "}
             <button
               onClick={() => setMode("join")}
-              className="text-blue-700 underline underline-offset-2 hover:text-blue-900"
+              className="text-ink underline underline-offset-2 hover:text-white"
             >
               Nog geen lid? Vraag toegang aan
             </button>
@@ -381,7 +381,7 @@ export default function Home() {
       <div className="max-w-5xl mx-auto px-3 sm:px-4 py-4 sm:py-8">
         <button
           onClick={() => setMode(null)}
-          className="text-sm text-blue-600 hover:text-blue-700 mb-4"
+          className="text-sm text-ink-muted hover:text-ink mb-4"
         >
           ← Andere optie kiezen
         </button>
@@ -394,7 +394,7 @@ export default function Home() {
     <div className={`max-w-5xl mx-auto px-3 sm:px-4 py-4 sm:py-8 ${selectedSlot ? "pb-[420px] sm:pb-[400px]" : ""}`}>
       <button
         onClick={() => setMode(null)}
-        className="text-sm text-blue-600 hover:text-blue-700 mb-4"
+        className="text-sm text-ink-muted hover:text-ink mb-4"
       >
         ← Andere optie kiezen
       </button>
@@ -403,12 +403,12 @@ export default function Home() {
         <button
           onClick={handlePrevWeek}
           disabled={!canGoPrev}
-          className="min-w-[44px] min-h-[44px] px-2 sm:px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed text-sm sm:text-base shrink-0"
+          className="min-w-[44px] min-h-[44px] px-2 sm:px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:bg-transparent disabled:text-ink-muted disabled:border-page-line disabled:opacity-60 disabled:cursor-not-allowed text-sm sm:text-base shrink-0"
         >
           <span className="sm:hidden">&larr;</span>
           <span className="hidden sm:inline">&larr; Vorige week</span>
         </button>
-        <h2 className="text-sm sm:text-lg font-semibold text-center min-w-0">
+        <h2 className="text-sm sm:text-lg font-semibold text-center min-w-0 text-ink">
           {formatDisplayDate(
             weekStartStr > formatDateStr(today) ? weekStartStr : formatDateStr(today)
           )}{" "}
@@ -418,7 +418,7 @@ export default function Home() {
         <button
           onClick={handleNextWeek}
           disabled={!canGoNext}
-          className="min-w-[44px] min-h-[44px] px-2 sm:px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed text-sm sm:text-base shrink-0"
+          className="min-w-[44px] min-h-[44px] px-2 sm:px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:bg-transparent disabled:text-ink-muted disabled:border-page-line disabled:opacity-60 disabled:cursor-not-allowed text-sm sm:text-base shrink-0"
         >
           <span className="sm:hidden">&rarr;</span>
           <span className="hidden sm:inline">Volgende week &rarr;</span>
@@ -427,7 +427,7 @@ export default function Home() {
 
       {/* Date picker to jump to a specific week */}
       <div className="flex items-center justify-center gap-2 mb-4 sm:mb-6">
-        <label htmlFor="datepicker" className="text-sm text-gray-600">
+        <label htmlFor="datepicker" className="text-sm text-ink-muted">
           Ga naar datum:
         </label>
         <input
@@ -438,12 +438,12 @@ export default function Home() {
           max={maxDateStr}
           value={weekStartStr}
           onChange={(e) => handleDatePick(e.target.value)}
-          className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-h-[44px]"
+          className="px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-h-[44px]"
         />
       </div>
 
       {loading ? (
-        <div className="text-center py-12 text-gray-500">Laden...</div>
+        <div className="text-center py-12 text-ink-muted">Laden...</div>
       ) : loadError ? (
         <div className="text-center py-12 text-red-700 bg-red-50 border border-red-200 rounded-lg">
           {loadError}

@@ -268,7 +268,7 @@ function OverzichtContent() {
 
   if (!bookings || !subscriptions) {
     return (
-      <div className="max-w-2xl mx-auto px-4 py-16 text-center text-gray-500">
+      <div className="max-w-2xl mx-auto px-4 py-16 text-center text-ink-muted">
         Laden...
       </div>
     );
@@ -316,7 +316,7 @@ function OverzichtContent() {
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8 sm:py-16 space-y-6">
-      <h2 className="text-2xl font-bold">Mijn boekingen</h2>
+      <h2 className="text-2xl font-bold text-ink font-[family-name:var(--font-slab)]">Mijn boekingen</h2>
 
       {calendarEntries.length > 0 && (
         <BandCalendar
@@ -327,9 +327,9 @@ function OverzichtContent() {
       )}
 
       <div>
-        <h3 className="font-semibold text-gray-700 mb-2">Vaste reservering</h3>
+        <h3 className="font-semibold text-ink mb-2">Vaste reservering</h3>
         {subscriptions.length === 0 ? (
-          <p className="text-gray-500 text-sm">Geen vaste reservering.</p>
+          <p className="text-ink-muted text-sm">Geen vaste reservering.</p>
         ) : (
           <div className="space-y-3">
             {subscriptions.map((s) => (
@@ -508,9 +508,9 @@ function OverzichtContent() {
       </div>
 
       <div>
-        <h3 className="font-semibold text-gray-700 mb-2">Losse boekingen</h3>
+        <h3 className="font-semibold text-ink mb-2">Losse boekingen</h3>
         {bookings.length === 0 ? (
-          <p className="text-gray-500 text-sm">Geen losse boekingen.</p>
+          <p className="text-ink-muted text-sm">Geen losse boekingen.</p>
         ) : (
           <div className="space-y-3">
             {bookings.map((b) => (
@@ -553,7 +553,7 @@ function OverzichtContent() {
 
       {bandName && (
         <div>
-          <h3 className="font-semibold text-gray-700 mb-2">Bandleden - {bandName}</h3>
+          <h3 className="font-semibold text-ink mb-2">Bandleden - {bandName}</h3>
           <div className="bg-white rounded-lg border border-gray-200 p-4">
             <p className="text-sm text-gray-600 mb-3">
               Deze e-mailadressen kunnen namens {bandName} boeken en beheren:
@@ -604,7 +604,7 @@ export default function OverzichtPage() {
   return (
     <Suspense
       fallback={
-        <div className="max-w-2xl mx-auto px-4 py-16 text-center text-gray-500">
+        <div className="max-w-2xl mx-auto px-4 py-16 text-center text-ink-muted">
           Laden...
         </div>
       }

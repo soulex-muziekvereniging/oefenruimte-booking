@@ -106,7 +106,7 @@ export default function CancelPage() {
   return (
     <Suspense
       fallback={
-        <div className="max-w-lg mx-auto px-4 py-16 text-center text-gray-500">
+        <div className="max-w-lg mx-auto px-4 py-16 text-center text-ink-muted">
           Laden...
         </div>
       }
