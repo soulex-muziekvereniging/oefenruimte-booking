@@ -265,25 +265,8 @@ export default function Home() {
         </section>
 
         <div className="max-w-5xl mx-auto px-4 py-8 sm:py-12">
-          <div className="grid md:grid-cols-[1fr_2fr] gap-4 md:gap-0 md:bg-white md:rounded-2xl md:border md:border-gray-200 md:overflow-hidden">
-            <div className="bg-white rounded-2xl border border-gray-200 md:border-0 md:rounded-none p-5 sm:p-6">
-              <h2 className="text-lg font-semibold font-[family-name:var(--font-slab)] text-blue-900">
-                Een keer
-              </h2>
-              <p className="text-sm text-gray-600 mt-1">Een los dagdeel op een datum naar keuze.</p>
-              <p className="mt-4">
-                <span className="text-3xl font-bold text-blue-900">{euroShort(tariffs.singleCents)}</span>{" "}
-                <span className="text-sm text-gray-600">per keer</span>
-              </p>
-              <button
-                onClick={() => setMode("once")}
-                className="mt-5 w-full py-2.5 bg-white border-2 border-blue-600 text-blue-700 rounded-lg font-medium hover:bg-blue-50"
-              >
-                Datum kiezen
-              </button>
-            </div>
-
-            <div className="bg-blue-50 rounded-2xl md:rounded-none border border-blue-100 md:border-0 md:border-l md:border-gray-200 p-5 sm:p-6">
+          <div className="grid md:grid-cols-[2fr_1fr] gap-4 md:gap-0 md:bg-white md:rounded-2xl md:border md:border-gray-200 md:overflow-hidden">
+            <div className="bg-blue-50 rounded-2xl md:rounded-none border border-blue-100 md:border-0 p-5 sm:p-6">
               <h2 className="text-lg font-semibold font-[family-name:var(--font-slab)] text-blue-900">
                 Vaste plek
               </h2>
@@ -319,6 +302,23 @@ export default function Home() {
                 ))}
               </div>
             </div>
+            <div className="bg-white rounded-2xl border border-gray-200 md:border-0 md:border-l md:rounded-none p-5 sm:p-6">
+              <h2 className="text-lg font-semibold font-[family-name:var(--font-slab)] text-blue-900">
+                Een keer
+              </h2>
+              <p className="text-sm text-gray-600 mt-1">Een los dagdeel op een datum naar keuze.</p>
+              <p className="mt-4">
+                <span className="text-3xl font-bold text-blue-900">{euroShort(tariffs.singleCents)}</span>{" "}
+                <span className="text-sm text-gray-600">per keer</span>
+              </p>
+              <button
+                onClick={() => setMode("once")}
+                className="mt-5 w-full py-2.5 bg-white border-2 border-blue-600 text-blue-700 rounded-lg font-medium hover:bg-blue-50"
+              >
+                Datum kiezen
+              </button>
+            </div>
+
           </div>
 
           <p className="mt-6 text-center text-sm text-ink-muted">
