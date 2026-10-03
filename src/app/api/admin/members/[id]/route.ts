@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAdminPassword } from "@/lib/adminAuth";
 import { supabase } from "@/lib/supabase";
-import { bandHasOtherPhone, cleanPhone } from "@/lib/memberPhones";
+import { cleanPhone, isValidPhone, PHONE_REQUIRED_ERROR } from "@/lib/memberPhones";
 
 export async function PATCH(
   request: NextRequest,
@@ -20,14 +20,8 @@ export async function PATCH(
 
   if ("phone" in body) {
     update.phone = cleanPhone(body.phone);
-    if (!update.phone) {
-      const { data: member } = await supabase.from("members").select("name").eq("id", id).maybeSingle();
-      if (member && !(await bandHasOtherPhone(member.name, id))) {
-        return NextResponse.json(
-          { error: "Dit is het enige telefoonnummer van de band - vul eerst bij een ander bandlid een nummer in" },
-          { status: 400 }
-        );
-      }
+    if (!isValidPhone(update.phone)) {
+      return NextResponse.json({ error: PHONE_REQUIRED_ERROR }, { status: 400 });
     }
   }
 

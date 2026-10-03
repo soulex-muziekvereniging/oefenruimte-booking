@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { cleanPhone, isValidPhone, PHONE_REQUIRED_ERROR } from "@/lib/memberPhones";
 import { supabase } from "@/lib/supabase";
 import { sendMembershipRequestNotificationToOrg, sendSafely } from "@/lib/email";
 import { getClientIp, isRateLimited } from "@/lib/rateLimit";
@@ -23,6 +24,9 @@ export async function POST(request: NextRequest) {
       { status: 400 }
     );
   }
+  if (!isValidPhone(cleanPhone(contactPhone))) {
+    return NextResponse.json({ error: PHONE_REQUIRED_ERROR }, { status: 400 });
+  }
 
   const { data: request_, error } = await supabase
     .from("membership_requests")
@@ -30,7 +34,7 @@ export async function POST(request: NextRequest) {
       band_name: bandName,
       contact_name: contactName,
       contact_email: contactEmail,
-      contact_phone: contactPhone || null,
+      contact_phone: cleanPhone(contactPhone),
       status: "pending",
     })
     .select()

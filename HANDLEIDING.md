@@ -52,15 +52,17 @@ Voor bands die structureel op hetzelfde moment willen repeteren.
 
 ## "Mijn boekingen" — je eigen overzicht inzien
 
-Sta je niet meer bij je bevestigingsmail? Via **"Mijn boekingen"** (link onderaan de homepage)
-kun je met je e-mailadres een nieuwe inloglink opvragen. Daar zie je:
+Sta je niet meer bij je bevestigingsmail? Via **"Mijn boekingen"** (knop rechtsboven op elke pagina)
+kun je met je e-mailadres een nieuwe inloglink opvragen (knop rechtsboven). Daar zie je:
 
 - Alle lopende en aankomende boekingen van jullie band (losse en vaste), en wie er geboekt heeft
 - De planning van jullie vaste reservering, een jaar vooruit in de kalender (onder voorbehoud
   van betaling); de komende 8 weken ook als lijst, waar je een keer kunt verplaatsen
 - De betaalstatus van je vaste reservering
-- Een knop om een repetitie te verplaatsen of de vaste reservering op te zeggen
+- Een knop om een repetitie te verplaatsen (je kiest een nieuw moment en bevestigt) of de
+  vaste reservering op te zeggen
 - De bandleden die namens jullie mogen boeken/beheren, met een optie om iemand toe te voegen
+  (e-mailadres en telefoonnummer zijn verplicht)
 
 Dit overzicht toont **alleen jullie eigen boekingen** — nooit die van andere bands.
 

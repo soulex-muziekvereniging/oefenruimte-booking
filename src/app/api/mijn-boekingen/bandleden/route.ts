@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { cleanPhone, isValidPhone, PHONE_REQUIRED_ERROR } from "@/lib/memberPhones";
 import { supabase } from "@/lib/supabase";
 import { verifyMagicLinkToken } from "@/lib/magicLink";
 import { getActiveMemberEmails } from "@/lib/members";
@@ -34,10 +35,15 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const newPhone = cleanPhone(body.newPhone);
+  if (!isValidPhone(newPhone)) {
+    return NextResponse.json({ error: PHONE_REQUIRED_ERROR }, { status: 400 });
+  }
+
   const { error } = await supabase.from("members").insert({
     name: member.name,
     email: newEmail.toLowerCase().trim(),
-    phone: typeof body.newPhone === "string" && body.newPhone.trim() ? body.newPhone.trim() : null,
+    phone: newPhone,
     active: true,
   });
 

@@ -1,15 +1,12 @@
-import { supabase } from "./supabase";
-
-// Regel van het bestuur: elke band heeft minstens één telefoonnummer in de ledenlijst.
-// Geeft true als een ander lid van deze band (dan excludeMemberId) al een nummer heeft.
-export async function bandHasOtherPhone(bandName: string, excludeMemberId?: string): Promise<boolean> {
-  const { data } = await supabase
-    .from("members")
-    .select("id, phone")
-    .ilike("name", bandName.trim());
-  return (data ?? []).some((m) => m.id !== excludeMemberId && !!m.phone?.trim());
-}
-
+// Regel van het bestuur: elk lid in de ledenlijst heeft een telefoonnummer (bestaande
+// leden zonder nummer blijven staan tot het wordt ingevuld; wissen kan niet meer).
 export function cleanPhone(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
+
+// Minstens 10 cijfers (06-nummer, vast nummer of +31...); spaties, streepjes en haakjes mogen.
+export function isValidPhone(phone: string | null): phone is string {
+  return !!phone && /^[0-9+()\-. ]+$/.test(phone) && phone.replace(/\D/g, "").length >= 10;
+}
+
+export const PHONE_REQUIRED_ERROR = "Vul een geldig telefoonnummer in (minstens 10 cijfers)";

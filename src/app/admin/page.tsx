@@ -5,6 +5,7 @@ import { config } from "@/config";
 import { toLocalDateStr } from "@/lib/date";
 import AdminSettings from "./AdminSettings";
 import ZalenplannerTab from "./ZalenplannerTab";
+import PaymentsTab from "./PaymentsTab";
 import { formatRhythm, occursOn } from "@/lib/schedule";
 import { whatsappLink } from "@/lib/whatsapp";
 import {
@@ -128,7 +129,7 @@ export default function AdminPage() {
   const [authChecked, setAuthChecked] = useState(false);
   const [loggedIn, setLoggedIn] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
-  const [view, setView] = useState<"bookings" | "members" | "subscriptions" | "requests" | "planner" | "settings">(
+  const [view, setView] = useState<"bookings" | "members" | "subscriptions" | "payments" | "requests" | "planner" | "settings">(
     "bookings"
   );
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -769,6 +770,16 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
           Abonnementen
         </button>
         <button
+          onClick={() => setView("payments")}
+          className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px whitespace-nowrap ${
+            view === "payments"
+              ? "border-blue-600 text-blue-600"
+              : "border-transparent text-gray-500 hover:text-gray-700"
+          }`}
+        >
+          Betalingen
+        </button>
+        <button
           onClick={() => {
             setView("requests");
             fetchRequests();
@@ -812,6 +823,8 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
         <AdminSettings />
       ) : view === "planner" ? (
         <ZalenplannerTab />
+      ) : view === "payments" ? (
+        <PaymentsTab />
       ) : view === "requests" ? (
         <div>
           <div className="flex items-center justify-between mb-4">
@@ -1298,6 +1311,7 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
             />
             <input
               type="tel"
+              required
               value={newMemberPhone}
               onChange={(e) => setNewMemberPhone(e.target.value)}
               placeholder="Telefoonnummer"
@@ -1462,7 +1476,7 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
                         onChange={(e) =>
                           setNewPhoneByBand((prev) => ({ ...prev, [bandName]: e.target.value }))
                         }
-                        placeholder="Telefoon (optioneel)"
+                        placeholder="Telefoonnummer"
                         className="w-40 min-w-0 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
                       />
                       <button

@@ -142,6 +142,8 @@ function OverzichtContent() {
     null
   );
   const [swapOptions, setSwapOptions] = useState<SwapOption[] | null>(null);
+  // Gekozen nieuw moment; pas na "Bevestigen" wordt er echt verplaatst.
+  const [swapChoice, setSwapChoice] = useState<SwapOption | null>(null);
   const [swapOptionsLoading, setSwapOptionsLoading] = useState(false);
   const [swapSubmitting, setSwapSubmitting] = useState(false);
   const [swapError, setSwapError] = useState("");
@@ -198,6 +200,7 @@ function OverzichtContent() {
   async function openSwapPanel(subscriptionId: string, date: string) {
     setSwapPanelFor({ subscriptionId, date });
     setSwapOptions(null);
+    setSwapChoice(null);
     setSwapError("");
     setSwapOptionsLoading(true);
 
@@ -246,6 +249,7 @@ function OverzichtContent() {
 
     setSwapSubmitting(false);
     setSwapPanelFor(null);
+    setSwapChoice(null);
     loadOverzicht();
   }
 
@@ -461,29 +465,66 @@ function OverzichtContent() {
                           <p className="text-sm text-gray-500">Laden...</p>
                         ) : swapOptions && swapOptions.length > 0 ? (
                           <div className="flex flex-wrap gap-2 max-h-64 overflow-y-auto">
-                            {swapOptions.map((opt) => (
-                              <button
-                                key={`${opt.date}-${opt.dagdeelId}`}
-                                onClick={() =>
-                                  handleSwapSubmit(s.id, swapPanelFor.date, opt.date, opt.dagdeelId)
-                                }
-                                disabled={swapSubmitting}
-                                className="px-3 py-2 bg-white border border-blue-300 rounded-lg text-sm hover:bg-blue-100 disabled:opacity-50"
-                              >
-                                {formatShortDate(opt.date)} {opt.dagdeelLabel}
-                              </button>
-                            ))}
+                            {swapOptions.map((opt) => {
+                              const chosen =
+                                swapChoice?.date === opt.date && swapChoice?.dagdeelId === opt.dagdeelId;
+                              return (
+                                <button
+                                  key={`${opt.date}-${opt.dagdeelId}`}
+                                  onClick={() => setSwapChoice(opt)}
+                                  disabled={swapSubmitting}
+                                  aria-pressed={chosen}
+                                  className={`px-3 py-2 border rounded-lg text-sm disabled:opacity-50 ${
+                                    chosen
+                                      ? "bg-blue-600 border-blue-600 text-white"
+                                      : "bg-white border-blue-300 hover:bg-blue-100"
+                                  }`}
+                                >
+                                  {formatShortDate(opt.date)} {opt.dagdeelLabel}
+                                </button>
+                              );
+                            })}
                           </div>
                         ) : (
                           <p className="text-sm text-gray-500">
                             Geen vrije dagdelen deze week binnen deze periode.
                           </p>
                         )}
+                        {swapChoice && (
+                          <div className="mt-3 p-3 bg-white border border-blue-200 rounded-lg">
+                            <p className="text-sm text-gray-900">
+                              <span className="line-through text-gray-500">
+                                {formatShortDate(swapPanelFor.date)}
+                              </span>{" "}
+                              wordt{" "}
+                              <span className="font-semibold">
+                                {formatShortDate(swapChoice.date)} {swapChoice.dagdeelLabel.toLowerCase()}
+                              </span>
+                            </p>
+                            <button
+                              onClick={() =>
+                                handleSwapSubmit(
+                                  s.id,
+                                  swapPanelFor.date,
+                                  swapChoice.date,
+                                  swapChoice.dagdeelId
+                                )
+                              }
+                              disabled={swapSubmitting}
+                              className="mt-2 w-full sm:w-auto px-4 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+                            >
+                              {swapSubmitting ? "Bezig met verplaatsen..." : "Bevestigen"}
+                            </button>
+                          </div>
+                        )}
                         {swapError && (
                           <p className="text-sm text-red-600 mt-2">{swapError}</p>
                         )}
                         <button
-                          onClick={() => setSwapPanelFor(null)}
+                          onClick={() => {
+                            setSwapPanelFor(null);
+                            setSwapChoice(null);
+                          }}
                           className="mt-2 text-xs text-gray-500 hover:text-gray-700"
                         >
                           Annuleren
@@ -577,9 +618,10 @@ function OverzichtContent() {
               />
               <input
                 type="tel"
+                required
                 value={newPhone}
                 onChange={(e) => setNewPhone(e.target.value)}
-                placeholder="Telefoon (optioneel)"
+                placeholder="Telefoonnummer"
                 className="sm:w-44 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
               />
               <button

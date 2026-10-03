@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAdminPassword } from "@/lib/adminAuth";
 import { supabase } from "@/lib/supabase";
-import { bandHasOtherPhone, cleanPhone } from "@/lib/memberPhones";
+import { cleanPhone, isValidPhone, PHONE_REQUIRED_ERROR } from "@/lib/memberPhones";
 
 export async function GET(request: NextRequest) {
   const authError = await verifyAdminPassword(request);
@@ -34,11 +34,8 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  if (!phone && !(await bandHasOtherPhone(name))) {
-    return NextResponse.json(
-      { error: "Vul een telefoonnummer in - elke band heeft er minstens één nodig" },
-      { status: 400 }
-    );
+  if (!isValidPhone(phone)) {
+    return NextResponse.json({ error: PHONE_REQUIRED_ERROR }, { status: 400 });
   }
 
   const { data, error } = await supabase
