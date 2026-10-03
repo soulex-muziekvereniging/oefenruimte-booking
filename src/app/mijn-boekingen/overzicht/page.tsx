@@ -420,7 +420,7 @@ function OverzichtContent() {
                     <p className="text-sm font-medium text-gray-700 mb-2">
                       Komende repetities
                       <span className="block text-xs font-normal text-gray-500">
-                        Kan een keer niet? Verplaats naar een ander vrij moment, tot{" "}
+                        Kan een keer niet? Verzet de repetitie naar een ander vrij moment, tot{" "}
                         {config.subscriptionSwapMaxDaysLater} dagen later ({s.swapsAllowed}× per{" "}
                         {config.periodWeeks} weken). Anders: mail {config.organizationEmail}.
                       </span>
@@ -455,7 +455,7 @@ function OverzichtContent() {
                               onClick={() => openSwapPanel(s.id, occ.date)}
                               className="text-blue-600 hover:text-blue-700 text-xs font-medium shrink-0"
                             >
-                              Kan niet →
+                              Verzetten
                             </button>
                           )}
                         </li>

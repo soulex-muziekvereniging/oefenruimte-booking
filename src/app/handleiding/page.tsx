@@ -116,6 +116,10 @@ export default function HandleidingPage() {
             Alles regel je zelf op deze site: boeken, je planning bekijken, een keer verplaatsen en
             bandleden toevoegen. Je hebt geen account of wachtwoord nodig.
           </li>
+          <li>
+            Alle bandleden die bij jullie band zijn aangemeld, krijgen een mail bij elke wijziging in
+            de planning (boeken, verzetten, annuleren) en bij alles rond betalen.
+          </li>
           <li>De actuele prijzen staan altijd op de startpagina.</li>
         </ul>
       </Section>
@@ -222,10 +226,10 @@ export default function HandleidingPage() {
           { src: "09-verplaatsen.png", alt: "Een ander moment kiezen en bevestigen" },
         ]}
       >
-        <p>Heb je een vaste plek, dan kun je een repetitie zelf verplaatsen:</p>
+        <p>Heb je een vaste plek, dan kun je een repetitie zelf verzetten:</p>
         <ol className="list-decimal pl-5 space-y-1.5">
           <li>
-            Ga naar Mijn boekingen en tik bij de repetitie op <strong>Kan niet</strong>.
+            Ga naar Mijn boekingen en tik bij de repetitie op <strong>Verzetten</strong>.
           </li>
           <li>Kies een ander vrij moment. Het gekozen moment wordt gemarkeerd.</li>
           <li>
@@ -243,7 +247,7 @@ export default function HandleidingPage() {
           <a href={`mailto:${config.organizationEmail}`} className="text-blue-700 underline">
             {config.organizationEmail}
           </a>
-          ; het bestuur kan een repetitie ook verplaatsen of vrijgeven.
+          ; het bestuur kan een repetitie ook verzetten of vrijgeven.
         </p>
       </Section>
 
@@ -254,8 +258,14 @@ export default function HandleidingPage() {
       >
         <p>
           Onderaan Mijn boekingen voeg je bandleden toe met hun e-mailadres en telefoonnummer
-          (allebei verplicht). Wie op de lijst staat, kan namens de band boeken, verplaatsen en
-          betalen, en krijgt de mails over jullie repetities.
+          (allebei verplicht). Wie op de lijst staat, kan namens de band boeken, verzetten en
+          betalen.
+        </p>
+        <p>
+          <strong>Iedereen op de lijst krijgt een mail</strong> bij elke wijziging in de planning en
+          bij alles rond betalen: boekingen, verzette of vervallen repetities, annuleringen,
+          betaalverzoeken, herinneringen en betaalbevestigingen. Zo weet de hele band waar ze aan
+          toe is.
         </p>
       </Section>
 
@@ -267,7 +277,13 @@ export default function HandleidingPage() {
         </div>
         <p>
           Wat al vaststaat: een losse boeking betaal je meteen bij het boeken met iDEAL, en elke
-          betaling wordt per e-mail bevestigd.
+          betaling wordt per e-mail bevestigd aan alle bandleden, met wie er betaald heeft.
+        </p>
+        <p>
+          <strong>Er kan maar één keer betaald worden.</strong> Een betaalverzoek gaat naar alle
+          bandleden, maar zodra één van jullie betaald heeft, staat er &quot;al betaald&quot; als
+          een ander op de knop drukt. Niemand hoeft dus bang te zijn dat er dubbel betaald wordt.
+          In Mijn boekingen zie je ook wie er betaald heeft.
         </p>
       </Section>
 

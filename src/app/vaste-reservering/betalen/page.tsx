@@ -184,6 +184,10 @@ function BetalenContent() {
             >
               {paying ? "Even geduld..." : `Periode betalen — ${formatPrice(info.amountCents)}`}
             </button>
+            <p className="text-xs text-gray-500 mt-3 text-center">
+              Er kan maar één keer betaald worden. Heeft een ander bandlid al betaald, dan staat
+              hier &quot;al betaald&quot;.
+            </p>
           </>
         )}
       </div>

@@ -462,6 +462,12 @@ export async function sendAdminPasswordResetEmail(email: string, link: string) {
   });
 }
 
+// In elke betaalmail: die gaat naar alle bandleden, dus geruststellen dat er maar één
+// keer betaald kan worden (de betaalpagina toont "al betaald" zodra iemand betaald heeft).
+const ONE_PAYMENT_NOTE = `<p style="color: #555; font-size: 14px;">Deze mail gaat naar alle
+  bandleden. Er kan maar <strong>één keer</strong> betaald worden: heeft een ander bandlid al
+  betaald, dan zie je dat meteen als je op de knop drukt. Dubbel betalen kan dus niet.</p>`;
+
 function payPeriodUrl(periodPayment: SubscriptionPayment): string {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL!;
   // direct=1: de pagina stuurt meteen door naar iDEAL (en maakt dan pas de betaling aan,
@@ -516,6 +522,7 @@ export async function sendPeriodPaymentRequestEmail(
         Reken je ${formatPrice(periodPayment.amount_cents)} af vóór
         <strong>${formatDate(periodPayment.due_date)}</strong>, dan blijft het tijdslot gewoon van jullie.</p>
         <p><a href="${payPeriodUrl(periodPayment)}" style="display:inline-block;padding:10px 20px;background:#175670;color:#fff;border-radius:6px;text-decoration:none;">Periode betalen — ${formatPrice(periodPayment.amount_cents)}</a></p>
+        ${ONE_PAYMENT_NOTE}
         <p>Even niet doorgaan of lukt het niet? Laat het weten, dan zoeken we samen een oplossing.</p>
         <p>Met vriendelijke groet,<br>${config.organizationName}</p>
       </div>
@@ -542,6 +549,7 @@ export async function sendPeriodReminderEmail(
         (${formatWeekdayDagdeel(subscription)}) nog niet binnenkomen. Geen paniek - betaal je
         vóór <strong>${formatDate(periodPayment.grace_until)}</strong>, dan blijft het tijdslot gewoon van jullie.</p>
         <p><a href="${payPeriodUrl(periodPayment)}" style="display:inline-block;padding:10px 20px;background:#175670;color:#fff;border-radius:6px;text-decoration:none;">Periode betalen — ${formatPrice(periodPayment.amount_cents)}</a></p>
+        ${ONE_PAYMENT_NOTE}
         <p>Met vriendelijke groet,<br>${config.organizationName}</p>
       </div>
     `,
@@ -568,6 +576,7 @@ export async function sendPeriodGraceWarningEmail(
         <strong>tot en met ${formatDate(periodPayment.grace_until)}</strong>. Daarna geven we het tijdslot vrij
         aan een andere band, en is het dit jaar niet meer opnieuw te claimen.</p>
         <p><a href="${payPeriodUrl(periodPayment)}" style="display:inline-block;padding:10px 20px;background:#175670;color:#fff;border-radius:6px;text-decoration:none;">Periode betalen — ${formatPrice(periodPayment.amount_cents)}</a></p>
+        ${ONE_PAYMENT_NOTE}
         <p>Lukt het niet of stopt de band ermee? Mail even naar
         <a href="mailto:${config.organizationEmail}">${config.organizationEmail}</a>, dan zoeken we een oplossing.</p>
         <p>Met vriendelijke groet,<br>${config.organizationName}</p>
