@@ -799,28 +799,39 @@ export async function sendTariffChangeEmail(
 }
 
 // Automatisch bericht aan De Borgh: deze tijden is er niemand in de oefenruimte. Zonder
-// bandnamen (De Borgh hoeft alleen te weten dat de ruimte vrijkomt). Antwoorden gaan naar
-// het verenigingsadres; de meldingsontvangers krijgen een kopie (bcc).
-export async function sendBorghFreedEmail(to: string, lines: string[]) {
+// bandnamen (De Borgh hoeft alleen te weten dat de ruimte vrijkomt). Aanhef, afsluiting en
+// onderwerp zijn instelbaar (beheer > Zalenplanner). Antwoorden gaan naar het
+// verenigingsadres; de meldingsontvangers krijgen een kopie (bcc).
+export async function sendBorghFreedEmail(
+  to: string,
+  lines: string[],
+  text: { subject: string; intro: string; closing: string }
+) {
+  const para = (t: string) =>
+    t
+      .split(/\n{2,}/)
+      .map((block) => `<p>${escapeHtml(block).replace(/\n/g, "<br>")}</p>`)
+      .join("");
   await send({
     from: `${config.organizationName} <${config.senderEmail}>`,
     to,
     bcc: await getOrgRecipients(),
     replyTo: config.organizationEmail,
-    subject: "Oefenruimte 0.37: niemand aanwezig - graag uit de zalenplanner halen",
+    subject: text.subject,
     html: `
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
-        <p>Beste medewerker van De Borgh,</p>
-        <p>Op de volgende tijden is er niemand in de Pop-oefenruimte (0.37). Willen jullie
-        deze uit de zalenplanner halen?</p>
-        <ul>${lines.map((l) => `<li>${l}</li>`).join("")}</ul>
-        <p>Alvast bedankt!</p>
-        <p>Met vriendelijke groet,<br>${config.organizationName}</p>
+        ${para(text.intro)}
+        <ul>${lines.map((l) => `<li>${escapeHtml(l)}</li>`).join("")}</ul>
+        ${para(text.closing)}
         <p style="color: #888; font-size: 12px;">Dit bericht is automatisch verstuurd door het
         boekingssysteem van de oefenruimte. Vragen? Beantwoord deze mail gewoon.</p>
       </div>
     `,
   });
+}
+
+function escapeHtml(t: string): string {
+  return t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
 export async function sendSwapUndoneEmail(

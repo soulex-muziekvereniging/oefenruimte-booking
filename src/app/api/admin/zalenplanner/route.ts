@@ -5,9 +5,11 @@ import {
   borghWeekUrl,
   getBorghAuto,
   getBorghEmail,
+  getBorghMailText,
   getLastBorghMail,
   markProcessed,
   parseBorghAuto,
+  parseBorghMailText,
   workList,
 } from "@/lib/borghSync";
 
@@ -18,6 +20,7 @@ async function snapshot() {
     items: await workList(),
     borghEmail: await getBorghEmail(),
     borghAuto: await getBorghAuto(),
+    borghMailText: await getBorghMailText(),
     lastAutoMail: await getLastBorghMail(),
     weekUrl: borghWeekUrl(),
   };
@@ -62,7 +65,8 @@ export async function GET(request: NextRequest) {
 
 // { keys: string[] } of { all: true } -> als verwerkt in de zalenplanner markeren
 // { borghEmail: string } -> mailadres van De Borgh opslaan (leeg = wissen)
-// { borghAuto: { enabled, delayHours } } -> automatisch mailen aan/uit + wachttijd
+// { borghAuto: { enabled } } -> automatisch mailen aan/uit
+// { borghMailText: { subject, intro, closing } } -> tekst van die mail
 export async function POST(request: NextRequest) {
   const authError = await verifyAdminPassword(request);
   if (authError) return authError;
@@ -77,6 +81,11 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "Dat is geen geldig e-mailadres" }, { status: 400 });
       }
       await saveSetting("borgh_email", email, by);
+      return NextResponse.json(await snapshot());
+    }
+
+    if (body.borghMailText && typeof body.borghMailText === "object") {
+      await saveSetting("borgh_mail_text", parseBorghMailText(body.borghMailText), by);
       return NextResponse.json(await snapshot());
     }
 

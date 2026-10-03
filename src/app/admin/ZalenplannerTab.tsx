@@ -12,20 +12,21 @@ type WorkItem = {
   addNote?: string;
   mailLine?: string;
   autoMail?: boolean;
-  pendingSince?: string;
+  today?: boolean;
 };
 
-type BorghAuto = { enabled: boolean; delayHours: number };
+type BorghAuto = { enabled: boolean };
+type BorghMailText = { subject: string; intro: string; closing: string };
 
 type Snapshot = {
   items: WorkItem[];
   borghEmail: string;
   borghAuto: BorghAuto;
+  borghMailText: BorghMailText;
   lastAutoMail: { at: string; lines: string[] } | null;
   weekUrl: string;
 };
 
-const DELAY_OPTIONS = [1, 2, 3, 6, 12, 24];
 
 function timeLabel(iso: string): string {
   return new Date(iso).toLocaleString("nl-NL", {
@@ -90,7 +91,8 @@ export default function ZalenplannerTab() {
           setSnap({
             items: [],
             borghEmail: "",
-            borghAuto: { enabled: false, delayHours: 3 },
+            borghAuto: { enabled: false },
+            borghMailText: { subject: "", intro: "", closing: "" },
             lastAutoMail: null,
             weekUrl: "",
           });
@@ -130,9 +132,11 @@ export default function ZalenplannerTab() {
 
   const items = snap?.items ?? [];
   const borghEmail = snap?.borghEmail ?? "";
-  const borghAuto = snap?.borghAuto ?? { enabled: false, delayHours: 3 };
+  const borghAuto = snap?.borghAuto ?? { enabled: false };
   const autoOn = borghAuto.enabled && !!borghEmail;
-  const isAuto = (i: WorkItem) => autoOn && !!i.autoMail;
+  // Regels over vandaag die nog op de lijst staan, zijn bij de annulering niet gemaild
+  // (automatisch stond toen uit of het mailen mislukte); de ochtendronde is dan te laat.
+  const isAuto = (i: WorkItem) => autoOn && !!i.autoMail && !i.today;
   const mailLines = items.filter((i) => i.mailLine && !isAuto(i)).map((i) => i.mailLine!);
 
   return (
@@ -227,34 +231,14 @@ export default function ZalenplannerTab() {
             <span className="font-medium">Vrijgekomen tijden automatisch mailen naar De Borgh</span>
             <span className="block text-xs text-gray-600">
               Komt de ruimte vrij (een keer afgezegd, verplaatst of een reeks die stopt), dan
-              gaat dat vanzelf naar De Borgh - zonder bandnamen, alles van dat moment in één
-              mail. Verstuurd rond 7:00, 12:00 en 17:00 (in de winter een uur eerder). De
-              meldingsontvangers krijgen een kopie; antwoorden komen bij{" "}
-              {config.organizationEmail}.
+              gaat dat vanzelf naar De Borgh, zonder bandnamen. Gaat het om vandaag, dan
+              meteen; anders de volgende ochtend rond 7:00 (in de winter rond 6:00), alles in
+              één mail. Wordt een annulering vóór die ochtend teruggedraaid of het dagdeel
+              opnieuw geboekt, dan gaat er niets. De meldingsontvangers krijgen een kopie;
+              antwoorden komen bij {config.organizationEmail}.
             </span>
           </span>
         </label>
-        <label className="flex items-center gap-2 mt-2 ml-6">
-          <span className="text-gray-700">Wachttijd na een annulering:</span>
-          <select
-            value={borghAuto.delayHours}
-            disabled={busy !== null}
-            onChange={(e) =>
-              post({ borghAuto: { ...borghAuto, delayHours: Number(e.target.value) } }, "auto")
-            }
-            className="px-2 py-1 border border-gray-300 rounded-lg text-base"
-          >
-            {DELAY_OPTIONS.map((h) => (
-              <option key={h} value={h}>
-                {h} uur
-              </option>
-            ))}
-          </select>
-        </label>
-        <p className="text-xs text-gray-500 mt-1 ml-6">
-          Wordt een annulering binnen de wachttijd teruggedraaid of het dagdeel opnieuw
-          geboekt, dan gaat er niets naar De Borgh.
-        </p>
         {borghAuto.enabled && !borghEmail && (
           <p className="text-xs text-red-700 mt-2 ml-6">
             Vul hierboven eerst het mailadres van De Borgh in - tot die tijd wordt er niets
@@ -274,6 +258,8 @@ export default function ZalenplannerTab() {
           </details>
         )}
       </div>
+
+      {snap && <BorghMailTextEditor text={snap.borghMailText} busy={busy} onSave={(t) => post({ borghMailText: t }, "text")} />}
 
       {error && (
         <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm mb-4">
@@ -342,15 +328,15 @@ export default function ZalenplannerTab() {
                         Aan De Borgh: {item.mailLine}
                       </p>
                     )}
-                    {auto && item.pendingSince && (
+                    {auto && (
                       <p className="text-xs text-gray-500">
-                        Wordt verstuurd bij de eerste verzendronde na{" "}
-                        {timeLabel(
-                          new Date(
-                            Date.parse(item.pendingSince) + borghAuto.delayHours * 3_600_000
-                          ).toISOString()
-                        )}
-                        . Niets meer aan doen.
+                        Gaat morgenochtend vanzelf mee in de mail aan De Borgh. Niets meer aan
+                        doen.
+                      </p>
+                    )}
+                    {autoOn && item.autoMail && item.today && (
+                      <p className="text-xs text-red-700">
+                        Gaat over vandaag en is niet automatisch gemaild: geef het zelf door.
                       </p>
                     )}
                   </div>
@@ -403,5 +389,94 @@ export default function ZalenplannerTab() {
         </>
       )}
     </div>
+  );
+}
+
+// Tekst van de automatische mail aan De Borgh: onderwerp, aanhef en afsluiting. De lijst met
+// tijden zet het systeem er zelf tussen.
+function BorghMailTextEditor({
+  text,
+  busy,
+  onSave,
+}: {
+  text: BorghMailText;
+  busy: string | null;
+  onSave: (t: BorghMailText) => void;
+}) {
+  const [form, setForm] = useState<BorghMailText>(text);
+  const [synced, setSynced] = useState<BorghMailText>(text);
+  if (text !== synced) {
+    // Na opslaan: de opgeslagen (opgeschoonde) tekst overnemen.
+    setSynced(text);
+    setForm(text);
+  }
+  const changed =
+    form.subject !== text.subject || form.intro !== text.intro || form.closing !== text.closing;
+  const field = "w-full px-3 py-2 border border-gray-300 rounded-lg text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500";
+
+  return (
+    <details className="mb-4 bg-white rounded-lg border border-gray-200 p-3 text-sm">
+      <summary className="cursor-pointer font-medium">Tekst van de mail aan De Borgh</summary>
+      <div className="mt-3 space-y-3">
+        <label className="block">
+          <span className="block text-gray-700 mb-1">Onderwerp</span>
+          <input
+            value={form.subject}
+            maxLength={150}
+            onChange={(e) => setForm({ ...form, subject: e.target.value })}
+            className={field}
+          />
+        </label>
+        <label className="block">
+          <span className="block text-gray-700 mb-1">Aanhef en uitleg (boven de lijst met tijden)</span>
+          <textarea
+            rows={4}
+            maxLength={1000}
+            value={form.intro}
+            onChange={(e) => setForm({ ...form, intro: e.target.value })}
+            className={field}
+          />
+        </label>
+        <label className="block">
+          <span className="block text-gray-700 mb-1">Afsluiting (onder de lijst)</span>
+          <textarea
+            rows={4}
+            maxLength={1000}
+            value={form.closing}
+            onChange={(e) => setForm({ ...form, closing: e.target.value })}
+            className={field}
+          />
+        </label>
+
+        <div className="rounded-lg border border-dashed border-gray-300 p-3 bg-gray-50">
+          <p className="text-xs text-gray-500 mb-2">Voorbeeld</p>
+          <p className="font-medium mb-2">{form.subject}</p>
+          <p className="whitespace-pre-line">{form.intro}</p>
+          <ul className="list-disc pl-5 my-2">
+            <li>dinsdag 6 oktober, avond (19:00-23:00): niemand aanwezig, graag verwijderen.</li>
+          </ul>
+          <p className="whitespace-pre-line">{form.closing}</p>
+        </div>
+
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => onSave(form)}
+            disabled={busy !== null || !changed}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50"
+          >
+            {busy === "text" ? "Opslaan..." : "Tekst opslaan"}
+          </button>
+          <button
+            type="button"
+            onClick={() => onSave({ subject: "", intro: "", closing: "" })}
+            disabled={busy !== null}
+            className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+          >
+            Standaardtekst
+          </button>
+        </div>
+      </div>
+    </details>
   );
 }
