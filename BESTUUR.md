@@ -57,6 +57,18 @@ Bij een nieuw boekjaar begint het overzicht vanzelf leeg; er wordt niets verwijd
 jaren blijven op te vragen, de administratie moet een aantal jaren bewaard blijven). In welke
 maand het boekjaar begint, stel je in onder Instellingen (standaard januari).
 
+**Als een betaling niet via de site loopt**, gebruik je de knoppen bij de regel (filter
+"Af te handelen"):
+- **Handmatig betaald**: contant of per overboeking betaald. Je vult in hoe; de band krijgt
+  de gewone bevestiging.
+- **Kwijtschelden**: niet meer innen, met een reden. Die reden staat in het overzicht en in
+  de export.
+
+Een afgebroken online betaling hoef je niet op te ruimen: na 15 minuten vervalt die vanzelf
+en komt het dagdeel weer vrij. Stopt een vaste reservering terwijl er nog een periode open
+stond, dan staat die als **vervallen**: telt niet meer als "open", maar blijft zichtbaar tot
+je hem afhandelt.
+
 ## Lidmaatschap — wél gecontroleerd, ledenlijst is simpel
 
 Om te mogen boeken moet een band/muzikant lid zijn van Soulex (€12/jaar). Het systeem houdt

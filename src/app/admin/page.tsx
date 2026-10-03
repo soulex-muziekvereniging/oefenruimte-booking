@@ -1494,7 +1494,7 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
         </div>
       ) : (
         <>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-2">
         <h2 className="text-xl font-bold">Boekingen beheren</h2>
         <div className="flex gap-2">
           <button
@@ -1516,6 +1516,14 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
           </button>
         </div>
       </div>
+
+      <p className="text-sm text-gray-600 mb-6">
+        De weekplanning van de oefenruimte: losse boekingen en vaste reserveringen. Tik op een
+        blok voor de contactgegevens, om te bellen of te WhatsAppen, een verplaatsing terug te
+        draaien of een losse boeking te annuleren (met terugbetaling). Met{" "}
+        <strong>+ Toevoegen</strong> zet je er zelf een boeking of vaste reservering in, zonder
+        online betaling - bijvoorbeeld bij een afspraak of contante betaling.
+      </p>
 
       {showAddBooking && (
         <form

@@ -8,12 +8,14 @@ type PaymentRow = {
   band: string;
   description: string;
   amountCents: number;
-  status: "betaald" | "open" | "te laat" | "kwijtgescholden" | "geannuleerd";
+  status: "betaald" | "open" | "te laat" | "vervallen" | "kwijtgescholden" | "geannuleerd";
   date: string;
   dueDate: string | null;
   graceUntil: string | null;
   paidAt: string | null;
   paidBy: string | null;
+  note: string | null;
+  canSettle: boolean;
 };
 
 type Filter = "alles" | "open" | "betaald";
@@ -31,6 +33,7 @@ const STATUS_STYLE: Record<PaymentRow["status"], string> = {
   betaald: "bg-green-100 text-green-800",
   open: "bg-amber-100 text-amber-800",
   "te laat": "bg-red-100 text-red-700",
+  vervallen: "bg-orange-100 text-orange-800",
   kwijtgescholden: "bg-gray-100 text-gray-700",
   geannuleerd: "bg-gray-100 text-gray-500",
 };
@@ -56,6 +59,7 @@ function downloadCsv(data: YearData) {
     "Status",
     "Betaald door",
     "Vervaldatum",
+    "Opmerking",
   ];
   const lines = [...data.rows]
     .sort((a, b) => a.date.localeCompare(b.date))
@@ -69,6 +73,7 @@ function downloadCsv(data: YearData) {
         r.status,
         r.paidBy ?? "",
         date(r.dueDate),
+        r.note ?? "",
       ]
         .map((v) => cell(String(v)))
         .join(";")
@@ -91,6 +96,44 @@ export default function PaymentsTab() {
   const [error, setError] = useState("");
   const [filter, setFilter] = useState<Filter>("alles");
   const [search, setSearch] = useState("");
+  const [reload, setReload] = useState(0);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  async function settle(r: PaymentRow, action: "mark-paid" | "waive") {
+    const what = `${r.band}, ${r.description} (${euro(r.amountCents)})`;
+    let body: Record<string, string>;
+    if (action === "mark-paid") {
+      const how = window.prompt(
+        `Handmatig als betaald registreren:\n${what}\n\nHoe is er betaald? (bijv. "contant aan Teun" of "overboeking 3 okt")`
+      );
+      if (how === null) return;
+      if (!how.trim()) {
+        setError("Vul in hoe er betaald is.");
+        return;
+      }
+      body = { how };
+    } else {
+      const reason = window.prompt(
+        `Kwijtschelden:\n${what}\n\nReden (verschijnt in het overzicht en de export):`
+      );
+      if (reason === null) return;
+      body = { reason };
+    }
+    setBusyId(r.id);
+    const res = await fetch(`/api/admin/subscription-payments/${r.id}/${action}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json().catch(() => ({}));
+    setBusyId(null);
+    if (!res.ok) {
+      setError(data.error || "Dat is niet gelukt");
+      return;
+    }
+    setError("");
+    setReload((n) => n + 1);
+  }
 
   useEffect(() => {
     fetch(`/api/admin/payments${year ? `?jaar=${year}` : ""}`)
@@ -104,12 +147,12 @@ export default function PaymentsTab() {
         setError("");
         setData(body);
       });
-  }, [year]);
+  }, [year, reload]);
 
   const rows = data?.rows ?? null;
 
   const visible = (rows ?? []).filter((r) => {
-    if (filter === "open" && r.status !== "open" && r.status !== "te laat") return false;
+    if (filter === "open" && !r.canSettle) return false;
     if (filter === "betaald" && r.status !== "betaald") return false;
     return !search.trim() || r.band.toLowerCase().includes(search.trim().toLowerCase());
   });
@@ -117,10 +160,13 @@ export default function PaymentsTab() {
   const openTotal = visible
     .filter((r) => r.status === "open" || r.status === "te laat")
     .reduce((s, r) => s + r.amountCents, 0);
+  const lapsedTotal = visible
+    .filter((r) => r.status === "vervallen")
+    .reduce((s, r) => s + r.amountCents, 0);
 
   const filters: { key: Filter; label: string }[] = [
     { key: "alles", label: "Alles" },
-    { key: "open", label: "Open" },
+    { key: "open", label: "Af te handelen" },
     { key: "betaald", label: "Betaald" },
   ];
 
@@ -159,8 +205,8 @@ export default function PaymentsTab() {
       <p className="text-sm text-gray-600 mb-4">
         Vaste reserveringen per periode en online betaalde losse boekingen
         {data?.from ? ` van ${shortDate(data.from)} t/m ${shortDate(data.to)}` : ""}. Een betaling
-        telt in het boekjaar waarin hij binnenkwam. Kwijtschelden of de vervaltermijn verlengen
-        doe je bij Abonnementen.
+        telt in het boekjaar waarin hij binnenkwam. Contant of per overboeking betaald, of niet
+        meer innen? Gebruik de knoppen bij de regel. Uitstel geven doe je bij Abonnementen.
       </p>
 
       <div className="flex flex-wrap items-center gap-2 mb-4">
@@ -207,8 +253,16 @@ export default function PaymentsTab() {
                 {" "}
                 · Nog open: <strong>{euro(openTotal)}</strong>
               </>
+            )}
+            {lapsedTotal > 0 && (
+              <>
+                {" "}
+                · Vervallen (niet betaald): <strong>{euro(lapsedTotal)}</strong>
+              </>
             )}{" "}
-            <span className="text-gray-500">({visible.length} regels)</span>
+            <span className="text-gray-500">
+              ({visible.length} {visible.length === 1 ? "regel" : "regels"})
+            </span>
           </p>
 
           {/* Tabel vanaf tablet, kaartjes op de telefoon */}
@@ -233,9 +287,28 @@ export default function PaymentsTab() {
                       <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_STYLE[r.status]}`}>
                         {r.status}
                       </span>
-                      {r.graceUntil && (
+                      {r.graceUntil && r.status !== "vervallen" && (
                         <span className="block text-xs text-gray-500 mt-0.5">
                           uiterlijk {shortDate(r.graceUntil)}
+                        </span>
+                      )}
+                      {r.note && <span className="block text-xs text-gray-500 mt-0.5">{r.note}</span>}
+                      {r.canSettle && (
+                        <span className="flex flex-wrap gap-1 mt-1">
+                          <button
+                            onClick={() => settle(r, "mark-paid")}
+                            disabled={busyId !== null}
+                            className="px-2 py-1 text-xs rounded border border-green-300 text-green-800 bg-white hover:bg-green-50 disabled:opacity-50"
+                          >
+                            Handmatig betaald
+                          </button>
+                          <button
+                            onClick={() => settle(r, "waive")}
+                            disabled={busyId !== null}
+                            className="px-2 py-1 text-xs rounded border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+                          >
+                            Kwijtschelden
+                          </button>
                         </span>
                       )}
                     </td>
@@ -272,11 +345,30 @@ export default function PaymentsTab() {
                   <span className="text-xs text-gray-500">
                     {r.status === "betaald"
                       ? `door ${r.paidBy ?? "onbekend"}${r.paidAt ? ` op ${shortDate(r.paidAt)}` : ""}`
-                      : r.graceUntil
+                      : r.graceUntil && r.status !== "vervallen"
                         ? `uiterlijk ${shortDate(r.graceUntil)}`
                         : ""}
                   </span>
                 </p>
+                {r.note && <p className="text-xs text-gray-500 mt-1">{r.note}</p>}
+                {r.canSettle && (
+                  <div className="flex gap-2 mt-2">
+                    <button
+                      onClick={() => settle(r, "mark-paid")}
+                      disabled={busyId !== null}
+                      className="flex-1 px-2 py-2 text-xs rounded-lg border border-green-300 text-green-800 bg-white disabled:opacity-50"
+                    >
+                      Handmatig betaald
+                    </button>
+                    <button
+                      onClick={() => settle(r, "waive")}
+                      disabled={busyId !== null}
+                      className="flex-1 px-2 py-2 text-xs rounded-lg border border-gray-300 text-gray-700 bg-white disabled:opacity-50"
+                    >
+                      Kwijtschelden
+                    </button>
+                  </div>
+                )}
               </li>
             ))}
           </ul>

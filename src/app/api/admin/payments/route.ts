@@ -23,12 +23,15 @@ export type PaymentRow = {
   band: string;
   description: string;
   amountCents: number;
-  status: "betaald" | "open" | "te laat" | "kwijtgescholden" | "geannuleerd";
+  // vervallen: niet betaald, maar de reservering is inmiddels opgezegd of vervallen
+  status: "betaald" | "open" | "te laat" | "vervallen" | "kwijtgescholden" | "geannuleerd";
   date: string; // datum waarop hij in het boekjaar telt (ontvangen, anders vervaldatum)
   dueDate: string | null;
   graceUntil: string | null;
   paidAt: string | null;
   paidBy: string | null;
+  note: string | null; // opmerking van het beheer (handmatig betaald, kwijtgescholden)
+  canSettle: boolean; // nog af te handelen: handmatig betaald of kwijtschelden kan
 };
 
 function amsterdamDate(iso: string): string {
@@ -62,7 +65,8 @@ export async function GET(request: NextRequest) {
   const { data: periods, error: periodsError } = await supabase
     .from("subscription_payments")
     .select(
-      "id, period_start, period_end, amount_cents, due_date, grace_until, status, paid_at, paid_by, subscriptions(band_name, weekday, dagdeel_id, frequency)"
+      // "*" zodat admin_note meekomt zodra migratie 017 is uitgevoerd (en niets breekt daarvoor)
+      "*, subscriptions(band_name, weekday, dagdeel_id, frequency, status)"
     )
     .gte("period_start", addDaysStr(from, -120))
     .lt("period_start", addDaysStr(to, 120));
@@ -78,7 +82,9 @@ export async function GET(request: NextRequest) {
       weekday: number;
       dagdeel_id: string;
       frequency: "weekly" | "biweekly";
+      status: string;
     } | null;
+    const ended = sub?.status === "cancelled" || sub?.status === "lapsed";
     rows.push({
       id: p.id,
       kind: "periode",
@@ -90,14 +96,18 @@ export async function GET(request: NextRequest) {
           ? "betaald"
           : p.status === "waived"
             ? "kwijtgescholden"
-            : p.grace_until < today
-              ? "te laat"
-              : "open",
+            : ended
+              ? "vervallen"
+              : p.grace_until < today
+                ? "te laat"
+                : "open",
       date,
       dueDate: p.due_date,
       graceUntil: p.status === "unpaid" ? p.grace_until : null,
       paidAt: p.paid_at,
       paidBy: p.paid_by,
+      note: (p as { admin_note?: string | null }).admin_note ?? null,
+      canSettle: p.status === "unpaid",
     });
   }
 
@@ -129,6 +139,8 @@ export async function GET(request: NextRequest) {
       graceUntil: null,
       paidAt: b.created_at,
       paidBy: b.paid_by,
+      note: null,
+      canSettle: false,
     });
   }
 
