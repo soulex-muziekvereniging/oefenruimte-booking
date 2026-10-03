@@ -47,6 +47,16 @@ actieve vaste reservering die structureel die weekdag+dagdeel claimt.
 Daarna is annuleren (voorlopig) niet mogelijk via het systeem — neem dan contact op met
 Kimberly, zoals nu ook al de afspraak is.
 
+## Betalingen en boekjaar (voor de penningmeester)
+
+In het beheer staat onder **Betalingen** een overzicht per boekjaar: elke betaalperiode van
+een vaste reservering en elke online betaalde losse boeking, met band, bedrag, status en wie
+er betaald heeft. Met **Download (Excel)** haal je het hele boekjaar binnen voor de
+jaarafrekening of de kascommissie. Een betaling telt in het boekjaar waarin hij binnenkwam.
+Bij een nieuw boekjaar begint het overzicht vanzelf leeg; er wordt niets verwijderd (oudere
+jaren blijven op te vragen, de administratie moet een aantal jaren bewaard blijven). In welke
+maand het boekjaar begint, stel je in onder Instellingen (standaard januari).
+
 ## Lidmaatschap — wél gecontroleerd, ledenlijst is simpel
 
 Om te mogen boeken moet een band/muzikant lid zijn van Soulex (€12/jaar). Het systeem houdt

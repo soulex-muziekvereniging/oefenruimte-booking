@@ -73,7 +73,7 @@ Ze hebben een eigen zalenplanner (VirtueelPlein MRBS, `deborghbudel.nl/mrbs`, ru
   draait hooguit 1x per dag, daarom aparte paden per tijdstip in `vercel.json`.
 - Instellingen die beheer zelf wijzigt staan in tabel `settings` (met log in
   `settings_history`). Keys: `tariffs`, `whatsapp_templates`, `payment_terms`, `borgh_email`,
-  `borgh_auto`, `borgh_mail_text`. `src/config.ts` bevat de standaardwaarden.
+  `borgh_auto`, `borgh_mail_text`, `fiscal_year` (startmaand boekjaar). `src/config.ts` bevat de standaardwaarden.
 - Beheerders loggen in met een eigen account (`admin_users`, HMAC-sessiecookie). Bands loggen
   in met een magic link per mail (alleen e-mailadres).
 

@@ -10,12 +10,22 @@ type PaymentRow = {
   amountCents: number;
   status: "betaald" | "open" | "te laat" | "kwijtgescholden" | "geannuleerd";
   date: string;
+  dueDate: string | null;
   graceUntil: string | null;
   paidAt: string | null;
   paidBy: string | null;
 };
 
 type Filter = "alles" | "open" | "betaald";
+
+type YearData = {
+  rows: PaymentRow[];
+  year: number;
+  label: string;
+  from: string;
+  to: string;
+  years: { year: number; label: string }[];
+};
 
 const STATUS_STYLE: Record<PaymentRow["status"], string> = {
   betaald: "bg-green-100 text-green-800",
@@ -32,26 +42,71 @@ function shortDate(value: string): string {
   return d.toLocaleDateString("nl-NL", { day: "numeric", month: "short", year: "2-digit" });
 }
 
-// Tab "Betalingen": alle betalingen van het afgelopen jaar (vaste reserveringen per periode
-// en losse boekingen), met bandnaam, status en wie er betaald heeft. Alleen inzien.
+// CSV voor Excel (puntkomma's, komma als decimaalteken, UTF-8 met BOM zodat € en accenten
+// goed overkomen), oudste betaling bovenaan.
+function downloadCsv(data: YearData) {
+  const cell = (v: string) => (/[;"\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
+  const date = (v: string | null) => (v ? v.slice(0, 10) : "");
+  const header = [
+    "Datum",
+    "Band",
+    "Soort",
+    "Omschrijving",
+    "Bedrag",
+    "Status",
+    "Betaald door",
+    "Vervaldatum",
+  ];
+  const lines = [...data.rows]
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .map((r) =>
+      [
+        r.date,
+        r.band,
+        r.kind === "periode" ? "Vaste reservering" : "Losse boeking",
+        r.description,
+        (r.amountCents / 100).toFixed(2).replace(".", ","),
+        r.status,
+        r.paidBy ?? "",
+        date(r.dueDate),
+      ]
+        .map((v) => cell(String(v)))
+        .join(";")
+    );
+  const csv = "\ufeff" + [header.join(";"), ...lines].join("\r\n");
+  const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `betalingen-soulex-${data.label.replace("/", "-")}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// Tab "Betalingen": per boekjaar alle betalingen (vaste reserveringen per periode en losse
+// boekingen), met bandnaam, status en wie er betaald heeft. Inzien en downloaden; er wordt
+// niets verwijderd, oudere boekjaren blijven op te vragen.
 export default function PaymentsTab() {
-  const [rows, setRows] = useState<PaymentRow[] | null>(null);
+  const [data, setData] = useState<YearData | null>(null);
+  const [year, setYear] = useState<number | null>(null);
   const [error, setError] = useState("");
   const [filter, setFilter] = useState<Filter>("alles");
   const [search, setSearch] = useState("");
 
   useEffect(() => {
-    fetch("/api/admin/payments")
-      .then(async (res) => ({ ok: res.ok, data: await res.json().catch(() => ({})) }))
-      .then(({ ok, data }) => {
+    fetch(`/api/admin/payments${year ? `?jaar=${year}` : ""}`)
+      .then(async (res) => ({ ok: res.ok, body: await res.json().catch(() => ({})) }))
+      .then(({ ok, body }) => {
         if (!ok) {
-          setError(data.error || "Kon de betalingen niet laden");
-          setRows([]);
+          setError(body.error || "Kon de betalingen niet laden");
+          setData({ rows: [], year: 0, label: "", from: "", to: "", years: [] });
           return;
         }
-        setRows(data);
+        setError("");
+        setData(body);
       });
-  }, []);
+  }, [year]);
+
+  const rows = data?.rows ?? null;
 
   const visible = (rows ?? []).filter((r) => {
     if (filter === "open" && r.status !== "open" && r.status !== "te laat") return false;
@@ -71,10 +126,41 @@ export default function PaymentsTab() {
 
   return (
     <div>
-      <h2 className="text-xl font-bold mb-1">Betalingen</h2>
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
+        <h2 className="text-xl font-bold">Betalingen</h2>
+        <div className="flex items-center gap-2">
+          <label className="text-sm text-gray-600" htmlFor="boekjaar">
+            Boekjaar
+          </label>
+          <select
+            id="boekjaar"
+            value={data?.year ?? ""}
+            onChange={(e) => {
+              setData(null);
+              setYear(Number(e.target.value));
+            }}
+            className="px-3 py-2 border border-gray-300 rounded-lg text-base sm:text-sm bg-white"
+          >
+            {(data?.years ?? []).map((y) => (
+              <option key={y.year} value={y.year}>
+                {y.label}
+              </option>
+            ))}
+          </select>
+          <button
+            onClick={() => data && downloadCsv(data)}
+            disabled={!data || data.rows.length === 0}
+            className="px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50"
+          >
+            Download (Excel)
+          </button>
+        </div>
+      </div>
       <p className="text-sm text-gray-600 mb-4">
-        Vaste reserveringen per periode en online betaalde losse boekingen, van het afgelopen
-        jaar. Kwijtschelden of de vervaltermijn verlengen doe je bij Abonnementen.
+        Vaste reserveringen per periode en online betaalde losse boekingen
+        {data?.from ? ` van ${shortDate(data.from)} t/m ${shortDate(data.to)}` : ""}. Een betaling
+        telt in het boekjaar waarin hij binnenkwam. Kwijtschelden of de vervaltermijn verlengen
+        doe je bij Abonnementen.
       </p>
 
       <div className="flex flex-wrap items-center gap-2 mb-4">
@@ -106,7 +192,7 @@ export default function PaymentsTab() {
         </div>
       )}
 
-      {rows === null ? (
+      {data === null || rows === null ? (
         <p className="text-sm text-gray-500">Laden...</p>
       ) : visible.length === 0 ? (
         <div className="text-center py-12 text-gray-500 bg-white rounded-lg border border-gray-200">
