@@ -249,12 +249,12 @@ export default function Home() {
         <section className="md:max-w-5xl md:mx-auto md:px-4 md:pt-8">
           <div className="relative h-60 sm:h-80 md:h-[26rem] overflow-hidden md:rounded-2xl">
             <Image
-              src="/oefenruimte-overzicht.jpg"
-              alt="De oefenruimte van Soulex met drumstel, versterkers en speakers"
+              src="/oefenruimte-drums.jpg"
+              alt="Sonor drumstel, Marshall-versterker en mengpaneel met het Soulex-logo in de oefenruimte"
               fill
               priority
               sizes="(min-width: 768px) 1024px, 100vw"
-              className="object-cover object-[50%_30%] md:object-[50%_40%]"
+              className="object-cover object-[50%_45%]"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-page via-page/50 to-blue-900/10" />
             <div className="absolute inset-x-0 bottom-0 max-w-5xl mx-auto px-4 md:px-8 pb-6 sm:pb-8 text-white">
@@ -349,8 +349,8 @@ export default function Home() {
           <section className="mt-12 grid md:grid-cols-2 gap-6 items-center bg-white rounded-2xl border border-gray-200 overflow-hidden">
             <div className="relative h-56 md:h-full min-h-56">
               <Image
-                src="/oefenruimte-drums.jpg"
-                alt="Sonor drumstel en mengpaneel in de oefenruimte"
+                src="/oefenruimte-overzicht.jpg"
+                alt="Overzicht van de oefenruimte met drumstel, versterkers, speakers en airco"
                 fill
                 sizes="(min-width: 768px) 50vw, 100vw"
                 className="object-cover"
