@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useRef, useState, Suspense } from "react";
 
 type PeriodInfo = {
   status: "unpaid" | "paid" | "waived" | "processing";
@@ -36,6 +36,12 @@ function formatPrice(cents: number): string {
 function BetalenContent() {
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
+  // Link uit de betaalmail (&direct=1): meteen door naar iDEAL. Alleen de eerste keer, en
+  // niet bij terugkomst van Mollie (die redirect heeft geen direct=1), anders ontstaat er
+  // een lus als iemand de betaling annuleert.
+  const direct = searchParams.get("direct") === "1";
+  const autoStarted = useRef(false);
+  const [redirecting, setRedirecting] = useState(false);
   const [info, setInfo] = useState<PeriodInfo | null>(null);
   const [loadError, setLoadError] = useState("");
   const [error, setError] = useState("");
@@ -60,6 +66,17 @@ function BetalenContent() {
             return;
           }
           setInfo(data);
+          if (
+            direct &&
+            !autoStarted.current &&
+            data.status === "unpaid" &&
+            data.subscriptionStatus === "active"
+          ) {
+            autoStarted.current = true;
+            window.history.replaceState(null, "", `?token=${encodeURIComponent(token!)}`);
+            setRedirecting(true);
+            startPayment();
+          }
           // Net terug van Mollie: de webhook kan een paar seconden later binnenkomen.
           if (data.status === "processing" && polls < 15) setTimeout(load, 2000);
         })
@@ -70,9 +87,12 @@ function BetalenContent() {
     return () => {
       cancelled = true;
     };
-  }, [token]);
+    // startPayment hoort hier bewust niet bij: die wordt alleen de eerste keer aangeroepen
+    // (autoStarted), opnieuw laden bij elke render zou de status-polling herstarten.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, direct]);
 
-  async function handlePay() {
+  async function startPayment() {
     setPaying(true);
     setError("");
     const res = await fetch(`/api/subscriptions/payments/${encodeURIComponent(token!)}/pay`, {
@@ -82,6 +102,7 @@ function BetalenContent() {
     if (!res.ok) {
       setError(data.error || "Er ging iets mis");
       setPaying(false);
+      setRedirecting(false);
       return;
     }
     window.location.href = data.checkoutUrl;
@@ -98,7 +119,14 @@ function BetalenContent() {
     );
   }
 
-  if (!info) {
+  if (!info || redirecting) {
+    if (redirecting) {
+      return (
+        <div className="max-w-lg mx-auto px-4 py-16 text-center text-ink">
+          Je wordt doorgestuurd naar de betaalpagina...
+        </div>
+      );
+    }
     return (
       <div className="max-w-lg mx-auto px-4 py-16 text-center text-ink-muted">Laden...</div>
     );
@@ -150,7 +178,7 @@ function BetalenContent() {
             )}
 
             <button
-              onClick={handlePay}
+              onClick={startPayment}
               disabled={paying}
               className="w-full py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
             >

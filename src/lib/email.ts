@@ -464,7 +464,9 @@ export async function sendAdminPasswordResetEmail(email: string, link: string) {
 
 function payPeriodUrl(periodPayment: SubscriptionPayment): string {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL!;
-  return `${appUrl}/vaste-reservering/betalen?token=${periodPayment.pay_token}`;
+  // direct=1: de pagina stuurt meteen door naar iDEAL (en maakt dan pas de betaling aan,
+  // zodat de link uit de mail niet verloopt).
+  return `${appUrl}/vaste-reservering/betalen?token=${periodPayment.pay_token}&direct=1`;
 }
 
 export async function sendPeriodPaymentConfirmationEmail(
