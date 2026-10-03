@@ -6,6 +6,7 @@ import { toLocalDateStr } from "@/lib/date";
 import AdminSettings from "./AdminSettings";
 import ZalenplannerTab from "./ZalenplannerTab";
 import PaymentsTab from "./PaymentsTab";
+import AdminRepetitionActions from "./AdminRepetitionActions";
 import { formatRhythm, occursOn } from "@/lib/schedule";
 import { whatsappLink } from "@/lib/whatsapp";
 import {
@@ -84,7 +85,7 @@ type SubscriptionSwap = {
   id: string;
   subscription_id: string;
   original_date: string;
-  new_date: string;
+  new_date: string | null; // null: deze keer vrijgegeven
   new_dagdeel_id: string;
 };
 
@@ -178,6 +179,8 @@ export default function AdminPage() {
     subtitle?: string;
     booking?: Booking;
     swapId?: string;
+    released?: boolean; // vaste repetitie die deze keer is vrijgegeven
+    subscriptionId?: string; // gewone repetitie van een vaste reservering
   } | null>(null);
 
   async function handleUndoSwap(swapId: string, description: string) {
@@ -1519,8 +1522,9 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
 
       <p className="text-sm text-gray-600 mb-6">
         De weekplanning van de oefenruimte: losse boekingen en vaste reserveringen. Tik op een
-        blok voor de contactgegevens, om te bellen of te WhatsAppen, een verplaatsing terug te
-        draaien of een losse boeking te annuleren (met terugbetaling). Met{" "}
+        blok voor de contactgegevens, om te bellen of te WhatsAppen, een vaste repetitie deze ene
+        keer te verplaatsen of vrij te geven, een verplaatsing terug te draaien of een losse
+        boeking te annuleren (met terugbetaling). Met{" "}
         <strong>+ Toevoegen</strong> zet je er zelf een boeking of vaste reservering in, zonder
         online betaling - bijvoorbeeld bij een afspraak of contante betaling.
       </p>
@@ -1811,6 +1815,46 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
                           );
                         }
 
+                        const released =
+                          subscription &&
+                          swaps.find(
+                            (sw) =>
+                              sw.subscription_id === subscription.id &&
+                              sw.original_date === dateStr &&
+                              !sw.new_date
+                          );
+                        if (subscription && released) {
+                          return (
+                            <button
+                              key={dagdeel.id}
+                              onClick={() =>
+                                openCalDetail({
+                                  kind: "swap",
+                                  date: dateStr,
+                                  time: `${startTime} – ${endTime}`,
+                                  dagdeelLabel: dagdeel.label,
+                                  bandName: subscription.band_name,
+                                  contactName: subscription.contact_name,
+                                  contactEmail: subscription.contact_email,
+                                  contactPhone: subscription.contact_phone,
+                                  subtitle: `Vaste reservering (${formatRhythm(subscription)}), deze keer vrijgegeven`,
+                                  swapId: released.id,
+                                  released: true,
+                                })
+                              }
+                              className="w-full text-left text-xs sm:text-sm py-2 sm:py-2.5 px-1.5 sm:px-2 rounded border border-dashed border-gray-300 bg-white text-gray-500 hover:bg-gray-50 cursor-pointer"
+                            >
+                              <span className="block font-medium">{dagdeel.label}</span>
+                              <span className="block text-[10px] sm:text-xs opacity-75">
+                                {startTime} – {endTime} · Vrijgegeven
+                              </span>
+                              <span className="block text-[10px] sm:text-xs truncate line-through">
+                                {subscription.band_name}
+                              </span>
+                            </button>
+                          );
+                        }
+
                         if (subscription && !swappedAway) {
                           return (
                             <button
@@ -1826,6 +1870,7 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
                                   contactEmail: subscription.contact_email,
                                   contactPhone: subscription.contact_phone,
                                   subtitle: `Vaste reservering, ${formatRhythm(subscription)}${subscription.storage_unit ? ` · opslagruimte ${subscription.storage_unit}` : ""}`,
+                                  subscriptionId: subscription.id,
                                 })
                               }
                               title={`${subscription.contact_name} · ${subscription.contact_email}${subscription.contact_phone ? " · " + subscription.contact_phone : ""}`}
@@ -1980,7 +2025,7 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
                   }}
                   className="flex-1 px-4 py-2.5 bg-amber-50 text-amber-800 border border-amber-200 rounded-lg font-medium hover:bg-amber-100 text-sm"
                 >
-                  Verplaatsing terugdraaien
+                  {calDetail.released ? "Vrijgave terugdraaien" : "Verplaatsing terugdraaien"}
                 </button>
               )}
               {calDetail.booking?.status === "confirmed" && (
@@ -1996,6 +2041,19 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
                 </button>
               )}
             </div>
+            {calDetail.kind === "subscription" && calDetail.subscriptionId && (
+              <div className="mt-3">
+                <AdminRepetitionActions
+                  subscriptionId={calDetail.subscriptionId}
+                  date={calDetail.date}
+                  bandName={calDetail.bandName}
+                  onDone={async () => {
+                    setCalDetail(null);
+                    await fetchSwaps();
+                  }}
+                />
+              </div>
+            )}
           </div>
         </div>
       )}

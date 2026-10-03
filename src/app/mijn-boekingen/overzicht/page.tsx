@@ -34,7 +34,8 @@ type SubscriptionPeriod = {
 
 type Occurrence = {
   date: string;
-  swappedTo: { date: string; dagdeelId: string } | null;
+  // date null: deze keer vrijgegeven (vervalt)
+  swappedTo: { date: string | null; dagdeelId: string | null } | null;
   provisional: boolean;
   canSwap: boolean;
 };
@@ -296,11 +297,13 @@ function OverzichtContent() {
     ...subscriptions
       .filter((s) => s.status === "active")
       .flatMap((s) =>
-        s.occurrences.map((occ) =>
-          occ.swappedTo
+        s.occurrences.flatMap((occ): CalendarEntry[] | CalendarEntry =>
+          occ.swappedTo && !occ.swappedTo.date
+            ? []
+            : occ.swappedTo
             ? {
-                date: occ.swappedTo.date,
-                dagdeelLabel: dagdeelLabelFor(occ.swappedTo.dagdeelId),
+                date: occ.swappedTo.date!,
+                dagdeelLabel: dagdeelLabelFor(occ.swappedTo.dagdeelId!),
                 kind: "moved" as const,
                 provisional: occ.provisional,
                 title: `Verplaatst van ${formatShortDate(occ.date)}`,
@@ -434,8 +437,14 @@ function OverzichtContent() {
                                 <span className="line-through text-gray-400">
                                   {formatShortDate(occ.date)}
                                 </span>{" "}
-                                → {formatShortDate(occ.swappedTo.date)} (
-                                {dagdeelLabelFor(occ.swappedTo.dagdeelId)})
+                                {occ.swappedTo.date ? (
+                                  <>
+                                    → {formatShortDate(occ.swappedTo.date)} (
+                                    {dagdeelLabelFor(occ.swappedTo.dagdeelId!)})
+                                  </>
+                                ) : (
+                                  "vervalt deze keer"
+                                )}
                               </>
                             ) : (
                               formatShortDate(occ.date)

@@ -102,13 +102,15 @@ export async function POST(
     );
   }
 
-  const { count } = await supabase
+  // Wat het beheer namens de band deed (by_admin, migratie 018) telt niet mee.
+  const { data: periodSwaps } = await supabase
     .from("subscription_swaps")
-    .select("id", { count: "exact", head: true })
+    .select("*")
     .eq("subscription_id", id)
     .eq("period_start", periodStart);
+  const count = (periodSwaps ?? []).filter((s) => !(s as { by_admin?: boolean }).by_admin).length;
 
-  if ((count ?? 0) >= config.subscriptionMaxSwapsPerPeriod) {
+  if (count >= config.subscriptionMaxSwapsPerPeriod) {
     return NextResponse.json(
       {
         error: `Je hebt in deze periode van ${config.periodWeeks} weken al ${config.subscriptionMaxSwapsPerPeriod} keer verplaatst. Moet het nog een keer? Mail dan naar ${config.organizationEmail}.`,

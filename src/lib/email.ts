@@ -646,6 +646,33 @@ export async function sendSwapConfirmationEmail(
   });
 }
 
+// Beheer heeft één repetitie van een vaste reservering vrijgegeven (de band komt die keer
+// niet); de vaste reservering zelf loopt gewoon door.
+export async function sendRepetitionReleasedEmail(
+  subscription: Subscription,
+  originalDate: string,
+  extraRecipients: string[] = []
+) {
+  const recipients = Array.from(new Set([subscription.contact_email, ...extraRecipients]));
+  await send({
+    from: `${config.organizationName} <${config.senderEmail}>`,
+    to: recipients,
+    subject: `Repetitie vervalt: ${subscription.band_name}, ${formatDate(originalDate)}`,
+    html: `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>Repetitie vervalt deze keer</h2>
+        <p>Hoi ${subscription.contact_name},</p>
+        <p>Zoals afgesproken vervalt jullie repetitie op <strong>${formatDate(originalDate)}</strong>;
+        het dagdeel is vrijgegeven. Jullie vaste ${formatWeekdayDagdeel(subscription)} blijft
+        verder gewoon van jullie.</p>
+        <p>Klopt dit niet? Mail dan naar
+        <a href="mailto:${config.organizationEmail}">${config.organizationEmail}</a>.</p>
+        <p>Met vriendelijke groet,<br>${config.organizationName}</p>
+      </div>
+    `,
+  });
+}
+
 export async function sendSwapNotificationToOrg(
   subscription: Subscription,
   originalDate: string,
