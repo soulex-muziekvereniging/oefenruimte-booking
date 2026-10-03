@@ -243,24 +243,29 @@ export default function Home() {
 
     return (
       <div>
-        <section className="relative h-60 sm:h-80 overflow-hidden">
-          <Image
-            src="/oefenruimte-overzicht.jpg"
-            alt="De oefenruimte van Soulex met drumstel, versterkers en speakers"
-            fill
-            priority
-            sizes="100vw"
-            className="object-cover object-[50%_30%]"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-page via-page/50 to-blue-900/10" />
-          <div className="absolute inset-x-0 bottom-0 max-w-5xl mx-auto px-4 pb-6 sm:pb-8 text-white">
-            <h1 className="text-3xl sm:text-5xl font-bold font-[family-name:var(--font-slab)] drop-shadow">
-              De oefenruimte van Soulex
-            </h1>
-            <p className="mt-2 max-w-xl text-sm sm:text-base text-blue-50">
-              In gemeenschapshuis De Borgh in Budel. Geluidsdicht, met airco en een complete
-              backline: neem alleen je eigen instrument mee. Je boekt per dagdeel van 4 uur.
-            </p>
+        {/* Telefoon: foto over de volle breedte. Vanaf tablet even breed als de inhoud (de foto
+            is 1024 px breed) en hoger, zodat hij scherp blijft en niet tot een smalle reep
+            wordt uitgesneden op een breed scherm. */}
+        <section className="md:max-w-5xl md:mx-auto md:px-4 md:pt-8">
+          <div className="relative h-60 sm:h-80 md:h-[26rem] overflow-hidden md:rounded-2xl">
+            <Image
+              src="/oefenruimte-overzicht.jpg"
+              alt="De oefenruimte van Soulex met drumstel, versterkers en speakers"
+              fill
+              priority
+              sizes="(min-width: 768px) 1024px, 100vw"
+              className="object-cover object-[50%_30%] md:object-[50%_40%]"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-page via-page/50 to-blue-900/10" />
+            <div className="absolute inset-x-0 bottom-0 max-w-5xl mx-auto px-4 md:px-8 pb-6 sm:pb-8 text-white">
+              <h1 className="text-3xl sm:text-5xl font-bold font-[family-name:var(--font-slab)] drop-shadow">
+                De oefenruimte van Soulex
+              </h1>
+              <p className="mt-2 max-w-xl text-sm sm:text-base text-blue-50">
+                In gemeenschapshuis De Borgh in Budel. Geluidsdicht, met airco en een complete
+                backline: neem alleen je eigen instrument mee. Je boekt per dagdeel van 4 uur.
+              </p>
+            </div>
           </div>
         </section>
 
