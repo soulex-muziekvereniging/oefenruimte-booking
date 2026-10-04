@@ -719,7 +719,10 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
 
   return (
     <div className="max-w-4xl mx-auto px-3 sm:px-4 py-4 sm:py-8">
-      <div className="flex items-center justify-end mb-2">
+      <div className="flex items-center justify-end gap-4 mb-2">
+        <a href="/admin/handleiding" className="text-sm text-blue-700 hover:underline">
+          Handleiding
+        </a>
         <button
           onClick={handleLogout}
           disabled={loggingOut}
