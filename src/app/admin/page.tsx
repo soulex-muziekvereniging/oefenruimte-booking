@@ -6,6 +6,7 @@ import { toLocalDateStr } from "@/lib/date";
 import AdminSettings from "./AdminSettings";
 import ZalenplannerTab from "./ZalenplannerTab";
 import PaymentsTab from "./PaymentsTab";
+import MembersImportExport from "./MembersImportExport";
 import AdminRepetitionActions from "./AdminRepetitionActions";
 import { formatRhythm, occursOn } from "@/lib/schedule";
 import { whatsappLink } from "@/lib/whatsapp";
@@ -1284,15 +1285,18 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
         </div>
       ) : view === "members" ? (
         <div>
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
             <h2 className="text-xl font-bold">Ledenlijst</h2>
-            <button
-              onClick={() => fetchMembers()}
-              disabled={membersLoading}
-              className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-sm disabled:opacity-50"
-            >
-              {membersLoading ? "Laden..." : "Vernieuwen"}
-            </button>
+            <div className="flex flex-wrap justify-end gap-2">
+              <MembersImportExport members={members} onImported={fetchMembers} />
+              <button
+                onClick={() => fetchMembers()}
+                disabled={membersLoading}
+                className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-sm disabled:opacity-50"
+              >
+                {membersLoading ? "Laden..." : "Vernieuwen"}
+              </button>
+            </div>
           </div>
 
           <form
@@ -1332,9 +1336,11 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
             </button>
           </form>
           <p className="text-xs text-gray-500 mb-4 -mt-2">
+            Dit is de lijst van wie de oefenruimte mag boeken (niet de hele ledenadministratie).
             Bestaat de band al? Vul dezelfde bandnaam in met een ander e-mailadres om een extra
-            bandlid te autoriseren - iedereen in de band krijgt dan de bevestigingsmail. Elke
-            band heeft minstens één telefoonnummer nodig.
+            bandlid toe te voegen - iedereen in de band krijgt dan de mails. Speelt iemand niet in
+            een band (solo, duo, les)? Gebruik dan de eigen naam als bandnaam. Telefoonnummer is
+            verplicht. Met Exporteren/Importeren werk je de lijst bij via Excel (CSV).
           </p>
 
           {memberError && (

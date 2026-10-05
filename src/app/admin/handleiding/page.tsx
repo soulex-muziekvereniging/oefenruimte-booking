@@ -187,10 +187,23 @@ export default async function BeheerHandleidingPage() {
 
       <Section id="leden" title="Leden" shot={{ src: "a04-leden.png", alt: "De ledenlijst" }}>
         <p>
-          Alleen e-mailadressen op deze lijst kunnen boeken en Mijn boekingen gebruiken. Per band
-          zie je de bandleden met hun telefoonnummer.
+          Dit is de lijst van <strong>wie de oefenruimte mag boeken</strong>, niet de
+          ledenadministratie van de hele vereniging. Alleen e-mailadressen op deze lijst kunnen
+          boeken en Mijn boekingen gebruiken. Per band zie je de bandleden met hun telefoonnummer.
         </p>
         <ul className="list-disc pl-5 space-y-1.5">
+          <li>
+            <strong>Lid zonder band</strong> (solo, duo, les) dat de ruimte wil gebruiken: voeg
+            diegene toe met de eigen naam als bandnaam.
+          </li>
+          <li>
+            <strong>Exporteren</strong> geeft de lijst als Excel-bestand (CSV: Bandnaam, E-mailadres,
+            Telefoon, Actief). <strong>Importeren</strong> leest zo&apos;n bestand weer in: je ziet eerst
+            een voorbeeld (toevoegen, bijwerken, overslaan, fouten) en pas na <em>Bevestigen</em>
+            wordt het opgeslagen. Een import verwijdert nooit iemand en verplaatst niemand naar een
+            andere band; nieuwe leden hebben een geldig telefoonnummer nodig. Sla in Excel op als
+            &quot;CSV&quot;.
+          </li>
           <li>
             <strong>Nieuwe band</strong>: bandnaam, e-mailadres en telefoonnummer (verplicht) en{" "}
             <em>Band toevoegen</em>.
