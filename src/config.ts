@@ -37,6 +37,10 @@ export const config = {
   // het vaste tijdslot voor de rest van het jaar vervalt. Besluit bestuur 2026-09-11.
   // Standaardwaarde: instelbaar in beheer > Instellingen (zie src/lib/paymentTerms.ts).
   subscriptionGraceDays: 14,
+  // Afmeldtermijn vaste plek (besluit bestuur okt 2026): tot zoveel dagen van tevoren kan
+  // een band een repetitie gratis annuleren; later of niet komen = wel betalen.
+  // Standaardwaarde: instelbaar in beheer > Instellingen (zie src/lib/paymentTerms.ts).
+  subscriptionCancelDays: 7,
   // Verplaatsen van een repetitie van een vaste reservering (feedback bestuur, sep 2026):
   // max. zoveel keer per betaalperiode, naar elk vrij dagdeel vanaf nu tot zoveel dagen na
   // de oorspronkelijke datum. Meer nodig? Dan mailt de band het bestuur.

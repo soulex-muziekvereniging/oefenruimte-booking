@@ -102,13 +102,16 @@ export async function POST(
     );
   }
 
-  // Wat het beheer namens de band deed (by_admin, migratie 018) telt niet mee.
+  // Wat het beheer namens de band deed (by_admin, migratie 018) en geannuleerde keren
+  // (geen nieuwe datum, daar is geen maximum voor) tellen niet mee.
   const { data: periodSwaps } = await supabase
     .from("subscription_swaps")
     .select("*")
     .eq("subscription_id", id)
     .eq("period_start", periodStart);
-  const count = (periodSwaps ?? []).filter((s) => !(s as { by_admin?: boolean }).by_admin).length;
+  const count = (periodSwaps ?? []).filter(
+    (s) => !(s as { by_admin?: boolean }).by_admin && s.new_date
+  ).length;
 
   if (count >= config.subscriptionMaxSwapsPerPeriod) {
     return NextResponse.json(

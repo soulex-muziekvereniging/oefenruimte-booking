@@ -278,7 +278,7 @@ export default function Home() {
             {[
               {
                 title: "Ik heb een vaste plek",
-                text: "Bekijk jullie planning, verzet een repetitie of betaal de volgende periode.",
+                text: "Bekijk jullie planning, verzet of annuleer een repetitie, of betaal een rekening.",
                 action: (
                   <a
                     href="/mijn-boekingen"
@@ -351,8 +351,9 @@ export default function Home() {
                 Vaste plek
               </h3>
               <p className="text-sm text-gray-700 mt-1">
-                Steeds hetzelfde dagdeel, het hele jaar door. Je betaalt per {config.periodWeeks}{" "}
-                weken vooraf, er wordt niets automatisch afgeschreven.
+                Steeds hetzelfde dagdeel, het hele jaar door. Je betaalt achteraf per{" "}
+                {config.periodWeeks} weken, alleen voor de keren dat je kwam. Er wordt niets
+                automatisch afgeschreven.
                 {saving > 0 && <> Per keer {euroShort(saving)} goedkoper dan los.</>}
               </p>
               <div className="grid sm:grid-cols-2 gap-3 mt-4">
@@ -367,7 +368,7 @@ export default function Home() {
                       <span className="text-sm text-gray-600">per keer</span>
                     </p>
                     <p className="text-xs text-gray-600 mt-1 mb-4">
-                      {euro(o.periodCents)} per {config.periodWeeks} weken ({o.sessions} keer)
+                      {euro(o.periodCents)} per {config.periodWeeks} weken als je alle {o.sessions} keer komt
                     </p>
                     <button
                       onClick={() => {

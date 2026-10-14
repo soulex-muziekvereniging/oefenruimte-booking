@@ -8,6 +8,7 @@ import {
 } from "@/lib/email";
 import { getActiveMemberEmails } from "@/lib/members";
 import { todayStr } from "@/lib/date";
+import { billUntilAtCancel } from "@/lib/billing";
 
 export async function POST(
   request: NextRequest,
@@ -39,8 +40,10 @@ export async function POST(
     );
   }
 
-  // Wat al betaald (of kwijtgescholden) is, blijft van de band: het slot loopt door tot
-  // en met de laatste dag van de laatst betaalde periode.
+  // Wat al vooruitbetaald (of kwijtgescholden) is, blijft van de band: het slot loopt door
+  // tot en met de laatste dag van de laatst betaalde periode. Bij achteraf betalen is er
+  // geen vooruitbetaalde periode: het slot komt direct vrij en de keren tot nu toe komen op
+  // een laatste rekening (bill_until, zie /api/cron/subscriptions).
   const { data: lastCovered } = await supabase
     .from("subscription_payments")
     .select("period_end")
@@ -59,6 +62,7 @@ export async function POST(
       status: "cancelled",
       cancelled_at: new Date().toISOString(),
       active_until: activeUntil,
+      bill_until: billUntilAtCancel(subscription),
       updated_at: new Date().toISOString(),
     })
     .eq("id", id)

@@ -87,8 +87,8 @@ export default async function BeheerHandleidingPage() {
       </div>
 
       <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-sm">
-        <strong>Concept.</strong> Na de bestuursvergadering kan het betaalmodel (vooraf of achteraf)
-        veranderen; dan worden de onderdelen Betalingen en &quot;Wat gaat vanzelf?&quot; bijgewerkt.
+        <strong>Concept.</strong> Bijgewerkt voor achteraf betalen (oktober 2026); een paar
+        schermafbeeldingen worden nog vervangen.
       </div>
 
       <nav aria-label="Inhoud" className="bg-white rounded-2xl border border-gray-200 p-5">
@@ -241,15 +241,21 @@ export default async function BeheerHandleidingPage() {
         <p>Alle vaste reserveringen, met per band het ritme, de contactpersoon en de betaalstatus.</p>
         <ul className="list-disc pl-5 space-y-1.5">
           <li>
-            <strong>Huidige periode</strong>: betaald, of open met de uiterste betaaldatum. Bij een
-            open periode kun je <strong>uitstel geven</strong> (knop <em>Coulance +14d</em>) of{" "}
-            <strong>kwijtschelden</strong> (deze periode hoeft niet betaald te worden, de plek blijft).
+            <strong>Laatste rekening</strong>: betaald, of open met het aantal keren en de uiterste
+            betaaldatum. Bij een open rekening kun je <strong>uitstel geven</strong> (knop{" "}
+            <em>Coulance +14d</em>) of <strong>kwijtschelden</strong> (hoeft niet betaald te worden,
+            de plek blijft). Bands betalen achteraf, alleen voor de keren dat ze kwamen.
           </li>
-          <li><strong>Opslagruimte</strong> toewijzen of wijzigen; de prijs past zich aan vanaf het volgende betaalverzoek.</li>
-          <li><strong>Verplaatste repetities</strong> zien en terugdraaien.</li>
+          <li><strong>Opslagruimte</strong> toewijzen of wijzigen; de prijs past zich aan vanaf de volgende rekening.</li>
           <li>
-            <strong>Zeg op</strong>: de vaste reservering stopt; wat al betaald is, loopt door tot het
-            einde van die periode. Bands kunnen ook zelf opzeggen via hun bevestigingsmail.
+            <strong>Verplaatste en geannuleerde repetities</strong> zien en terugdraaien. Een
+            geannuleerde of vrijgegeven keer wordt niet gerekend; terugdraaien maakt hem weer
+            betaald.
+          </li>
+          <li>
+            <strong>Zeg op</strong>: de vaste reservering stopt en het dagdeel komt vrij; de keren
+            die nog niet afgerekend waren, komen op een laatste rekening. Bands kunnen ook zelf
+            opzeggen via hun bevestigingsmail.
           </li>
           <li>
             <em>Toon opgezegde/vervallen</em> laat ook gestopte reserveringen zien; die kun je daar
@@ -313,10 +319,14 @@ export default async function BeheerHandleidingPage() {
         <ul className="list-disc pl-5 space-y-1.5">
           <li>
             <strong>Tarieven</strong>: gelden meteen voor nieuwe boekingen; vink aan om ze ook bij
-            lopende vaste reserveringen toe te passen (vanaf het volgende betaalverzoek). Alle
+            lopende vaste reserveringen toe te passen (vanaf de volgende rekening). Alle
             beheerders krijgen een mail bij een wijziging.
           </li>
-          <li><strong>Vervaltermijn</strong>: hoeveel dagen na de vervaldatum een onbetaalde vaste plek vervalt.</li>
+          <li>
+            <strong>Afmelden en betalen</strong>: de <em>afmeldtermijn</em> (tot hoeveel dagen van
+            tevoren een band gratis annuleert, standaard 7) en de <em>vervaltermijn</em> (hoeveel
+            dagen na de rekening een onbetaalde vaste plek vervalt, standaard 14).
+          </li>
           <li><strong>Boekjaar</strong>: in welke maand het boekjaar begint.</li>
           <li><strong>WhatsApp-berichten</strong>: de tekst die klaarstaat bij de WhatsApp-knoppen.</li>
           <li><strong>Meldingen</strong>: wie de mails voor het bestuur krijgt (nieuwe boekingen, opzeggingen, aanvragen).</li>
@@ -327,10 +337,11 @@ export default async function BeheerHandleidingPage() {
       <Section id="automatisch" title="Wat gaat vanzelf?">
         <ul className="list-disc pl-5 space-y-1.5">
           <li>
-            <strong>Betaalverzoeken</strong> voor vaste plekken gaan 10 dagen voor elke nieuwe periode
-            van {config.periodWeeks} weken naar alle bandleden. Niet betaald? Een herinnering na 7
-            dagen, een waarschuwing 3 dagen voor het einde van de vervaltermijn, en daarna vervalt de
-            vaste plek en komt het dagdeel vrij.
+            <strong>Rekeningen</strong> voor vaste plekken gaan na afloop van elke periode van{" "}
+            {config.periodWeeks} weken naar alle bandleden, voor de keren dat ze kwamen. Niet
+            betaald? Een herinnering na 7 dagen, een waarschuwing 3 dagen voor het einde van de
+            vervaltermijn, en daarna vervalt de vaste plek en komt het dagdeel vrij. Een periode
+            zonder repetities en opslag krijgt geen rekening.
           </li>
           <li>
             <strong>Mails</strong>: alle bandleden krijgen een bericht bij elke wijziging in hun

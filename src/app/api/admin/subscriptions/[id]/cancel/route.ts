@@ -8,6 +8,7 @@ import {
   sendSafely,
 } from "@/lib/email";
 import { getActiveMemberEmails } from "@/lib/members";
+import { billUntilAtCancel } from "@/lib/billing";
 
 export async function POST(
   request: NextRequest,
@@ -39,6 +40,9 @@ export async function POST(
     .update({
       status: "cancelled",
       cancelled_at: new Date().toISOString(),
+      // Achteraf betalen: de keren tot nu toe komen nog op een laatste rekening. Een
+      // vervallen vaste plek niet (die rekening staat al open).
+      bill_until: subscription.status === "active" ? billUntilAtCancel(subscription) : null,
       updated_at: new Date().toISOString(),
     })
     .eq("id", id);

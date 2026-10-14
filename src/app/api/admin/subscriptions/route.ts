@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getGraceDays } from "@/lib/paymentTerms";
 import { getTariffs, subscriptionPrice } from "@/lib/tariffs";
 import { verifyAdminPassword } from "@/lib/adminAuth";
 import { supabase } from "@/lib/supabase";
 import type { SubscriptionPayment } from "@/lib/supabase";
 import { config } from "@/config";
-import { addDaysStr, pickActionablePeriod } from "@/lib/periods";
+import { pickActionablePeriod } from "@/lib/periods";
 import { todayStr } from "@/lib/date";
 import { findSubscriptionConflict } from "@/lib/slots";
-import { periodEndFor, weekdayOf } from "@/lib/schedule";
+import { weekdayOf } from "@/lib/schedule";
 import { checkStartDate, conflictMessage, parseSubscriptionInput } from "@/lib/subscriptionRequest";
 import { getFreeStorageUnits } from "@/lib/storage";
 import { sendSubscriptionConfirmationEmail, sendSafely } from "@/lib/email";
@@ -55,9 +54,10 @@ export async function GET(request: NextRequest) {
 }
 
 // Handmatig een vaste reservering toevoegen (bv. een bestaande afspraak van vóór dit
-// systeem overzetten) - komt direct als "active" binnen, geen eerste Mollie-betaling
-// nodig. De eerste periode van 4 weken wordt kwijtgescholden (die is buiten het systeem
-// al geregeld); daarna loopt het mee met de normale betaalcyclus (zie /api/cron/subscriptions).
+// systeem overzetten) - komt direct als "active" binnen, net als een aanvraag door de band.
+// Achteraf betalen: de eerste rekening komt na de eerste 4 weken (zie
+// /api/cron/subscriptions). Is die al buiten het systeem betaald, dan kan beheer hem
+// kwijtschelden.
 export async function POST(request: NextRequest) {
   const authError = await verifyAdminPassword(request);
   if (authError) return authError;
@@ -125,24 +125,6 @@ export async function POST(request: NextRequest) {
     .single();
 
   if (error) {
-    return NextResponse.json(
-      { error: "Er ging iets mis bij het aanmaken van de vaste reservering" },
-      { status: 500 }
-    );
-  }
-
-  const { error: periodError } = await supabase.from("subscription_payments").insert({
-    subscription_id: subscription.id,
-    period_start: startDate,
-    period_end: periodEndFor(startDate),
-    amount_cents: priceCents,
-    due_date: startDate,
-    grace_until: addDaysStr(startDate, await getGraceDays()),
-    status: "waived",
-  });
-
-  if (periodError) {
-    await supabase.from("subscriptions").delete().eq("id", subscription.id);
     return NextResponse.json(
       { error: "Er ging iets mis bij het aanmaken van de vaste reservering" },
       { status: 500 }

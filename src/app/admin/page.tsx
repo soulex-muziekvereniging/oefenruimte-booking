@@ -56,6 +56,7 @@ type SubscriptionPeriod = {
   grace_until: string;
   status: "unpaid" | "paid" | "waived";
   paid_by: string | null;
+  sessions_held: number | null;
 };
 
 type Subscription = {
@@ -86,8 +87,9 @@ type SubscriptionSwap = {
   id: string;
   subscription_id: string;
   original_date: string;
-  new_date: string | null; // null: deze keer vrijgegeven
+  new_date: string | null; // null: deze keer vrijgegeven (beheer) of geannuleerd (band)
   new_dagdeel_id: string;
+  by_admin?: boolean;
 };
 
 type MembershipRequest = {
@@ -1118,7 +1120,8 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
                         {formatRhythmLabel(subscription)} · sinds{" "}
                         {formatShortDate(subscription.start_date)} ·{" "}
                         {formatPrice(subscription.price_cents)} per {config.periodWeeks} weken
-                        {subscription.storage_unit ? " (incl. opslag)" : ""}
+                        {subscription.storage_unit ? " (incl. opslag)" : ""} als ze elke keer
+                        komen, achteraf
                       </p>
                       {(subscription.status === "active" ||
                         subscription.status === "pending_first_payment") && (
@@ -1163,7 +1166,11 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
                             <ul className="space-y-1 mt-1">
                               {upcoming.map((sw) => {
                                 const description = `${formatShortDate(sw.original_date)} → ${
-                                  sw.new_date ? formatShortDate(sw.new_date) : "vervallen"
+                                  sw.new_date
+                                    ? formatShortDate(sw.new_date)
+                                    : sw.by_admin
+                                      ? "vrijgegeven door beheer"
+                                      : "geannuleerd door de band"
                                 }${
                                   sw.new_dagdeel_id
                                     ? ` (${config.dagdelen.find((d) => d.id === sw.new_dagdeel_id)?.label ?? sw.new_dagdeel_id})`
@@ -1227,7 +1234,11 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
                           ) : (
                             <span className="text-amber-700">
                               Periode {formatShortDate(subscription.currentPeriod.period_start)} t/m{" "}
-                              {formatShortDate(subscription.currentPeriod.period_end)}: nog niet
+                              {formatShortDate(subscription.currentPeriod.period_end)}
+                              {typeof subscription.currentPeriod.sessions_held === "number"
+                                ? ` (${subscription.currentPeriod.sessions_held}×)`
+                                : ""}
+                              : {formatPrice(subscription.currentPeriod.amount_cents)} nog niet
                               betaald · coulance tot {formatShortDate(subscription.currentPeriod.grace_until)}
                             </span>
                           )}

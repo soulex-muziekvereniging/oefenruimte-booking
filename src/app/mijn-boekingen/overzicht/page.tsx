@@ -30,14 +30,29 @@ type SubscriptionPeriod = {
   pay_token: string;
   paid_at: string | null;
   paid_by: string | null;
+  sessions_held: number | null;
+  sessions_cancelled: number | null;
 };
 
 type Occurrence = {
   date: string;
-  // date null: deze keer vrijgegeven (vervalt)
+  // date null: deze keer geannuleerd (door de band) of vrijgegeven (door het beheer)
   swappedTo: { date: string | null; dagdeelId: string | null } | null;
+  cancelledBy: "band" | "beheer" | null;
   provisional: boolean;
   canSwap: boolean;
+  canCancel: boolean;
+};
+
+// De lopende periode die na afloop afgerekend wordt.
+type RunningPeriod = {
+  period_start: string;
+  period_end: string;
+  held: number;
+  cancelled: number;
+  sessionPriceCents: number;
+  storageCents: number;
+  amountCents: number;
 };
 
 type Subscription = {
@@ -53,6 +68,7 @@ type Subscription = {
   currentPeriod: SubscriptionPeriod | null;
   recentPeriods: SubscriptionPeriod[];
   occurrences: Occurrence[];
+  runningPeriod: RunningPeriod | null;
   swapsAllowed: number;
 };
 
@@ -134,6 +150,11 @@ function OverzichtContent() {
   const [bandMembers, setBandMembers] = useState<string[]>([]);
   const [listUntil, setListUntil] = useState("");
   const [graceDays, setGraceDays] = useState<number>(config.subscriptionGraceDays);
+  const [cancelDays, setCancelDays] = useState<number>(config.subscriptionCancelDays);
+  // Repetitie die geannuleerd gaat worden; pas na "Ja, annuleren" gebeurt het echt.
+  const [cancelFor, setCancelFor] = useState<{ subscriptionId: string; date: string } | null>(null);
+  const [cancelSubmitting, setCancelSubmitting] = useState(false);
+  const [cancelError, setCancelError] = useState("");
   const [error, setError] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [newPhone, setNewPhone] = useState("");
@@ -166,6 +187,7 @@ function OverzichtContent() {
         setSubscriptions(data.subscriptions);
         setListUntil(data.listUntil ?? "");
         if (typeof data.graceDays === "number") setGraceDays(data.graceDays);
+        if (typeof data.cancelDays === "number") setCancelDays(data.cancelDays);
         setBandName(data.bandName);
         setBandMembers(data.bandMembers ?? []);
       })
@@ -198,7 +220,26 @@ function OverzichtContent() {
     loadOverzicht();
   }
 
+  async function handleCancelOnce(subscriptionId: string, date: string) {
+    setCancelSubmitting(true);
+    setCancelError("");
+    const res = await fetch(`/api/mijn-boekingen/subscriptions/${subscriptionId}/cancel-once`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token, date }),
+    });
+    const data = await res.json().catch(() => ({}));
+    setCancelSubmitting(false);
+    if (!res.ok) {
+      setCancelError(data.error || "Annuleren is niet gelukt");
+      return;
+    }
+    setCancelFor(null);
+    loadOverzicht();
+  }
+
   async function openSwapPanel(subscriptionId: string, date: string) {
+    setCancelFor(null);
     setSwapPanelFor({ subscriptionId, date });
     setSwapOptions(null);
     setSwapChoice(null);
@@ -299,7 +340,12 @@ function OverzichtContent() {
       .flatMap((s) =>
         s.occurrences.flatMap((occ): CalendarEntry[] | CalendarEntry =>
           occ.swappedTo && !occ.swappedTo.date
-            ? []
+            ? {
+                date: occ.date,
+                dagdeelLabel: dagdeelLabelFor(s.dagdeel_id),
+                kind: "cancelled" as const,
+                title: occ.cancelledBy === "beheer" ? "Vrijgegeven door het bestuur" : "Geannuleerd",
+              }
             : occ.swappedTo
             ? {
                 date: occ.swappedTo.date!,
@@ -314,8 +360,8 @@ function OverzichtContent() {
                 kind: "subscription" as const,
                 provisional: occ.provisional,
                 title: occ.provisional
-                  ? "Vaste reservering (onder voorbehoud van betaling)"
-                  : "Vaste reservering (betaald)",
+                  ? "Vaste reservering (onder voorbehoud: er staat een rekening open)"
+                  : "Vaste reservering",
               }
         )
       ),
@@ -329,6 +375,7 @@ function OverzichtContent() {
         <BandCalendar
           entries={calendarEntries}
           graceDays={graceDays}
+          cancelDays={cancelDays}
           hasSubscription={subscriptions.some((s) => s.status === "active")}
         />
       )}
@@ -344,8 +391,14 @@ function OverzichtContent() {
                 <p className="font-medium">{s.band_name}</p>
                 <p className="text-sm text-gray-600">
                   {config.subscriptionPricing[s.frequency].label} op{" "}
-                  {formatWeekdayDagdeel(s).toLowerCase()} · {formatPrice(s.price_cents)} per{" "}
-                  {config.periodWeeks} weken
+                  {formatWeekdayDagdeel(s).toLowerCase()}
+                  {s.runningPeriod
+                    ? ` · ${formatPrice(s.runningPeriod.sessionPriceCents)} per keer${
+                        s.runningPeriod.storageCents
+                          ? ` + ${formatPrice(s.runningPeriod.storageCents)} opslag`
+                          : ""
+                      }, achteraf per ${config.periodWeeks} weken`
+                    : ` · ${formatPrice(s.price_cents)} per ${config.periodWeeks} weken`}
                 </p>
                 <p className="text-sm text-gray-500 mb-2">
                   {s.status === "active"
@@ -355,22 +408,18 @@ function OverzichtContent() {
                       : "Wacht op eerste betaling"}
                 </p>
 
-                {s.status === "active" && s.currentPeriod && (
+                {s.status === "active" && s.currentPeriod?.status === "unpaid" && (
                   <div className="mb-3">
-                    {s.currentPeriod.status === "paid" ? (
-                      <p className="text-sm text-green-700">
-                        Periode {formatPeriod(s.currentPeriod)} betaald
-                        {s.currentPeriod.paid_by ? ` door ${s.currentPeriod.paid_by}` : ""}.
-                      </p>
-                    ) : s.currentPeriod.status === "waived" ? (
-                      <p className="text-sm text-blue-700">
-                        Periode {formatPeriod(s.currentPeriod)}: kwijtgescholden, tijdslot blijft van jullie.
-                      </p>
-                    ) : (
+                    {(
                       <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
                         <p className="text-sm text-amber-800 mb-2">
-                          Betaal vóór {new Date(s.currentPeriod.due_date + "T00:00:00").toLocaleDateString("nl-NL", { day: "numeric", month: "long" })}{" "}
-                          om het tijdslot te behouden ({formatPrice(s.currentPeriod.amount_cents)}).
+                          Rekening {formatPeriod(s.currentPeriod)}
+                          {typeof s.currentPeriod.sessions_held === "number"
+                            ? ` (${s.currentPeriod.sessions_held}× gerepeteerd)`
+                            : ""}
+                          : {formatPrice(s.currentPeriod.amount_cents)}. Betaal vóór{" "}
+                          {new Date(s.currentPeriod.grace_until + "T00:00:00").toLocaleDateString("nl-NL", { day: "numeric", month: "long" })}{" "}
+                          om de vaste plek te behouden.
                         </p>
                         <a
                           href={`/vaste-reservering/betalen?token=${s.currentPeriod.pay_token}`}
@@ -383,13 +432,34 @@ function OverzichtContent() {
                   </div>
                 )}
 
+                {s.status === "active" && s.runningPeriod && (
+                  <div className="mb-3 p-3 bg-gray-50 border border-gray-200 rounded-lg text-sm">
+                    <p className="font-medium text-gray-700">
+                      Lopende periode {formatPeriod(s.runningPeriod)}
+                    </p>
+                    <p className="text-gray-600">
+                      {s.runningPeriod.held}× repetitie
+                      {s.runningPeriod.cancelled > 0
+                        ? `, ${s.runningPeriod.cancelled}× geannuleerd`
+                        : ""}
+                      {s.runningPeriod.storageCents ? " + opslag" : ""} ={" "}
+                      {formatPrice(s.runningPeriod.amountCents)}. De rekening komt na{" "}
+                      {formatShortDate(s.runningPeriod.period_end)}; annuleren tot {cancelDays}{" "}
+                      dagen van tevoren maakt hem lager.
+                    </p>
+                  </div>
+                )}
+
                 {s.status === "active" && s.recentPeriods.length > 0 && (
                   <div className="mb-3">
                     <p className="text-sm font-medium text-gray-700 mb-1">Betalingen</p>
                     <ul className="text-sm space-y-1">
                       {s.recentPeriods.map((p) => (
                         <li key={p.period_start} className="flex justify-between gap-2">
-                          <span className="text-gray-600">{formatPeriod(p)}</span>
+                          <span className="text-gray-600">
+                            {formatPeriod(p)}
+                            {typeof p.sessions_held === "number" ? ` · ${p.sessions_held}×` : ""}
+                          </span>
                           <span
                             className={
                               p.status === "paid"
@@ -422,7 +492,9 @@ function OverzichtContent() {
                       <span className="block text-xs font-normal text-gray-500">
                         Kan een keer niet? Verzet de repetitie naar een ander vrij moment, tot{" "}
                         {config.subscriptionSwapMaxDaysLater} dagen later ({s.swapsAllowed}× per{" "}
-                        {config.periodWeeks} weken). Anders: mail {config.organizationEmail}.
+                        {config.periodWeeks} weken), of annuleer tot {cancelDays} dagen van
+                        tevoren: dan betalen jullie die keer niet. Later afzeggen of niet komen
+                        wordt wel gerekend. Vragen: mail {config.organizationEmail}.
                       </span>
                     </p>
                     <ul className="space-y-1.5">
@@ -442,25 +514,68 @@ function OverzichtContent() {
                                     → {formatShortDate(occ.swappedTo.date)} (
                                     {dagdeelLabelFor(occ.swappedTo.dagdeelId!)})
                                   </>
+                                ) : occ.cancelledBy === "beheer" ? (
+                                  "vervalt deze keer (bestuur)"
                                 ) : (
-                                  "vervalt deze keer"
+                                  "geannuleerd"
                                 )}
                               </>
                             ) : (
                               formatShortDate(occ.date)
                             )}
                           </span>
-                          {occ.canSwap && (
-                            <button
-                              onClick={() => openSwapPanel(s.id, occ.date)}
-                              className="text-blue-600 hover:text-blue-700 text-xs font-medium shrink-0"
-                            >
-                              Verzetten
-                            </button>
-                          )}
+                          <span className="flex gap-3 shrink-0">
+                            {occ.canSwap && (
+                              <button
+                                onClick={() => openSwapPanel(s.id, occ.date)}
+                                className="text-blue-600 hover:text-blue-700 text-xs font-medium"
+                              >
+                                Verzetten
+                              </button>
+                            )}
+                            {occ.canCancel && (
+                              <button
+                                onClick={() => {
+                                  setSwapPanelFor(null);
+                                  setCancelError("");
+                                  setCancelFor({ subscriptionId: s.id, date: occ.date });
+                                }}
+                                className="text-red-600 hover:text-red-700 text-xs font-medium"
+                              >
+                                Annuleren
+                              </button>
+                            )}
+                          </span>
                         </li>
                       ))}
                     </ul>
+
+                    {cancelFor?.subscriptionId === s.id && (
+                      <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+                        <p className="text-sm text-red-900">
+                          Repetitie op <strong>{formatDate(cancelFor.date)}</strong> annuleren? Deze
+                          keer betalen jullie niet en het dagdeel komt vrij voor andere bands. Dit
+                          kan niet ongedaan gemaakt worden; alle bandleden krijgen een mail.
+                        </p>
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          <button
+                            onClick={() => handleCancelOnce(s.id, cancelFor.date)}
+                            disabled={cancelSubmitting}
+                            className="px-4 py-2.5 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 disabled:opacity-50"
+                          >
+                            {cancelSubmitting ? "Bezig..." : "Ja, annuleren"}
+                          </button>
+                          <button
+                            onClick={() => setCancelFor(null)}
+                            disabled={cancelSubmitting}
+                            className="px-4 py-2.5 text-sm text-gray-600 hover:text-gray-800"
+                          >
+                            Nee, toch niet
+                          </button>
+                        </div>
+                        {cancelError && <p className="text-sm text-red-600 mt-2">{cancelError}</p>}
+                      </div>
+                    )}
 
                     {swapPanelFor?.subscriptionId === s.id && (
                       <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">

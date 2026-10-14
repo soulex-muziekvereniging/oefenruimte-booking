@@ -1,29 +1,52 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminId, verifyAdminPassword } from "@/lib/adminAuth";
 import { supabase } from "@/lib/supabase";
-import { getGraceDays, GRACE_MAX_DAYS, GRACE_MIN_DAYS, parseGraceDays } from "@/lib/paymentTerms";
+import {
+  CANCEL_MAX_DAYS,
+  CANCEL_MIN_DAYS,
+  getPaymentTerms,
+  GRACE_MAX_DAYS,
+  GRACE_MIN_DAYS,
+  parseCancelDays,
+  parseGraceDays,
+  type PaymentTerms,
+} from "@/lib/paymentTerms";
+
+function response(terms: PaymentTerms) {
+  return NextResponse.json({
+    ...terms,
+    min: GRACE_MIN_DAYS,
+    max: GRACE_MAX_DAYS,
+    cancelMin: CANCEL_MIN_DAYS,
+    cancelMax: CANCEL_MAX_DAYS,
+  });
+}
 
 export async function GET(request: NextRequest) {
   const authError = await verifyAdminPassword(request);
   if (authError) return authError;
-  return NextResponse.json({
-    graceDays: await getGraceDays(),
-    min: GRACE_MIN_DAYS,
-    max: GRACE_MAX_DAYS,
-  });
+  return response(await getPaymentTerms());
 }
 
-// Vervaltermijn wijzigen. Geldt voor betaalperiodes die vanaf nu worden klaargezet; al
-// verstuurde betaalverzoeken houden hun eigen termijn.
+// Vervaltermijn en/of afmeldtermijn wijzigen. De vervaltermijn geldt voor rekeningen die
+// vanaf nu verstuurd worden; al verstuurde rekeningen houden hun eigen termijn.
 export async function POST(request: NextRequest) {
   const authError = await verifyAdminPassword(request);
   if (authError) return authError;
 
   const body = await request.json().catch(() => ({}));
-  const graceDays = parseGraceDays(body.graceDays);
+  const old = await getPaymentTerms();
+  const graceDays = body.graceDays === undefined ? old.graceDays : parseGraceDays(body.graceDays);
+  const cancelDays = body.cancelDays === undefined ? old.cancelDays : parseCancelDays(body.cancelDays);
   if (graceDays === null) {
     return NextResponse.json(
-      { error: `Kies een termijn van ${GRACE_MIN_DAYS} tot ${GRACE_MAX_DAYS} dagen` },
+      { error: `Kies een vervaltermijn van ${GRACE_MIN_DAYS} tot ${GRACE_MAX_DAYS} dagen` },
+      { status: 400 }
+    );
+  }
+  if (cancelDays === null) {
+    return NextResponse.json(
+      { error: `Kies een afmeldtermijn van ${CANCEL_MIN_DAYS} tot ${CANCEL_MAX_DAYS} dagen` },
       { status: 400 }
     );
   }
@@ -33,11 +56,11 @@ export async function POST(request: NextRequest) {
     ? await supabase.from("admin_users").select("email").eq("id", adminId).maybeSingle()
     : { data: null };
   const changedBy = admin?.email ?? "onbekend";
-  const old = await getGraceDays();
+  const terms: PaymentTerms = { graceDays, cancelDays };
 
   const { error } = await supabase.from("settings").upsert({
     key: "payment_terms",
-    value: { graceDays },
+    value: terms,
     updated_at: new Date().toISOString(),
     updated_by: changedBy,
   });
@@ -46,10 +69,10 @@ export async function POST(request: NextRequest) {
   }
   await supabase.from("settings_history").insert({
     key: "payment_terms",
-    old_value: { graceDays: old },
-    new_value: { graceDays },
+    old_value: old,
+    new_value: terms,
     changed_by: changedBy,
   });
 
-  return NextResponse.json({ graceDays, min: GRACE_MIN_DAYS, max: GRACE_MAX_DAYS });
+  return response(terms);
 }

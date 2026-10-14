@@ -3,8 +3,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { config } from "@/config";
 
-// Handleiding voor bandleden. CONCEPT: het onderdeel "Betalen" volgt na de
-// bestuursvergadering (vooraf of achteraf betalen). Tot die tijd niet gelinkt en niet
+// Handleiding voor bandleden. CONCEPT: de screenshots moeten nog bijgewerkt worden voor
+// achteraf betalen (knop Annuleren, lopende periode). Tot die tijd niet gelinkt en niet
 // vindbaar voor zoekmachines. Screenshots: public/handleiding (telefoonformaat, met een
 // verzonnen voorbeeldband).
 export const metadata: Metadata = {
@@ -84,8 +84,8 @@ export default function HandleidingPage() {
       </div>
 
       <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-sm">
-        <strong>Concept.</strong> Het onderdeel Betalen volgt na de bestuursvergadering. De rest
-        klopt al met hoe de site nu werkt.
+        <strong>Concept.</strong> De tekst klopt met hoe de site nu werkt; een paar
+        schermafbeeldingen worden nog bijgewerkt.
       </div>
 
       <nav aria-label="Inhoud" className="bg-white rounded-2xl border border-gray-200 p-5">
@@ -209,10 +209,13 @@ export default function HandleidingPage() {
         <p>Je ziet daar:</p>
         <ul className="list-disc pl-5 space-y-1.5">
           <li>
-            Een <strong>kalender</strong> met jullie repetities, een jaar vooruit. Gestippelde
-            repetities zijn nog niet betaald: die staan onder voorbehoud van betaling.
+            Een <strong>kalender</strong> met jullie repetities, een jaar vooruit. Geannuleerde
+            keren zijn doorgestreept.
           </li>
-          <li>Je losse boekingen en je vaste plek, en welke bandleden er al betaald hebben.</li>
+          <li>
+            Je losse boekingen en je vaste plek: de lopende periode (hoe vaak jullie ingepland
+            staan en wat de rekening wordt), openstaande rekeningen en wie er betaald heeft.
+          </li>
           <li>Wie er bij jullie band staan ingeschreven.</li>
         </ul>
         <p>Alle bandleden zien hetzelfde overzicht.</p>
@@ -226,7 +229,14 @@ export default function HandleidingPage() {
           { src: "09-verplaatsen.png", alt: "Een ander moment kiezen en bevestigen" },
         ]}
       >
-        <p>Heb je een vaste plek, dan kun je een repetitie zelf verzetten:</p>
+        <p>
+          Heb je een vaste plek, dan kun je een repetitie zelf <strong>annuleren</strong>: tik
+          bij de repetitie op <strong>Annuleren</strong> en bevestig. Dat kan tot{" "}
+          {config.subscriptionCancelDays} dagen van tevoren, zo vaak als nodig. Die keer betalen
+          jullie niet en het dagdeel komt vrij voor andere bands. Later afzeggen of niet komen
+          wordt wel gerekend.
+        </p>
+        <p>Liever een ander moment? Dan verzet je de repetitie:</p>
         <ol className="list-decimal pl-5 space-y-1.5">
           <li>
             Ga naar Mijn boekingen en tik bij de repetitie op <strong>Verzetten</strong>.
@@ -240,7 +250,9 @@ export default function HandleidingPage() {
         <p>
           Dat kan tot {config.subscriptionSwapMaxDaysLater} dagen later,{" "}
           {config.subscriptionMaxSwapsPerPeriod} keer per {config.periodWeeks} weken en tot{" "}
-          {config.cancellationCutoffHours} uur van tevoren. Elk bandlid mag dat doen.
+          {config.cancellationCutoffHours} uur van tevoren. Een verzette keer wordt gewoon
+          gerekend. Elk bandlid mag verzetten en annuleren; een al verzette keer annuleren gaat
+          via het bestuur.
         </p>
         <p>
           Lukt het zo niet, bijvoorbeeld als jullie helemaal niet kunnen? Mail dan naar{" "}
@@ -264,23 +276,30 @@ export default function HandleidingPage() {
         <p>
           <strong>Iedereen op de lijst krijgt een mail</strong> bij elke wijziging in de planning en
           bij alles rond betalen: boekingen, verzette of vervallen repetities, annuleringen,
-          betaalverzoeken, herinneringen en betaalbevestigingen. Zo weet de hele band waar ze aan
+          rekeningen, herinneringen en betaalbevestigingen. Zo weet de hele band waar ze aan
           toe is.
         </p>
       </Section>
 
       <Section id="betalen" title="Betalen">
-        <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-900">
-          <strong>Volgt na de bestuursvergadering.</strong> Hier komt te staan hoe en wanneer jullie
-          betalen voor een vaste plek, wat er gebeurt als je een keer niet komt en wanneer een vaste
-          plek vervalt als er niet betaald wordt.
-        </div>
         <p>
-          Wat al vaststaat: een losse boeking betaal je meteen bij het boeken met iDEAL, en elke
-          betaling wordt per e-mail bevestigd aan alle bandleden, met wie er betaald heeft.
+          Een <strong>losse boeking</strong> betaal je meteen bij het boeken met iDEAL.
         </p>
         <p>
-          <strong>Er kan maar één keer betaald worden.</strong> Een betaalverzoek gaat naar alle
+          Een <strong>vaste plek</strong> betaal je <strong>achteraf</strong>. Na elke periode van{" "}
+          {config.periodWeeks} weken krijgen alle bandleden een rekening per e-mail voor de keren
+          dat jullie kwamen, met een betaalknop (iDEAL). Op tijd geannuleerde keren staan er niet
+          op; opslagruimte wel, altijd het volle bedrag. Er wordt niets automatisch afgeschreven.
+        </p>
+        <p>
+          Niet betaald? Na 7 dagen komt er een herinnering en daarna een laatste waarschuwing. Is
+          er na {config.subscriptionGraceDays} dagen nog niet betaald, dan vervalt de vaste plek
+          en komt het dagdeel vrij voor andere bands. Zeg je de vaste plek zelf op, dan krijg je
+          nog één laatste rekening voor de keren die nog niet afgerekend waren.
+        </p>
+        <p>Elke betaling wordt per e-mail bevestigd aan alle bandleden, met wie er betaald heeft.</p>
+        <p>
+          <strong>Er kan maar één keer betaald worden.</strong> Een rekening gaat naar alle
           bandleden, maar zodra één van jullie betaald heeft, staat er &quot;al betaald&quot; als
           een ander op de knop drukt. Niemand hoeft dus bang te zijn dat er dubbel betaald wordt.
           In Mijn boekingen zie je ook wie er betaald heeft.

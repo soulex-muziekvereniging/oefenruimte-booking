@@ -20,22 +20,30 @@ aangesproken.
   zelfgekozen startdatum, zonder einddatum.
   - "Om de week" telt vanaf de eigen startdatum van de band, niet vanaf weeknummers
     (`src/lib/schedule.ts`). Twee bands kunnen zo om en om hetzelfde dagdeel delen.
-  - **Bands betalen altijd hetzelfde bedrag per keer oefenen.** Daarom periodes van 4 weken
-    (`periodWeeks`), niet per maand: elke rekening heeft evenveel keren.
-  - Geen automatische incasso. De cron zet elke periode klaar en mailt een betaalverzoek
-    (10 dagen vooraf), een herinnering (+7 dagen), een waarschuwing en laat de vaste plek
-    **vervallen** als er na de vervaltermijn nog niet betaald is (instelbaar 7-21 dagen,
-    standaard 14). Er komt nooit een nieuwe periode zolang de vorige openstaat.
-  - Verplaatsen: elk bandlid, tot 14 dagen later, 2x per periode. Beheer kan terugdraaien.
-  - Bands zien hun planning een jaar vooruit in de kalender, na de laatste betaalde periode
-    als "nog te betalen".
+  - **Achteraf betalen** (besluit bestuur okt 2026, `docs/PLAN-achteraf-betalen.md`): de
+    vaste plek is direct actief zonder betaling. Na elke periode van 4 weken (`periodWeeks`)
+    rekent de cron af (`src/lib/billing.ts`): gehouden keren x prijs per keer (= price_cents
+    min opslag, gedeeld door sessionsPerPeriod) + altijd de volle opslag. Factuurregel in
+    `subscription_payments.sessions_held` e.a. (migratie 019). 0 euro = "waived".
+  - Geen automatische incasso. Rekening na afloop, herinnering (+7 dagen), waarschuwing, en
+    de vaste plek **vervalt** als er na de vervaltermijn nog niet betaald is (instelbaar 7-21
+    dagen, standaard 14).
+  - **Annuleren** van één keer door de band: tot de afmeldtermijn (instelbaar 2-14 dagen,
+    standaard 7, settings `payment_terms.cancelDays`), geen maximum; rij in
+    `subscription_swaps` zonder nieuwe datum. Geannuleerd (band) en vrijgegeven (beheer,
+    `by_admin`) worden niet gerekend. Een al verzette keer kan de band niet annuleren.
+  - Verplaatsen: elk bandlid, tot 14 dagen later, 2x per periode (annuleringen tellen niet
+    mee). Een verzette keer wordt gerekend. Beheer kan terugdraaien.
+  - Opzeggen: slot direct vrij (behalve een nog lopende vooruitbetaalde periode), laatste
+    rekening t/m `subscriptions.bill_until`.
+  - Bands zien hun planning een jaar vooruit in de kalender.
 - **Opslagruimte**: ruimtes 2, 3 en 4 (1 en 5 zijn van Soulex), alleen bij een vaste plek, per
-  periode van 4 weken.
+  periode van 4 weken, altijd het volle bedrag.
 - **Alleen leden** kunnen boeken. Nieuwe bands tekenen eerst een contract en betalen borg
   (buiten het systeem); pas daarna keurt beheer de aanvraag goed. Sleutels zijn fysiek
   geregeld, niet in de software.
-- **Geen terugbetaling** bij vakantie of afzeggen van een vaste plek (bewuste keuze, de huur is
-  laag). Bouw geen automatische verrekening zonder besluit van het bestuur.
+- Te laat afzeggen of niet komen bij een vaste plek wordt gewoon gerekend. Bouw geen andere
+  verrekening zonder besluit van het bestuur.
 
 ## De Borgh (verhuurder)
 
@@ -72,7 +80,7 @@ Ze hebben een eigen zalenplanner (VirtueelPlein MRBS, `deborghbudel.nl/mrbs`, ru
 - **Vercel** (team van de vereniging, Hobby). Push naar `main` = deploy. Hobby: elke cronjob
   draait hooguit 1x per dag, daarom aparte paden per tijdstip in `vercel.json`.
 - Instellingen die beheer zelf wijzigt staan in tabel `settings` (met log in
-  `settings_history`). Keys: `tariffs`, `whatsapp_templates`, `payment_terms`, `borgh_email`,
+  `settings_history`). Keys: `tariffs`, `whatsapp_templates`, `payment_terms` (graceDays, cancelDays), `borgh_email`,
   `borgh_auto`, `borgh_mail_text`, `fiscal_year` (startmaand boekjaar). `src/config.ts` bevat de standaardwaarden.
 - Beheerders loggen in met een eigen account (`admin_users`, HMAC-sessiecookie). Bands loggen
   in met een magic link per mail (alleen e-mailadres).

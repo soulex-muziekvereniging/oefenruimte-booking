@@ -5,16 +5,16 @@ Besluit (bestuur, okt 2026): bands met een vaste plek betalen **achteraf** per p
 **annuleren**. Aan het einde van de periode krijgen ze een betaallink voor het bedrag.
 "Vervallen bij niet betalen" blijft bestaan.
 
-## Nog te beslissen (vraag dit eerst aan de gebruiker)
-1. **Afmeldtermijn**: tot hoeveel uur/dagen van tevoren is annuleren gratis? Later annuleren
-   of niet komen = wel betalen? (Advies: 7 dagen; anders blokkeert de band het dagdeel gratis.)
-2. **Maximum** aantal gratis annuleringen per periode/jaar? (Advies: geen, wel de termijn.)
-3. **Betaaltermijn** na de factuur (nu: vervaltermijn 14 dagen, instelbaar 7-21) en wat er
-   dan vervalt (de vaste plek, zoals nu).
-4. **Opslagruimte**: altijd het volle bedrag per periode (advies: ja).
-5. **Overgang**: wat met periodes die al vooruitbetaald zijn? (Advies: die lopen gewoon af;
-   de eerste achteraf-factuur is voor de eerste periode die nog niet betaald is.)
-6. **Vrijgeven door beheer** (`by_admin`): telt als niet betalen (advies: ja, beheer beslist).
+## Besluiten (gebruiker, 2026-10-14)
+1. **Afmeldtermijn**: instelbaar in beheer > Instellingen (standaard 7 dagen). Later annuleren
+   kan niet meer via de site; niet komen = wel betalen.
+2. **Maximum**: geen maximum op gratis annuleren, alleen de termijn telt.
+3. **Betaaltermijn**: zoals nu (vervaltermijn instelbaar 7-21 dagen, standaard 14), daarna
+   vervalt de vaste plek.
+4. **Opslagruimte**: altijd het volle bedrag per periode.
+5. **Overgang**: al vooruitbetaalde periodes lopen gewoon af; de eerste achteraf-factuur is
+   voor de eerste periode die nog niet betaald is.
+6. **Vrijgeven door beheer** (`by_admin`): die keer hoeft de band niet te betalen.
 
 ## Wat er al is en hergebruikt kan worden
 - Annuleren van één keer = rij in `subscription_swaps` met `new_date = null` (bestaat al:

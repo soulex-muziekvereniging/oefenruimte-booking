@@ -1,7 +1,9 @@
 import { Resend } from "resend";
 import { getOrgRecipients } from "./notifications";
 import { formatRhythm } from "./schedule";
-import { getGraceDays } from "./paymentTerms";
+import { getPaymentTerms } from "./paymentTerms";
+import { sessionPriceCents } from "./billing";
+import { getTariffs } from "./tariffs";
 import { config } from "@/config";
 import {
   Booking,
@@ -93,6 +95,25 @@ function formatPeriod(periodPayment: Pick<SubscriptionPayment, "period_start" | 
   const short = (d: string) =>
     new Date(d + "T00:00:00").toLocaleDateString("nl-NL", { day: "numeric", month: "short" });
   return `${short(periodPayment.period_start)} t/m ${short(periodPayment.period_end)}`;
+}
+
+// De factuurregels van een achteraf afgerekende periode (alleen het bedrag bij oude periodes).
+function invoiceTable(p: SubscriptionPayment): string {
+  if (typeof p.sessions_held !== "number" || typeof p.session_price_cents !== "number") {
+    return `<p>Bedrag: <strong>${formatPrice(p.amount_cents)}</strong></p>`;
+  }
+  const cell = "padding: 8px; border: 1px solid #ddd;";
+  const rows = [
+    `<tr><td style="${cell}">${p.sessions_held}× gerepeteerd à ${formatPrice(p.session_price_cents)}</td><td style="${cell} text-align: right;">${formatPrice(p.sessions_held * p.session_price_cents)}</td></tr>`,
+    p.sessions_cancelled
+      ? `<tr><td style="${cell}">${p.sessions_cancelled}× op tijd geannuleerd</td><td style="${cell} text-align: right;">${formatPrice(0)}</td></tr>`
+      : "",
+    p.storage_cents
+      ? `<tr><td style="${cell}">Opslagruimte</td><td style="${cell} text-align: right;">${formatPrice(p.storage_cents)}</td></tr>`
+      : "",
+    `<tr><td style="${cell} font-weight: bold;">Totaal</td><td style="${cell} text-align: right; font-weight: bold;">${formatPrice(p.amount_cents)}</td></tr>`,
+  ];
+  return `<table style="border-collapse: collapse; width: 100%; margin: 16px 0;">${rows.join("")}</table>`;
 }
 
 export async function sendConfirmationEmail(
@@ -279,7 +300,8 @@ export async function sendSubscriptionConfirmationEmail(
   const recipients = Array.from(
     new Set([subscription.contact_email, ...extraRecipients])
   );
-  const graceDays = await getGraceDays();
+  const { graceDays, cancelDays } = await getPaymentTerms();
+  const perSession = sessionPriceCents(subscription, await getTariffs());
 
   await send({
     from: `${config.organizationName} <${config.senderEmail}>`,
@@ -328,12 +350,15 @@ export async function sendSubscriptionConfirmationEmail(
           </tr>
         </table>
 
-        <p>De eerste ${config.periodWeeks} weken zijn betaald. Daarna ontvangen jullie per
-        ${config.periodWeeks} weken een apart betaalverzoek per e-mail - er wordt niets
-        automatisch afgeschreven. Betaal je een keer niet op tijd, dan houden we het
-        tijdslot nog ${graceDays} dagen coulant vast voordat het vrijkomt
-        voor een andere band. In "Mijn boekingen" zien jullie de planning een jaar vooruit,
-        onder voorbehoud van betaling.</p>
+        <p>Jullie betalen <strong>achteraf</strong>: na elke periode van ${config.periodWeeks}
+        weken krijgen jullie een rekening per e-mail voor de keren dat jullie kwamen
+        (${formatPrice(perSession)} per keer${subscription.storage_unit ? ", plus de opslagruimte" : ""}).
+        Er wordt niets automatisch afgeschreven.</p>
+        <p>Kan een keer niet? In "Mijn boekingen" kunnen jullie een repetitie verzetten, of
+        tot <strong>${cancelDays} dagen van tevoren</strong> annuleren: die keer betalen jullie
+        dan niet. Later annuleren of niet komen wordt wel gerekend.</p>
+        <p>Is een rekening ${graceDays} dagen na verzending nog niet betaald, dan vervalt de
+        vaste plek en komt het dagdeel vrij voor een andere band.</p>
 
         <p>Let op: de eenmalige borg voor de sleutel wordt apart geregeld, zie
         <a href="mailto:${config.organizationEmail}">${config.organizationEmail}</a>.</p>
@@ -355,7 +380,8 @@ export async function sendSubscriptionNotificationToOrg(subscription: Subscripti
     html: `
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
         <h2>Nieuwe vaste reservering</h2>
-        <p>Er is een nieuwe vaste reservering bevestigd en de eerste betaling is gelukt:</p>
+        <p>Er is een nieuwe vaste reservering aangevraagd. Die is direct actief; de band
+        betaalt achteraf, de eerste rekening gaat na de eerste ${config.periodWeeks} weken.</p>
 
         <table style="border-collapse: collapse; width: 100%; margin: 20px 0;">
           <tr>
@@ -492,10 +518,9 @@ export async function sendPeriodPaymentConfirmationEmail(
         <h2>Betaling ontvangen</h2>
         <p>Hoi ${subscription.contact_name},</p>
         <p>De periode ${formatPeriod(periodPayment)} van <strong>${subscription.band_name}</strong>
-        is betaald (${formatPrice(periodPayment.amount_cents)}${paidBy ? `, door ${paidBy}` : ""}). ${capitalize(formatWeekdayDagdeel(subscription))}
-        is in die periode van jullie.</p>
-        <p>Het volgende betaalverzoek krijgen jullie automatisch per e-mail, ruim voordat de
-        nieuwe periode begint.</p>
+        is betaald (${formatPrice(periodPayment.amount_cents)}${paidBy ? `, door ${paidBy}` : ""}). Dank je wel!</p>
+        <p>De volgende rekening krijgen jullie automatisch per e-mail, na afloop van de
+        volgende periode.</p>
         <p>Met vriendelijke groet,<br>${config.organizationName}</p>
       </div>
     `,
@@ -512,15 +537,16 @@ export async function sendPeriodPaymentRequestEmail(
   await send({
     from: `${config.organizationName} <${config.senderEmail}>`,
     to: recipients,
-    subject: `Nieuwe periode voor ${subscription.band_name} — betalen kan nu`,
+    subject: `Rekening oefenruimte ${subscription.band_name}: ${formatPeriod(periodPayment)}`,
     html: `
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2>Volgende periode klaar om te betalen</h2>
+        <h2>Rekening over de afgelopen periode</h2>
         <p>Hoi ${subscription.contact_name},</p>
-        <p>De volgende periode voor <strong>${subscription.band_name}</strong>
-        (${formatPeriod(periodPayment)}, ${formatWeekdayDagdeel(subscription)}) staat klaar.
-        Reken je ${formatPrice(periodPayment.amount_cents)} af vóór
-        <strong>${formatDate(periodPayment.due_date)}</strong>, dan blijft het tijdslot gewoon van jullie.</p>
+        <p>Hier is de rekening van <strong>${subscription.band_name}</strong> voor
+        ${formatWeekdayDagdeel(subscription)} over ${formatPeriod(periodPayment)}.</p>
+        ${invoiceTable(periodPayment)}
+        <p>Betaal vóór <strong>${formatDate(periodPayment.grace_until)}</strong>, dan blijft de
+        vaste plek gewoon van jullie.</p>
         <p><a href="${payPeriodUrl(periodPayment)}" style="display:inline-block;padding:10px 20px;background:#175670;color:#fff;border-radius:6px;text-decoration:none;">Periode betalen — ${formatPrice(periodPayment.amount_cents)}</a></p>
         ${ONE_PAYMENT_NOTE}
         <p>Even niet doorgaan of lukt het niet? Laat het weten, dan zoeken we samen een oplossing.</p>
@@ -672,11 +698,53 @@ export async function sendRepetitionReleasedEmail(
         <h2>Repetitie vervalt deze keer</h2>
         <p>Hoi ${subscription.contact_name},</p>
         <p>Zoals afgesproken vervalt jullie repetitie op <strong>${formatDate(originalDate)}</strong>;
-        het dagdeel is vrijgegeven. Jullie vaste ${formatWeekdayDagdeel(subscription)} blijft
-        verder gewoon van jullie.</p>
+        het dagdeel is vrijgegeven en deze keer hoeven jullie niet te betalen. Jullie vaste
+        ${formatWeekdayDagdeel(subscription)} blijft verder gewoon van jullie.</p>
         <p>Klopt dit niet? Mail dan naar
         <a href="mailto:${config.organizationEmail}">${config.organizationEmail}</a>.</p>
         <p>Met vriendelijke groet,<br>${config.organizationName}</p>
+      </div>
+    `,
+  });
+}
+
+// De band heeft zelf één repetitie van de vaste plek geannuleerd (binnen de afmeldtermijn).
+export async function sendRepetitionCancelledEmail(
+  subscription: Subscription,
+  date: string,
+  extraRecipients: string[] = []
+) {
+  const recipients = Array.from(new Set([subscription.contact_email, ...extraRecipients]));
+  await send({
+    from: `${config.organizationName} <${config.senderEmail}>`,
+    to: recipients,
+    subject: `Repetitie geannuleerd: ${subscription.band_name}, ${formatDate(date)}`,
+    html: `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>Repetitie geannuleerd</h2>
+        <p>Hoi ${subscription.contact_name},</p>
+        <p>Jullie repetitie op <strong>${formatDate(date)}</strong> is geannuleerd. Deze keer
+        hoeven jullie niet te betalen, en het dagdeel is vrij voor andere bands. Jullie vaste
+        ${formatWeekdayDagdeel(subscription)} blijft verder gewoon van jullie.</p>
+        <p>Deze mail gaat naar alle bandleden. Klopt dit niet? Mail dan naar
+        <a href="mailto:${config.organizationEmail}">${config.organizationEmail}</a>.</p>
+        <p>Met vriendelijke groet,<br>${config.organizationName}</p>
+      </div>
+    `,
+  });
+}
+
+export async function sendRepetitionCancelledNotificationToOrg(subscription: Subscription, date: string) {
+  await send({
+    from: `${config.organizationName} <${config.senderEmail}>`,
+    to: await getOrgRecipients(),
+    subject: `Repetitie geannuleerd: ${subscription.band_name}`,
+    html: `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>Repetitie geannuleerd</h2>
+        <p><strong>${subscription.band_name}</strong> komt niet op ${formatDate(date)}
+        (${formatWeekdayDagdeel(subscription)}). Het dagdeel is vrij voor losse boekingen; deze
+        keer wordt niet gerekend.</p>
       </div>
     `,
   });
@@ -750,7 +818,8 @@ export async function sendSubscriptionCancelledConfirmationEmail(
         <h2>Vaste reservering opgezegd</h2>
         <p>Hoi ${subscription.contact_name},</p>
         <p>De vaste reservering van <strong>${subscription.band_name}</strong> (elke
-        ${formatWeekdayDagdeel(subscription)}) is opgezegd. Je ontvangt geen betaalverzoeken meer.</p>
+        ${formatWeekdayDagdeel(subscription)}) is opgezegd. Zijn er nog repetities die niet
+        afgerekend zijn, dan krijgen jullie daarvoor nog één laatste rekening.</p>
         <p>${
           activeUntil
             ? `Wat al betaald is, blijft van jullie: het tijdslot is nog voor jullie tot en met <strong>${formatDate(activeUntil)}</strong>.`

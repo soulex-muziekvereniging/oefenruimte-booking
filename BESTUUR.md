@@ -13,24 +13,36 @@ oefenruimte boeken, zonder in te hoeven loggen. Twee soorten boekingen:
 
 1. **Losse boeking** — eenmalig een vrij dagdeel huren, prijs €40, direct afgerekend via Mollie
    (iDEAL e.d.). Bevestiging per e-mail met een unieke link om te annuleren.
-2. **Vaste reservering** — een band claimt hetzelfde dagdeel **elke week** (€120 per 4 weken)
-   of **om de week** (€60 per 4 weken), vanaf een zelfgekozen startdatum; €30 per keer
-   (voorlopig tarief). "Om de week" telt vanaf de eigen startdatum van de band (geen
-   weeknummers), zodat twee bands een dagdeel om en om kunnen delen. Er is **geen
-   automatische incasso**: per periode van 4 weken krijgt de band (en alle bekende
-   bandleden) een betaalverzoek per e-mail, ~10 dagen van tevoren. Elke rekening gaat dus
-   over precies evenveel keer. Zolang ze op tijd betalen blijft het tijdslot van hen.
-   Betalen ze een keer niet, dan blijft het tijdslot nog **14 dagen coulant** staan; daarna
-   vervalt het en komt het vrij. Bands mogen een repetitie zelf verplaatsen naar elk vrij
-   dagdeel tot 14 dagen later, 2x per 4 weken. **Opslagruimte** (ruimte 2, 3 en 4; 1 en 5
-   zijn van Soulex) kan erbij voor €15 per 4 weken, op dezelfde rekening; het bestuur kan
-   in het admin-scherm per reservering een ruimte toekennen of weghalen. Opzeggen kan de
-   band zelf via een unieke link in hun bevestigingsmail (geen inloggen nodig); het slot
-   blijft dan van hen tot het einde van de laatst betaalde periode en ze krijgen een
-   bevestigingsmail. Opzeggen via het admin-scherm geeft het slot wél direct vrij.
+2. **Vaste reservering** — een band claimt hetzelfde dagdeel **elke week** of **om de
+   week**, vanaf een zelfgekozen startdatum; €30 per keer (€120 per 4 weken bij elke week).
+   "Om de week" telt vanaf de eigen startdatum van de band (geen weeknummers), zodat twee
+   bands een dagdeel om en om kunnen delen.
+
+   **Achteraf betalen** (besluit bestuur, oktober 2026): bij het aanvragen betaalt de band
+   niets, de vaste plek is meteen actief. Na elke periode van 4 weken krijgt de band (en alle
+   bekende bandleden) een rekening per e-mail voor de keren dat ze kwamen. Er is **geen
+   automatische incasso**. Een band kan een repetitie zelf **annuleren** tot de
+   **afmeldtermijn** (standaard 7 dagen van tevoren, instelbaar onder Instellingen), zonder
+   maximum: die keer wordt niet gerekend en het dagdeel komt vrij. Later afzeggen of niet
+   komen wordt wel gerekend. **Verzetten** naar elk vrij dagdeel tot 14 dagen later kan
+   2x per 4 weken; een verzette keer wordt gewoon gerekend. Een keer die het bestuur
+   vrijgeeft ("Deze keer vrijgeven") wordt ook niet gerekend.
+
+   Is een rekening na de **vervaltermijn** (standaard 14 dagen, instelbaar) nog niet betaald,
+   dan vervalt de vaste plek en komt het dagdeel vrij. Let op: de keren tussen de laatste
+   rekening en het vervallen staan dan op geen enkele rekening; dat handelt het bestuur zelf
+   af. **Opslagruimte** (ruimte 2, 3 en 4; 1 en 5 zijn van Soulex) kan erbij voor €15 per 4
+   weken, altijd het volle bedrag, op dezelfde rekening; het bestuur kan in het admin-scherm
+   per reservering een ruimte toekennen of weghalen. Opzeggen kan de band zelf via een unieke
+   link in hun bevestigingsmail (geen inloggen nodig). Het slot komt dan direct vrij en de
+   band krijgt nog één laatste rekening voor de keren die nog niet afgerekend waren. Bij
+   opzeggen via het admin-scherm gaat dat net zo.
+
+   Periodes die nog vooruitbetaald zijn (van vóór oktober 2026) lopen gewoon af; de eerste
+   rekening achteraf is voor de periode daarna.
 
    Dit draait op één dagelijkse achtergrondtaak (Vercel Cron, `/api/cron/subscriptions`) die
-   nieuwe periodes klaarzet, herinneringen stuurt en vervallen tijdsloten vrijgeeft. In het
+   afgelopen periodes afrekent, herinneringen stuurt en vervallen tijdsloten vrijgeeft. In het
    admin-scherm kan een bestuurslid een periode **kwijtschelden** (bijv. bij vakantie, geen
    betaling nodig maar tijdslot blijft staan) of de **coulance met 14 dagen verlengen** (bij
    een goed verhaal) — bewust handmatige hendels, geen automatische regels.
@@ -65,9 +77,13 @@ maand het boekjaar begint, stel je in onder Instellingen (standaard januari).
   de export.
 
 Een afgebroken online betaling hoef je niet op te ruimen: na 15 minuten vervalt die vanzelf
-en komt het dagdeel weer vrij. Stopt een vaste reservering terwijl er nog een periode open
+en komt het dagdeel weer vrij. Vervalt een vaste reservering terwijl er nog een rekening open
 stond, dan staat die als **vervallen**: telt niet meer als "open", maar blijft zichtbaar tot
-je hem afhandelt.
+je hem afhandelt. De laatste rekening na opzeggen staat gewoon als "open".
+
+Bij elke rekening staat hoe vaak de band kwam en hoe vaak er op tijd geannuleerd is (ook in
+de export). Een periode zonder repetities en zonder opslag krijgt geen rekening; die staat
+als kwijtgescholden ("Geen repetities in deze periode").
 
 ## Lidmaatschap — wél gecontroleerd, ledenlijst is simpel
 

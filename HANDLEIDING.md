@@ -28,26 +28,29 @@ Vraag hier toegang aan").
 
 Voor bands die structureel op hetzelfde moment willen repeteren.
 
-- Kies **elke week** (**€120 per 4 weken**) of **om de week** (**€60 per 4 weken**). Dat is
-  steeds €30 per keer: elke rekening gaat over precies 4 (of 2) keer.
+- Kies **elke week** of **om de week**. Je betaalt **€30 per keer** dat je komt (€120 per
+  4 weken als je elke week komt, €60 bij om de week).
 - Kies zelf de **eerste datum** en het dagdeel. De site laat meteen zien of het vrij is en wat
   de eerste keren zijn. Om de week telt vanaf jullie eigen startdatum; twee bands kunnen zo
   hetzelfde dagdeel om en om delen.
-- De eerste 4 weken betaal je direct bij het aanvragen. Daarna krijg je (en je bandleden)
-  elke 4 weken een betaalverzoek per e-mail, ongeveer 10 dagen van tevoren. Geen
-  automatische incasso.
-- Zolang je op tijd betaalt, blijft het tijdslot van jullie - nooit hoeven verlengen.
-- Betaal je een keer niet op tijd, dan blijft het tijdslot nog **14 dagen coulant** staan
-  (met een herinnering na 7 dagen en een laatste waarschuwing). Daarna komt het vrij voor
-  een andere band.
-- **Kan een keer niet?** Via "Mijn boekingen" verplaats je een repetitie naar elk vrij
-  dagdeel, tot **14 dagen later**, maximaal **2 keer per 4 weken**. Elk bandlid kan dat.
-  Moet het anders, mail dan naar beheer@soulex.nl.
-- **Opslagruimte bijhuren** kan met een vinkje bij het aanvragen: **€15 per 4 weken**, op
-  dezelfde rekening. Er zijn er 3 (vol is vol).
-- Opzeggen kan altijd zelf via de link in je bevestigingsmail. Wat al betaald is, blijft van
-  jullie: het tijdslot loopt door tot het einde van de betaalde periode. Je krijgt een
-  bevestiging per e-mail.
+- Je betaalt **achteraf**. Bij het aanvragen betaal je niets; de vaste plek is meteen van
+  jullie. Na elke periode van 4 weken krijg je (en je bandleden) een **rekening per e-mail**
+  voor de keren dat jullie kwamen, met een betaallink. Geen automatische incasso.
+- Zolang je de rekeningen betaalt, blijft het tijdslot van jullie - nooit hoeven verlengen.
+- Betaal je een rekening niet, dan krijg je na 7 dagen een herinnering en daarna een laatste
+  waarschuwing. Is er na **14 dagen** nog niet betaald, dan vervalt de vaste plek en komt het
+  dagdeel vrij voor een andere band.
+- **Kan een keer niet?** Via "Mijn boekingen" kun je:
+  - een repetitie **annuleren**, tot **7 dagen van tevoren**. Die keer betaal je niet, en het
+    dagdeel komt vrij voor andere bands. Er is geen maximum. Later afzeggen of gewoon niet
+    komen wordt wel gerekend.
+  - een repetitie **verzetten** naar elk vrij dagdeel, tot **14 dagen later**, maximaal
+    **2 keer per 4 weken**. Een verzette keer wordt gewoon gerekend.
+  Elk bandlid kan dat. Moet het anders, mail dan naar beheer@soulex.nl.
+- **Opslagruimte bijhuren** kan met een vinkje bij het aanvragen: **€15 per 4 weken**
+  (altijd het volle bedrag), op dezelfde rekening. Er zijn er 3 (vol is vol).
+- Opzeggen kan altijd zelf via de link in je bevestigingsmail. Het tijdslot komt dan meteen
+  vrij. Voor de keren die nog niet afgerekend zijn, krijg je nog één laatste rekening.
 - Tarieven zijn voorlopig; het bestuur stelt ze nog definitief vast.
 
 ## "Mijn boekingen" — je eigen overzicht inzien
@@ -56,11 +59,11 @@ Sta je niet meer bij je bevestigingsmail? Via **"Mijn boekingen"** (knop rechtsb
 kun je met je e-mailadres een nieuwe inloglink opvragen (knop rechtsboven). Daar zie je:
 
 - Alle lopende en aankomende boekingen van jullie band (losse en vaste), en wie er geboekt heeft
-- De planning van jullie vaste reservering, een jaar vooruit in de kalender (onder voorbehoud
-  van betaling); de komende 8 weken ook als lijst, waar je een keer kunt verplaatsen
-- De betaalstatus van je vaste reservering
-- Een knop om een repetitie te verplaatsen (je kiest een nieuw moment en bevestigt) of de
-  vaste reservering op te zeggen
+- De planning van jullie vaste reservering, een jaar vooruit in de kalender; de komende 8
+  weken ook als lijst, met per keer de knoppen **Verzetten** en **Annuleren**
+- De lopende periode: hoe vaak jullie tot nu toe ingepland staan en wat de rekening wordt
+- Openstaande rekeningen (met betaalknop) en de laatste betalingen
+- Een knop om de vaste reservering op te zeggen
 - De bandleden die namens jullie mogen boeken/beheren, met een optie om iemand toe te voegen
   (e-mailadres en telefoonnummer zijn verplicht)
 

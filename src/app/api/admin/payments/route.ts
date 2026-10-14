@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
     .from("subscription_payments")
     .select(
       // "*" zodat admin_note meekomt zodra migratie 017 is uitgevoerd (en niets breekt daarvoor)
-      "*, subscriptions(band_name, weekday, dagdeel_id, frequency, status)"
+      "*, subscriptions(band_name, weekday, dagdeel_id, frequency, status, bill_until)"
     )
     .gte("period_start", addDaysStr(from, -120))
     .lt("period_start", addDaysStr(to, 120));
@@ -83,13 +83,19 @@ export async function GET(request: NextRequest) {
       dagdeel_id: string;
       frequency: "weekly" | "biweekly";
       status: string;
+      bill_until: string | null;
     } | null;
-    const ended = sub?.status === "cancelled" || sub?.status === "lapsed";
+    // Opgezegd met een laatste rekening (bill_until): die staat gewoon open.
+    const ended = sub?.status === "lapsed" || (sub?.status === "cancelled" && !sub.bill_until);
+    const sessions =
+      typeof p.sessions_held !== "number"
+        ? ""
+        : ` · ${p.sessions_held}× gerepeteerd${p.sessions_cancelled ? `, ${p.sessions_cancelled}× geannuleerd` : ""}${p.storage_cents ? ", opslag" : ""}`;
     rows.push({
       id: p.id,
       kind: "periode",
       band: sub?.band_name ?? "?",
-      description: `${sub ? formatRhythm(sub) : "Vaste reservering"}, ${shortDate(p.period_start)} t/m ${shortDate(p.period_end)}`,
+      description: `${sub ? formatRhythm(sub) : "Vaste reservering"}, ${shortDate(p.period_start)} t/m ${shortDate(p.period_end)}${sessions}`,
       amountCents: p.amount_cents,
       status:
         p.status === "paid"

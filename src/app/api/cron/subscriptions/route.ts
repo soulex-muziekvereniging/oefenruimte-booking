@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { todayStr } from "@/lib/date";
 import { addDaysStr } from "@/lib/periods";
-import { periodEndFor } from "@/lib/schedule";
+import { nextBillingPeriod, settle } from "@/lib/billing";
 import { getActiveMemberEmails } from "@/lib/members";
 import { getGraceDays } from "@/lib/paymentTerms";
+import { getTariffs, type Tariffs } from "@/lib/tariffs";
 import {
   sendPeriodPaymentRequestEmail,
   sendPeriodReminderEmail,
@@ -16,17 +17,20 @@ import {
 import type { Subscription, SubscriptionPayment } from "@/lib/supabase";
 
 // Eén dagelijkse huishoudtaak voor vaste reserveringen (Vercel Cron, zie vercel.json):
-// nieuwe periodes klaarzetten + betaalverzoek mailen, herinneren, en tijdsloten vrijgeven
-// als er niet binnen de coulanceperiode betaald is. Draait bewust maar 1x per dag - dat
-// is precies genoeg voor dit model en past binnen de gratis Vercel Hobby-cronlimiet.
+// afgelopen periodes afrekenen + rekening mailen, herinneren, en tijdsloten vrijgeven als
+// er niet binnen de vervaltermijn betaald is. Draait bewust maar 1x per dag - dat is precies
+// genoeg voor dit model en past binnen de gratis Vercel Hobby-cronlimiet.
+//
+// Achteraf betalen (besluit bestuur, okt 2026): pas na afloop van een periode van 4 weken
+// komt de rekening, voor de keren dat de band kwam (zie src/lib/billing.ts). Een opgezegde
+// vaste plek krijgt nog een laatste rekening tot en met bill_until.
 //
 // De *_sent_at-velden worden pas gezet nadat de mail echt verstuurd is. Mislukt een mail,
 // dan probeert de volgende run het gewoon opnieuw.
-// Periodes duren 4 weken en de coulance 7-21 dagen (instelbaar): met 10 dagen vooruit factureren komt
-// het volgende betaalverzoek pas nadat de coulance van de vorige periode voorbij is.
-const DAYS_BEFORE_DUE_TO_INVOICE = 10;
 const DAYS_AFTER_DUE_FOR_REMINDER = 7;
 const DAYS_BEFORE_GRACE_END_FOR_WARNING = 3;
+// Inhalen na een storing: hooguit zoveel periodes per band per run.
+const MAX_PERIODS_PER_RUN = 3;
 
 export async function GET(request: NextRequest) {
   const auth = request.headers.get("authorization");
@@ -36,14 +40,16 @@ export async function GET(request: NextRequest) {
 
   const today = todayStr();
 
-  const { data: activeSubscriptions } = await supabase
+  const { data: billable } = await supabase
     .from("subscriptions")
     .select("*")
-    .eq("status", "active");
+    .or("status.eq.active,and(status.eq.cancelled,bill_until.not.is.null)");
 
-  for (const subscription of (activeSubscriptions ?? []) as Subscription[]) {
-    await ensureNextPeriod(subscription, today);
+  const tariffs = await getTariffs();
+  for (const subscription of (billable ?? []) as Subscription[]) {
+    await settleFinishedPeriods(subscription, today, tariffs);
   }
+  await retryUnsentInvoices();
 
   await sendReminders(today);
   await sendGraceWarnings(today);
@@ -62,47 +68,76 @@ async function trySend(label: string, fn: () => Promise<unknown>): Promise<boole
   }
 }
 
-async function ensureNextPeriod(subscription: Subscription, today: string) {
-  const { data: latest } = await supabase
+async function settleFinishedPeriods(subscription: Subscription, today: string, tariffs: Tariffs) {
+  const billUntil = subscription.status === "active" ? null : subscription.bill_until;
+
+  for (let i = 0; i < MAX_PERIODS_PER_RUN; i++) {
+    const { data: latest } = await supabase
+      .from("subscription_payments")
+      .select("period_end")
+      .eq("subscription_id", subscription.id)
+      .order("period_start", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const period = nextBillingPeriod(subscription.start_date, latest?.period_end ?? null, billUntil);
+    if (!period || today <= period.end) return; // niets meer af te rekenen, of nog bezig
+
+    const { data: swaps } = await supabase
+      .from("subscription_swaps")
+      .select("original_date, new_date")
+      .eq("subscription_id", subscription.id)
+      .gte("original_date", period.start)
+      .lte("original_date", period.end);
+    const s = settle(subscription, swaps ?? [], period.start, period.end, tariffs);
+    const nothingToPay = s.amountCents === 0;
+
+    const { data: periodPayment, error } = await supabase
+      .from("subscription_payments")
+      .insert({
+        subscription_id: subscription.id,
+        period_start: period.start,
+        period_end: period.end,
+        amount_cents: s.amountCents,
+        sessions_held: s.held,
+        sessions_cancelled: s.cancelled,
+        session_price_cents: s.sessionPriceCents,
+        storage_cents: s.storageCents,
+        due_date: today,
+        grace_until: addDaysStr(today, await getGraceDays()),
+        status: nothingToPay ? "waived" : "unpaid",
+        admin_note: nothingToPay ? "Geen repetities in deze periode" : null,
+      })
+      .select()
+      .single();
+
+    // Geen rij terug = bestond al (unieke index op subscription_id + period_start).
+    if (error || !periodPayment) {
+      console.error(`[cron] periode ${subscription.band_name} ${period.start} niet opgeslagen:`, error);
+      return;
+    }
+    if (!nothingToPay) await sendInvoice(subscription, periodPayment as SubscriptionPayment);
+  }
+}
+
+// Rekeningen die eerder niet verstuurd konden worden: opnieuw proberen.
+async function retryUnsentInvoices() {
+  const { data: unsent } = await supabase
     .from("subscription_payments")
     .select("*")
-    .eq("subscription_id", subscription.id)
-    .order("period_start", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .eq("status", "unpaid")
+    .is("invoice_sent_at", null);
 
-  if (!latest) return; // zou niet moeten gebeuren - elke actieve subscription heeft een eerste periode
-
-  // Betaalverzoek dat eerder niet verstuurd kon worden: opnieuw proberen.
-  if (latest.status === "unpaid" && !latest.invoice_sent_at) {
-    await sendInvoice(subscription, latest as SubscriptionPayment);
+  for (const periodPayment of (unsent ?? []) as SubscriptionPayment[]) {
+    const subscription = await getSubscription(periodPayment.subscription_id);
+    if (subscription && isBillable(subscription)) await sendInvoice(subscription, periodPayment);
   }
+}
 
-  // Nooit een nieuwe periode klaarzetten zolang de vorige nog openstaat - die wordt óf
-  // alsnog betaald, óf de reservering vervalt na de coulance.
-  if (latest.status === "unpaid") return;
-
-  const nextStart = addDaysStr(latest.period_end, 1);
-  if (today < addDaysStr(nextStart, -DAYS_BEFORE_DUE_TO_INVOICE)) return; // nog te vroeg
-
-  const { data: periodPayment } = await supabase
-    .from("subscription_payments")
-    .insert({
-      subscription_id: subscription.id,
-      period_start: nextStart,
-      period_end: periodEndFor(nextStart),
-      amount_cents: subscription.price_cents,
-      due_date: nextStart,
-      grace_until: addDaysStr(nextStart, await getGraceDays()),
-      status: "unpaid",
-    })
-    .select()
-    .single();
-
-  // Geen rij terug = bestond al (unieke index op subscription_id + period_start).
-  if (!periodPayment) return;
-
-  await sendInvoice(subscription, periodPayment as SubscriptionPayment);
+// Een opgezegde vaste plek krijgt nog herinneringen voor de laatste rekening, maar vervalt
+// niet meer (er is geen vaste plek meer om vrij te geven).
+function isBillable(subscription: Subscription): boolean {
+  return subscription.status === "active" || (subscription.status === "cancelled" && !!subscription.bill_until);
 }
 
 async function sendInvoice(subscription: Subscription, periodPayment: SubscriptionPayment) {
@@ -128,7 +163,7 @@ async function sendReminders(today: string) {
 
   for (const periodPayment of (dueForReminder ?? []) as SubscriptionPayment[]) {
     const subscription = await getSubscription(periodPayment.subscription_id);
-    if (!subscription || subscription.status !== "active") continue;
+    if (!subscription || !isBillable(subscription)) continue;
 
     const bandEmails = await getActiveMemberEmails(subscription.band_name, subscription.contact_email);
     const sent = await trySend(`herinnering ${subscription.band_name}`, () =>

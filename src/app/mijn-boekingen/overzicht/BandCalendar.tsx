@@ -6,8 +6,8 @@ import { config } from "@/config";
 export type CalendarEntry = {
   date: string;
   dagdeelLabel: string;
-  kind: "booking" | "subscription" | "moved";
-  provisional?: boolean; // na de laatste betaalde periode: onder voorbehoud van betaling
+  kind: "booking" | "subscription" | "moved" | "cancelled";
+  provisional?: boolean; // er staat een rekening open: onder voorbehoud van betaling
   title: string; // tooltip, bv. "Vaste reservering (verplaatst van 7 okt)"
 };
 
@@ -24,6 +24,7 @@ const KIND_STYLE: Record<CalendarEntry["kind"], string> = {
   booking: "bg-green-100 text-green-800",
   subscription: "bg-blue-100 text-blue-800",
   moved: "bg-amber-100 text-amber-800",
+  cancelled: "bg-gray-100 text-gray-400 line-through",
 };
 
 // Maandoverzicht van alles wat de band gepland heeft (losse boekingen en de repetities
@@ -32,10 +33,12 @@ const KIND_STYLE: Record<CalendarEntry["kind"], string> = {
 export default function BandCalendar({
   entries,
   graceDays,
+  cancelDays,
   hasSubscription,
 }: {
   entries: CalendarEntry[];
   graceDays: number;
+  cancelDays: number;
   hasSubscription: boolean;
 }) {
   const today = new Date();
@@ -129,18 +132,25 @@ export default function BandCalendar({
         </span>
         {hasSubscription && (
           <span className="flex items-center gap-1">
+            <span className="w-3 h-3 rounded bg-gray-100 border border-gray-300 inline-block" />{" "}
+            geannuleerd
+          </span>
+        )}
+        {entries.some((e) => e.provisional) && (
+          <span className="flex items-center gap-1">
             <span className="w-3 h-3 rounded bg-blue-100 opacity-60 border border-dashed border-blue-800 inline-block" />{" "}
-            nog te betalen
+            onder voorbehoud (rekening staat open)
           </span>
         )}
       </div>
       {hasSubscription && (
         <p className="text-xs text-gray-600 mt-2">
-          Jullie vaste repetities staan een jaar vooruit ingepland. Ze blijven staan zolang elke
-          periode van {config.periodWeeks} weken op tijd betaald is. Is een betaling{" "}
-          {graceDays} dagen na de vervaldatum nog niet binnen, dan vervallen de komende
-          repetities en komt het dagdeel vrij voor andere bands. De planning loopt door; het
-          tarief per periode kan wijzigen.
+          Jullie vaste repetities staan een jaar vooruit ingepland. Jullie betalen achteraf: na
+          elke periode van {config.periodWeeks} weken komt een rekening voor de keren dat jullie
+          kwamen. Annuleren kan tot {cancelDays} dagen van tevoren, dan betalen jullie die keer
+          niet. Is een rekening {graceDays} dagen na verzending nog niet betaald, dan vervallen
+          de komende repetities en komt het dagdeel vrij voor andere bands. Het tarief kan
+          wijzigen.
         </p>
       )}
     </div>

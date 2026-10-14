@@ -1,13 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getGraceDays } from "@/lib/paymentTerms";
 import { getTariffs, subscriptionPrice } from "@/lib/tariffs";
 import { supabase } from "@/lib/supabase";
-import { mollie } from "@/lib/mollie";
 import { config } from "@/config";
 import { expireStalePendingSubscriptions } from "@/lib/expire";
-import { addDaysStr } from "@/lib/periods";
 import { findSubscriptionConflict } from "@/lib/slots";
-import { periodEndFor, weekdayOf } from "@/lib/schedule";
+import { weekdayOf } from "@/lib/schedule";
+import { getActiveMemberEmails } from "@/lib/members";
+import {
+  sendSafely,
+  sendSubscriptionConfirmationEmail,
+  sendSubscriptionNotificationToOrg,
+} from "@/lib/email";
 import { checkStartDate, conflictMessage, parseSubscriptionInput } from "@/lib/subscriptionRequest";
 import { getFreeStorageUnits, getOccupiedStorageUnits } from "@/lib/storage";
 
@@ -85,7 +88,11 @@ export async function POST(request: NextRequest) {
       start_date: startDate,
       price_cents: priceCents,
       storage_unit: storageUnit,
-      status: "pending_first_payment",
+      // Achteraf betalen: de vaste plek is meteen actief, de eerste rekening komt na de
+      // eerste periode van 4 weken (cron /api/cron/subscriptions). Alleen leden kunnen
+      // aanvragen (hierboven gecontroleerd).
+      status: "active",
+      term_start_date: startDate,
     })
     .select()
     .single();
@@ -117,63 +124,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: conflictMessage(raced) }, { status: 409 });
   }
 
-  // Eerste betaalperiode = de eerste 4 weken vanaf de startdatum; die wordt nu meteen
-  // betaald. Volgende periodes zet de dagelijkse cron klaar (zie /api/cron/subscriptions).
-  const dueDate = startDate;
-  const graceUntil = addDaysStr(dueDate, await getGraceDays());
-
-  const { data: periodPayment, error: periodError } = await supabase
-    .from("subscription_payments")
-    .insert({
-      subscription_id: subscription.id,
-      period_start: startDate,
-      period_end: periodEndFor(startDate),
-      amount_cents: priceCents,
-      due_date: dueDate,
-      grace_until: graceUntil,
-      status: "unpaid",
-    })
-    .select()
-    .single();
-
-  if (periodError || !periodPayment) {
-    await supabase.from("subscriptions").delete().eq("id", subscription.id);
-    return NextResponse.json(
-      { error: "Er ging iets mis bij het aanmaken van de vaste reservering" },
-      { status: 500 }
-    );
-  }
-
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL!;
-  const priceStr = (priceCents / 100).toFixed(2);
-
-  try {
-    // Gewone eenmalige betaling, geen mandaat/incasso meer - dus ook gewoon weer
-    // iDEAL en andere methodes beschikbaar, niet alleen creditcard.
-    const payment = (await mollie.payments.create({
-      amount: { currency: config.currency, value: priceStr },
-      description: `${config.roomName} - vaste reservering ${bandName} - vanaf ${startDate}`,
-      redirectUrl: `${appUrl}/subscription/success?id=${subscription.id}`,
-      webhookUrl: `${appUrl}/api/webhooks/mollie-subscription`,
-      metadata: { subscriptionId: subscription.id, periodPaymentId: periodPayment.id },
-    })) as { id: string; getCheckoutUrl: () => string | null };
-
-    await supabase
-      .from("subscription_payments")
-      .update({ mollie_payment_id: payment.id })
-      .eq("id", periodPayment.id);
-
-    return NextResponse.json({ checkoutUrl: payment.getCheckoutUrl() });
-  } catch (err) {
-    console.error("Mollie subscription first payment creation failed:", err);
-    // Betaling kon niet gestart worden - laat het weekdag+dagdeel niet als bezet achter.
-    // Eerst de periode verwijderen, anders blokkeert de foreign key het verwijderen
-    // van de subscription.
-    await supabase.from("subscription_payments").delete().eq("id", periodPayment.id);
-    await supabase.from("subscriptions").delete().eq("id", subscription.id);
-    return NextResponse.json(
-      { error: "Kon de betaling niet starten, probeer het later opnieuw" },
-      { status: 500 }
-    );
-  }
+  const bandEmails = await getActiveMemberEmails(subscription.band_name, subscription.contact_email);
+  await sendSafely("bevestiging vaste reservering", () =>
+    sendSubscriptionConfirmationEmail(subscription, bandEmails)
+  );
+  await sendSafely("melding vaste reservering bestuur", () =>
+    sendSubscriptionNotificationToOrg(subscription)
+  );
+  return NextResponse.json({ subscriptionId: subscription.id });
 }
