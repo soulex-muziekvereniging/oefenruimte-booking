@@ -270,8 +270,67 @@ export default function Home() {
         </section>
 
         <div className="max-w-5xl mx-auto px-4 py-8 sm:py-12">
-          <h2 className="text-2xl font-bold text-ink font-[family-name:var(--font-slab)]">
-            Hoe wil je repeteren?
+          {/* Eerst kiezen wie je bent: band met vaste plek, lid dat wil boeken, of nog geen lid. */}
+          <h2 className="text-2xl font-bold text-ink font-[family-name:var(--font-slab)] mb-4">
+            Wat wil je doen?
+          </h2>
+          <div className="grid gap-3 md:gap-0 md:grid-cols-3 md:bg-white md:rounded-2xl md:border md:border-gray-200 md:divide-x md:divide-gray-200 md:overflow-hidden">
+            {[
+              {
+                title: "Ik heb een vaste plek",
+                text: "Bekijk jullie planning, verzet een repetitie of betaal de volgende periode.",
+                action: (
+                  <a
+                    href="/mijn-boekingen"
+                    className="block w-full text-center py-2.5 bg-blue-600 border-2 border-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 hover:border-blue-700"
+                  >
+                    Naar Mijn boekingen
+                  </a>
+                ),
+              },
+              {
+                title: "Ik ben lid en wil boeken",
+                text: "Boek een los dagdeel, of vraag een vaste plek aan: elke week of om de week.",
+                action: (
+                  <a
+                    href="#boeken"
+                    className="block w-full text-center py-2.5 bg-white border-2 border-blue-600 text-blue-700 rounded-lg font-medium hover:bg-blue-50"
+                  >
+                    Bekijk de mogelijkheden
+                  </a>
+                ),
+              },
+              {
+                title: "Ik ben nog geen lid",
+                text: `De oefenruimte is voor leden van ${config.organizationName}. Vraag toegang aan; daarna regel je contract en borg met het bestuur.`,
+                action: (
+                  <button
+                    onClick={() => setMode("join")}
+                    className="w-full py-2.5 bg-white border-2 border-blue-600 text-blue-700 rounded-lg font-medium hover:bg-blue-50"
+                  >
+                    Lid worden
+                  </button>
+                ),
+              },
+            ].map((o) => (
+              <div
+                key={o.title}
+                className="bg-white rounded-2xl border border-gray-200 md:border-0 md:rounded-none p-5 sm:p-6 flex flex-col"
+              >
+                <h3 className="text-lg font-semibold font-[family-name:var(--font-slab)] text-blue-900">
+                  {o.title}
+                </h3>
+                <p className="text-sm text-gray-600 mt-1 mb-4">{o.text}</p>
+                <div className="mt-auto">{o.action}</div>
+              </div>
+            ))}
+          </div>
+
+          <h2
+            id="boeken"
+            className="mt-12 scroll-mt-28 text-2xl font-bold text-ink font-[family-name:var(--font-slab)]"
+          >
+            Boeken (voor leden)
           </h2>
           <p className="mt-1 mb-5 text-sm text-ink-muted">
             Alleen voor leden van {config.organizationName}.{" "}
