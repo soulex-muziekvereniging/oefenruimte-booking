@@ -42,7 +42,7 @@ export default function RootLayout({
                 className="shrink-0"
               />
               <span className="min-w-0">
-                <span className="block text-lg sm:text-xl font-bold text-blue-600 leading-tight font-[family-name:var(--font-slab)]">
+                <span className="block text-base sm:text-xl font-bold text-blue-600 leading-tight font-[family-name:var(--font-slab)]">
                   Soulex Oefenruimte
                 </span>
                 <span className="block text-xs text-gray-500 truncate">
@@ -51,7 +51,7 @@ export default function RootLayout({
               </span>
             </a>
             {/* Navigatie: rustige links (de opvallende keuzes staan op de startpagina zelf). */}
-            <nav aria-label="Hoofdmenu" className="shrink-0 flex items-center gap-4 sm:gap-6 text-sm font-medium">
+            <nav aria-label="Hoofdmenu" className="shrink-0 flex items-center gap-3 sm:gap-6 text-sm font-medium">
               <a
                 href="/handleiding"
                 className="inline-flex items-center gap-1.5 text-blue-700 hover:text-blue-900 hover:underline underline-offset-4"
@@ -60,7 +60,8 @@ export default function RootLayout({
                   <circle cx="12" cy="12" r="9" />
                   <path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14M12 17h.01" />
                 </svg>
-                Hulp
+                {/* Op de telefoon alleen het icoontje, zodat de titel op één regel past */}
+                <span className="sr-only sm:not-sr-only">Hulp</span>
               </a>
               <a
                 href="/mijn-boekingen"
