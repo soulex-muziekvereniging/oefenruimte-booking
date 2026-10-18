@@ -50,25 +50,29 @@ export default function RootLayout({
                 </span>
               </span>
             </a>
-            <a
-              href="/mijn-boekingen"
-              className="shrink-0 inline-flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-soulex-orange"
-            >
-              <svg
-                aria-hidden="true"
-                viewBox="0 0 24 24"
-                className="hidden sm:block w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
+            {/* Navigatie: rustige links (de opvallende keuzes staan op de startpagina zelf). */}
+            <nav aria-label="Hoofdmenu" className="shrink-0 flex items-center gap-4 sm:gap-6 text-sm font-medium">
+              <a
+                href="/handleiding"
+                className="inline-flex items-center gap-1.5 text-blue-700 hover:text-blue-900 hover:underline underline-offset-4"
               >
-                <rect x="3" y="5" width="18" height="16" rx="2" />
-                <path d="M3 10h18M8 3v4M16 3v4" />
-              </svg>
-              Mijn boekingen
-            </a>
+                <svg aria-hidden="true" viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="9" />
+                  <path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14M12 17h.01" />
+                </svg>
+                Hulp
+              </a>
+              <a
+                href="/mijn-boekingen"
+                className="inline-flex items-center gap-1.5 text-blue-700 hover:text-blue-900 hover:underline underline-offset-4"
+              >
+                <svg aria-hidden="true" viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="5" width="18" height="16" rx="2" />
+                  <path d="M3 10h18M8 3v4M16 3v4" />
+                </svg>
+                Mijn boekingen
+              </a>
+            </nav>
           </div>
         </header>
         <main className="flex-1">{children}</main>
