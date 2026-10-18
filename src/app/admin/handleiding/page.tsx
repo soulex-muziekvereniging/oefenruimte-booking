@@ -86,11 +86,6 @@ export default async function BeheerHandleidingPage() {
         </p>
       </div>
 
-      <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-sm">
-        <strong>Concept.</strong> Bijgewerkt voor achteraf betalen (oktober 2026); een paar
-        schermafbeeldingen worden nog vervangen.
-      </div>
-
       <nav aria-label="Inhoud" className="bg-white rounded-2xl border border-gray-200 p-5">
         <p className="font-semibold text-blue-900 mb-2">Inhoud</p>
         <ol className="grid sm:grid-cols-2 gap-x-6 gap-y-1 text-sm list-decimal pl-5">
