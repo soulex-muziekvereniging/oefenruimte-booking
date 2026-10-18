@@ -1,5 +1,5 @@
 import { Resend } from "resend";
-import { getOrgRecipients } from "./notifications";
+import { getJoinRequestRecipients, getOrgRecipients } from "./notifications";
 import { formatRhythm } from "./schedule";
 import { getPaymentTerms } from "./paymentTerms";
 import { sessionPriceCents } from "./billing";
@@ -425,7 +425,7 @@ export async function sendMembershipRequestNotificationToOrg(
 ) {
   await send({
     from: `${config.organizationName} <${config.senderEmail}>`,
-    to: await getOrgRecipients(),
+    to: await getJoinRequestRecipients(),
     subject: `Nieuw lidmaatschapsverzoek: ${request.band_name}`,
     html: `
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">

@@ -216,8 +216,9 @@ export default async function BeheerHandleidingPage() {
 
       <Section id="aanvragen" title="Aanvragen (nieuwe leden)" shot={{ src: "a07-aanvragen.png", alt: "Lidmaatschapsverzoeken" }}>
         <p>
-          Bands die nog geen lid zijn, vragen toegang aan via de site. Je krijgt daar een melding
-          van, en bij de tab staat een rood getal.
+          Bands die nog geen lid zijn, vragen toegang aan via de site. De adressen onder
+          Instellingen &gt; <em>Aanvragen lidmaatschap</em> krijgen daar een mail van, en bij de
+          tab staat een rood getal.
         </p>
         <ul className="list-disc pl-5 space-y-1.5">
           <li>
@@ -324,7 +325,11 @@ export default async function BeheerHandleidingPage() {
           </li>
           <li><strong>Boekjaar</strong>: in welke maand het boekjaar begint.</li>
           <li><strong>WhatsApp-berichten</strong>: de tekst die klaarstaat bij de WhatsApp-knoppen.</li>
-          <li><strong>Meldingen</strong>: wie de mails voor het bestuur krijgt (nieuwe boekingen, opzeggingen, aanvragen).</li>
+          <li><strong>Meldingen</strong>: wie de mails voor het bestuur krijgt (nieuwe boekingen, opzeggingen, verplaatsingen).</li>
+          <li>
+            <strong>Aanvragen lidmaatschap</strong>: wie de mail krijgt als iemand op <em>Lid worden</em>{" "}
+            klikt. Leeg? Dan gaan de aanvragen naar de adressen bij Meldingen.
+          </li>
           <li><strong>Beheerders</strong>: wie er mag inloggen op het beheer.</li>
         </ul>
       </Section>

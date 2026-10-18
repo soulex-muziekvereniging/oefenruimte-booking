@@ -16,14 +16,17 @@ export default function AdminSettings() {
   const [admins, setAdmins] = useState<AdminUser[]>([]);
   const [loadError, setLoadError] = useState("");
   const [newRecipient, setNewRecipient] = useState("");
+  const [joinRecipients, setJoinRecipients] = useState<string[]>([]);
+  const [newJoinRecipient, setNewJoinRecipient] = useState("");
   const [newAdmin, setNewAdmin] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
   async function load() {
-    const [r, a] = await Promise.all([
+    const [r, a, j] = await Promise.all([
       fetch("/api/admin/notification-recipients"),
       fetch("/api/admin/admin-users"),
+      fetch("/api/admin/join-request-recipients"),
     ]);
     if (r.status === 401 || a.status === 401) {
       window.location.href = "/admin/login";
@@ -34,6 +37,7 @@ export default function AdminSettings() {
     setLoadError(!r.ok ? rData.error || "Kon meldingen niet laden" : !a.ok ? aData.error || "Kon beheerders niet laden" : "");
     if (r.ok) setRecipients(rData);
     if (a.ok) setAdmins(aData);
+    if (j.ok) setJoinRecipients((await j.json().catch(() => ({}))).emails ?? []);
   }
 
   useEffect(() => {
@@ -91,8 +95,8 @@ export default function AdminSettings() {
         <h2 className="text-lg font-bold mb-1">Meldingen</h2>
         <p className="text-sm text-gray-600 mb-4">
           Deze adressen krijgen een mail bij elke nieuwe boeking of vaste reservering,
-          bij opzeggingen en verplaatsingen, bij lidmaatschapsverzoeken en als er actie nodig
-          is. Bands krijgen hun eigen bevestigingen los hiervan.
+          bij opzeggingen en verplaatsingen en als er actie nodig is. Bands krijgen hun eigen
+          bevestigingen los hiervan.
         </p>
         <ul className="divide-y divide-gray-100 mb-4">
           {recipients.map((r) => (
@@ -128,6 +132,68 @@ export default function AdminSettings() {
             placeholder="naam@voorbeeld.nl"
             value={newRecipient}
             onChange={(e) => setNewRecipient(e.target.value)}
+            className={inputClass}
+          />
+          <button type="submit" disabled={busy} className={addButton}>
+            Toevoegen
+          </button>
+        </form>
+      </section>
+
+      <section className="bg-white rounded-lg border border-gray-200 p-4 sm:p-5">
+        <h2 className="text-lg font-bold mb-1">Aanvragen lidmaatschap</h2>
+        <p className="text-sm text-gray-600 mb-4">
+          Deze adressen krijgen een mail als iemand via &ldquo;Lid worden&rdquo; een aanvraag
+          doet. Staat hier niets, dan gaan de aanvragen naar de adressen bij Meldingen.
+        </p>
+        {joinRecipients.length === 0 ? (
+          <p className="text-sm text-gray-500 italic mb-4">
+            Nog geen eigen adressen: aanvragen gaan naar de lijst bij Meldingen.
+          </p>
+        ) : (
+          <ul className="divide-y divide-gray-100 mb-4">
+            {joinRecipients.map((email) => (
+              <li key={email} className="flex items-center justify-between gap-3 py-2 text-sm">
+                <span className="truncate">{email}</span>
+                <button
+                  disabled={busy}
+                  onClick={() => {
+                    const rest =
+                      joinRecipients.length <= 1
+                        ? " Aanvragen gaan dan naar de adressen bij Meldingen."
+                        : "";
+                    if (confirm(`${email} krijgt dan geen aanvragen meer.${rest} Doorgaan?`)) {
+                      call("/api/admin/join-request-recipients", "POST", { email, action: "remove" });
+                    }
+                  }}
+                  className={removeButton}
+                >
+                  Verwijderen
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        <form
+          className="flex gap-2"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            if (
+              await call("/api/admin/join-request-recipients", "POST", {
+                email: newJoinRecipient,
+                action: "add",
+              })
+            ) {
+              setNewJoinRecipient("");
+            }
+          }}
+        >
+          <input
+            type="email"
+            required
+            placeholder="naam@voorbeeld.nl"
+            value={newJoinRecipient}
+            onChange={(e) => setNewJoinRecipient(e.target.value)}
             className={inputClass}
           />
           <button type="submit" disabled={busy} className={addButton}>
