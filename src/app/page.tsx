@@ -333,13 +333,7 @@ export default function Home() {
             Boeken (voor leden)
           </h2>
           <p className="mt-1 mb-5 text-sm text-ink-muted">
-            Alleen voor leden van {config.organizationName}.{" "}
-            <button
-              onClick={() => setMode("join")}
-              className="text-ink underline underline-offset-2 hover:text-white"
-            >
-              Nog geen lid? Vraag toegang aan
-            </button>
+            Alleen voor leden van {config.organizationName}.
           </p>
 
           {/* Twee kolommen met dezelfde opbouw (kop, uitleg, kaartje met prijs en knop). Via
@@ -347,14 +341,21 @@ export default function Home() {
               staan, ook als de uitleg links langer is. */}
           <div className="grid gap-4 md:gap-0 md:grid-cols-[2fr_1fr] md:grid-rows-[auto_auto_1fr] md:bg-white md:rounded-2xl md:border md:border-gray-200 md:overflow-hidden">
             <div className="bg-blue-50 rounded-2xl md:rounded-none border border-blue-100 md:border-0 p-5 sm:p-6 md:grid md:grid-rows-subgrid md:row-span-3">
-              <h3 className="text-lg font-semibold font-[family-name:var(--font-slab)] text-blue-900">
-                Vaste plek
-              </h3>
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                <h3 className="text-lg font-semibold font-[family-name:var(--font-slab)] text-blue-900">
+                  Vaste plek
+                </h3>
+                {saving > 0 && (
+                  <span className="inline-block px-2.5 py-0.5 rounded-full bg-orange-100 text-orange-800 text-xs font-semibold">
+                    {euroShort(saving)} goedkoper per keer
+                  </span>
+                )}
+              </div>
               <p className="text-sm text-gray-700 mt-1">
                 Steeds hetzelfde dagdeel, het hele jaar door. Je betaalt achteraf per{" "}
                 {config.periodWeeks} weken, alleen voor de keren dat je kwam. Er wordt niets
                 automatisch afgeschreven.
-                {saving > 0 && <> Per keer {euroShort(saving)} goedkoper dan los.</>}
+
               </p>
               <div className="grid sm:grid-cols-2 gap-3 mt-4">
                 {fixedOptions.map((o) => (
