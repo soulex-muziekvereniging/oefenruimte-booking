@@ -3,13 +3,11 @@ import Image from "next/image";
 import Link from "next/link";
 import { config } from "@/config";
 
-// Handleiding voor bandleden. CONCEPT: de screenshots moeten nog bijgewerkt worden voor
-// achteraf betalen (knop Annuleren, lopende periode). Tot die tijd niet gelinkt en niet
-// vindbaar voor zoekmachines. Screenshots: public/handleiding (telefoonformaat, met een
-// verzonnen voorbeeldband).
+// Handleiding voor bandleden, gelinkt als "Hulp" in de kopbalk. Screenshots:
+// public/handleiding (telefoonformaat, live site, "Mijn boekingen" met een verzonnen
+// voorbeeldband zodat er geen echte leden in beeld komen).
 export const metadata: Metadata = {
   title: "Handleiding | Soulex Oefenruimte",
-  robots: { index: false, follow: false },
 };
 
 const dagdeelText = config.dagdelen
@@ -81,11 +79,6 @@ export default function HandleidingPage() {
         <p className="mt-2 text-ink-muted">
           Zo boek en beheer je de oefenruimte van {config.organizationName} via deze site.
         </p>
-      </div>
-
-      <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-sm">
-        <strong>Concept.</strong> De tekst klopt met hoe de site nu werkt; een paar
-        schermafbeeldingen worden nog bijgewerkt.
       </div>
 
       <nav aria-label="Inhoud" className="bg-white rounded-2xl border border-gray-200 p-5">
