@@ -31,3 +31,11 @@
 main:has(> .admin-shell) {
   background-color: var(--color-gray-50);
 }
+
+/* Links binnen de pagina (bv. "Bekijk de mogelijkheden") glijden zichtbaar naar hun doel,
+   zodat je ziet dat je op dezelfde pagina blijft. Niet bij "minder beweging" in het systeem. */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}

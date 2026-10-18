@@ -28,7 +28,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="nl" className={`${geist.variable} ${slab.variable} h-full`}>
+    <html lang="nl" data-scroll-behavior="smooth" className={`${geist.variable} ${slab.variable} h-full`}>
       <body className="min-h-full flex flex-col bg-page text-gray-900 font-[family-name:var(--font-geist)]">
         <header className="sticky top-0 z-40 bg-white border-b-4 border-soulex-orange shadow-sm">
           <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
