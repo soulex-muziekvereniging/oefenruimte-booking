@@ -7,6 +7,8 @@ import AdminSettings from "./AdminSettings";
 import ZalenplannerTab from "./ZalenplannerTab";
 import PaymentsTab from "./PaymentsTab";
 import MembersImportExport from "./MembersImportExport";
+import KeysTab from "./KeysTab";
+import type { AccessKey } from "@/lib/keys";
 import AdminRepetitionActions from "./AdminRepetitionActions";
 import { formatRhythm, occursOn } from "@/lib/schedule";
 import { whatsappLink } from "@/lib/whatsapp";
@@ -133,7 +135,7 @@ export default function AdminPage() {
   const [authChecked, setAuthChecked] = useState(false);
   const [loggedIn, setLoggedIn] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
-  const [view, setView] = useState<"bookings" | "members" | "subscriptions" | "payments" | "requests" | "planner" | "settings">(
+  const [view, setView] = useState<"bookings" | "members" | "subscriptions" | "keys" | "payments" | "requests" | "planner" | "settings">(
     "bookings"
   );
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -161,6 +163,8 @@ export default function AdminPage() {
   const [showInactiveSubscriptions, setShowInactiveSubscriptions] = useState(false);
   const [deletingSubscriptions, setDeletingSubscriptions] = useState(false);
   const [swaps, setSwaps] = useState<SubscriptionSwap[]>([]);
+  // Sleutels, om bij elke band te tonen welke sleutel ze hebben (tab Sleutels beheert ze).
+  const [accessKeys, setAccessKeys] = useState<AccessKey[]>([]);
 
   const [requests, setRequests] = useState<MembershipRequest[]>([]);
   const [requestsLoading, setRequestsLoading] = useState(false);
@@ -211,6 +215,29 @@ export default function AdminPage() {
       .then((data) => data && setWaTemplates(data))
       .catch(() => {});
   }, [loggedIn, view]);
+
+  // Sleutels bij elke tabwissel verversen (klein lijstje), zodat de banden in Leden en
+  // Abonnementen tonen welke sleutel ze hebben. Vóór migratie 020 blijft dit gewoon leeg.
+  useEffect(() => {
+    if (!loggedIn) return;
+    fetch("/api/admin/keys")
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data: AccessKey[]) => setAccessKeys(Array.isArray(data) ? data : []))
+      .catch(() => {});
+  }, [loggedIn, view]);
+
+  async function fetchKeys() {
+    const res = await fetch("/api/admin/keys");
+    if (res.ok) setAccessKeys(await res.json());
+  }
+
+  // " · 🔑 10, 14" voor de uitgegeven sleutels van deze band (of leeg).
+  function keysLabel(bandName: string): string {
+    const numbers = accessKeys
+      .filter((k) => k.status === "uitgegeven" && k.holder?.toLowerCase() === bandName.toLowerCase())
+      .map((k) => k.key_number);
+    return numbers.length > 0 ? ` · 🔑 ${numbers.join(", ")}` : "";
+  }
 
   function openCalDetail(detail: NonNullable<typeof calDetail>) {
     setCalDetail(detail);
@@ -756,6 +783,7 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
           onClick={() => {
             setView("members");
             if (members.length === 0) fetchMembers();
+            if (subscriptions.length === 0) fetchSubscriptions();
           }}
           className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px whitespace-nowrap ${
             view === "members"
@@ -777,6 +805,19 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
           }`}
         >
           Abonnementen
+        </button>
+        <button
+          onClick={() => {
+            setView("keys");
+            if (members.length === 0) fetchMembers();
+          }}
+          className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px whitespace-nowrap ${
+            view === "keys"
+              ? "border-blue-600 text-blue-600"
+              : "border-transparent text-gray-500 hover:text-gray-700"
+          }`}
+        >
+          Sleutels
         </button>
         <button
           onClick={() => setView("payments")}
@@ -832,6 +873,8 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
         <AdminSettings />
       ) : view === "planner" ? (
         <ZalenplannerTab />
+      ) : view === "keys" ? (
+        <KeysTab onChanged={fetchKeys} />
       ) : view === "payments" ? (
         <PaymentsTab />
       ) : view === "requests" ? (
@@ -1084,14 +1127,17 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
               {subscriptions
                 .filter((s) => showInactiveSubscriptions || !isInactiveSubscription(s))
                 .map((subscription) => (
-                <div
+                <details
                   key={subscription.id}
-                  className="bg-white rounded-lg border border-gray-200 p-4 sm:p-5"
+                  className="group bg-white rounded-lg border border-gray-200"
                 >
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h3 className="font-semibold text-lg truncate">
+                  <summary className="flex items-start gap-2 p-4 sm:px-5 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+                    <span className="mt-1 text-gray-400 transition-transform group-open:rotate-90" aria-hidden>
+                      ▸
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <h3 className="font-semibold text-lg truncate min-w-0">
                           {subscription.band_name}
                         </h3>
                         <span
@@ -1115,7 +1161,23 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
                                   ? `Opgezegd · slot nog tot ${formatShortDate(subscription.active_until)}`
                                   : "Opgezegd"}
                         </span>
+                        {subscription.status === "active" &&
+                          subscription.currentPeriod?.status === "unpaid" && (
+                            <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 shrink-0">
+                              Rekening open
+                            </span>
+                          )}
                       </div>
+                      <p className="text-sm text-gray-600 truncate">
+                        {formatRhythmLabel(subscription)}
+                        {subscription.storage_unit ? ` · opslag ${subscription.storage_unit}` : ""}
+                        {keysLabel(subscription.band_name)}
+                      </p>
+                    </div>
+                  </summary>
+                  <div className="px-4 pb-4 sm:px-5 pt-3 border-t border-gray-100">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div className="min-w-0">
                       <p className="text-sm text-gray-700">
                         {formatRhythmLabel(subscription)} · sinds{" "}
                         {formatShortDate(subscription.start_date)} ·{" "}
@@ -1289,7 +1351,8 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
                       )}
                     </div>
                   </div>
-                </div>
+                  </div>
+                </details>
               ))}
             </div>
           )}
@@ -1374,18 +1437,42 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
               )
                 .sort(([a], [b]) => a.localeCompare(b))
                 .map(([bandName, bandMembers]) => (
-                  <div
+                  <details
                     key={bandName}
-                    className="bg-white rounded-lg border border-gray-200 p-3 sm:p-4"
+                    className="group bg-white rounded-lg border border-gray-200"
                   >
-                    <p className="font-medium mb-2">
-                      {bandName}
-                      {!bandMembers.some((m) => m.phone) && (
-                        <span className="ml-2 text-xs font-normal text-amber-700">
-                          ⚠ nog geen telefoonnummer
-                        </span>
-                      )}
-                    </p>
+                    <summary className="flex items-start gap-2 p-3 sm:p-4 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+                      <span className="mt-0.5 text-gray-400 transition-transform group-open:rotate-90" aria-hidden>
+                        ▸
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium">
+                          {bandName}
+                          {!bandMembers.some((m) => m.active) && (
+                            <span className="ml-2 inline-block px-2 py-0.5 rounded-full text-xs font-normal bg-gray-100 text-gray-500">
+                              inactief
+                            </span>
+                          )}
+                          {!bandMembers.some((m) => m.phone) && (
+                            <span className="ml-2 text-xs font-normal text-amber-700">
+                              ⚠ nog geen telefoonnummer
+                            </span>
+                          )}
+                        </p>
+                        <p className="text-sm text-gray-500 truncate">
+                          {bandMembers.length === 1 ? "1 adres" : `${bandMembers.length} adressen`}
+                          {subscriptions.some(
+                            (sub) =>
+                              sub.status === "active" &&
+                              sub.band_name.toLowerCase() === bandName.toLowerCase()
+                          )
+                            ? " · vaste plek"
+                            : ""}
+                          {keysLabel(bandName)}
+                        </p>
+                      </div>
+                    </summary>
+                    <div className="px-3 pb-3 sm:px-4 sm:pb-4 pt-3 border-t border-gray-100">
                     <div className="space-y-2 mb-3">
                       {bandMembers.map((member) => (
                         <div
@@ -1510,7 +1597,8 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
                         {addingEmailFor === bandName ? "Toevoegen..." : "Toevoegen"}
                       </button>
                     </div>
-                  </div>
+                    </div>
+                  </details>
                 ))}
             </div>
           )}

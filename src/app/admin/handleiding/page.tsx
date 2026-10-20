@@ -60,6 +60,7 @@ const toc = [
   ["leden", "Leden"],
   ["aanvragen", "Aanvragen (nieuwe leden)"],
   ["abonnementen", "Abonnementen (vaste plekken)"],
+  ["sleutels", "Sleutels"],
   ["betalingen", "Betalingen"],
   ["zalenplanner", "Zalenplanner De Borgh"],
   ["instellingen", "Instellingen"],
@@ -184,7 +185,9 @@ export default async function BeheerHandleidingPage() {
         <p>
           Dit is de lijst van <strong>wie de oefenruimte mag boeken</strong>, niet de
           ledenadministratie van de hele vereniging. Alleen e-mailadressen op deze lijst kunnen
-          boeken en Mijn boekingen gebruiken. Per band zie je de bandleden met hun telefoonnummer.
+          boeken en Mijn boekingen gebruiken. Elke band staat op één regel (met het aantal adressen,
+          of ze een vaste plek hebben en welke sleutel ze hebben); tik erop om de bandleden met
+          hun telefoonnummer te zien en aan te passen.
         </p>
         <ul className="list-disc pl-5 space-y-1.5">
           <li>
@@ -234,7 +237,11 @@ export default async function BeheerHandleidingPage() {
         title="Abonnementen (vaste plekken)"
         shot={{ src: "a05-abonnementen.png", alt: "Overzicht van de vaste reserveringen" }}
       >
-        <p>Alle vaste reserveringen, met per band het ritme, de contactpersoon en de betaalstatus.</p>
+        <p>
+          Alle vaste reserveringen. Elke band staat op één regel met het ritme, de opslag, de
+          sleutel en een melding als er een rekening openstaat; tik erop voor de contactpersoon,
+          de betaalstatus en de knoppen.
+        </p>
         <ul className="list-disc pl-5 space-y-1.5">
           <li>
             <strong>Laatste rekening</strong>: betaald, of open met het aantal keren en de uiterste
@@ -256,6 +263,33 @@ export default async function BeheerHandleidingPage() {
           <li>
             <em>Toon opgezegde/vervallen</em> laat ook gestopte reserveringen zien; die kun je daar
             eventueel definitief verwijderen.
+          </li>
+        </ul>
+      </Section>
+
+      <Section id="sleutels" title="Sleutels">
+        <p>
+          Het overzicht van alle sleutels en alarmtags: bij wie ze zijn, welke nog niet zijn
+          uitgegeven en welke verloren of geblokkeerd zijn. Alleen beheerders zien dit.
+        </p>
+        <ul className="list-disc pl-5 space-y-1.5">
+          <li>
+            <strong>+ Sleutel</strong> voegt een sleutel toe; <em>wijzig</em> past aan bij wie hij is,
+            de status, de alarmtag of de opmerking.
+          </li>
+          <li>
+            Vul bij <em>Bij</em> de <strong>bandnaam uit de ledenlijst</strong> in (de site stelt ze
+            voor). Dan staat het sleutelnummer ook bij die band in Leden en Abonnementen, en zie je
+            een waarschuwing als de band geen actief lid meer is: sleutel terug?
+          </li>
+          <li>
+            Sleutels van Soulex zelf noteer je met vrije tekst, bijvoorbeeld &quot;Soulex
+            (Kimberly)&quot;. Een sleutel die nog niet uitgegeven is, zet je op{" "}
+            <em>Niet uitgegeven</em> met in de opmerking waar hij ligt.
+          </li>
+          <li>
+            Kwijt? Zet de sleutel op <em>Verloren / geblokkeerd</em> in plaats van hem te
+            verwijderen, dan blijft zichtbaar welke tag geblokkeerd is.
           </li>
         </ul>
       </Section>

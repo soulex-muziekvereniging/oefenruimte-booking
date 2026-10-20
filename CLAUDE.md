@@ -41,7 +41,9 @@ aangesproken.
   periode van 4 weken, altijd het volle bedrag.
 - **Alleen leden** kunnen boeken. Nieuwe bands tekenen eerst een contract en betalen borg
   (buiten het systeem); pas daarna keurt beheer de aanvraag goed. Sleutels zijn fysiek
-  geregeld, niet in de software.
+  geregeld; beheer houdt alleen een overzicht bij (tab Sleutels, tabel `keys`, migratie 020,
+  `holder` = bandnaam uit de ledenlijst of vrije tekst). Sleutel- en alarmtagnummers nooit in
+  de repo zetten (ook niet in migraties of voorbeelddata).
 - Te laat afzeggen of niet komen bij een vaste plek wordt gewoon gerekend. Bouw geen andere
   verrekening zonder besluit van het bestuur.
 

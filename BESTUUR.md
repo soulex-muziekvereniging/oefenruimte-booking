@@ -93,6 +93,15 @@ geaccepteerd als het e-mailadres op de ledenlijst staat. **Een bestuurslid behee
 handmatig** in het admin-scherm (lid toevoegen zodra iemand betaald heeft, uitzetten als het
 lidmaatschap niet verlengd wordt).
 
+## Sleutels en alarmtags
+
+In het beheer staat onder **Sleutels** wie welke sleutel en alarmtag heeft, welke nog niet
+uitgegeven zijn (en waar ze liggen) en welke verloren/geblokkeerd zijn. Gebruik bij "Bij" de
+bandnaam uit de ledenlijst: dan staat het sleutelnummer ook bij die band (Leden en
+Abonnementen), en waarschuwt het overzicht als een band geen actief lid meer is. De sleutels
+zelf, de borg en het blokkeren van een tag blijven fysiek geregeld; dit is alleen het
+overzicht. Bands zien het nooit.
+
 ## Wat bewust BUITEN het systeem blijft (voorlopig)
 
 Deze twee dingen zijn methodisch werk die per band maar 1x per situatie voorkomt en daarom nog
