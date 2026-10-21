@@ -28,8 +28,11 @@ import type { Subscription, SubscriptionPayment, SubscriptionSwap } from "@/lib/
 //
 // De *_sent_at-velden worden pas gezet nadat de mail echt verstuurd is. Mislukt een mail,
 // dan probeert de volgende run het gewoon opnieuw.
+// Herinnering 7 dagen na de rekening, laatste waarschuwing 7 dagen voor het einde van de
+// vervaltermijn (bij 21 dagen: mails op dag 7 en 14, vervallen na dag 21). Is de termijn zo
+// kort dat beide op dezelfde dag zouden vallen, dan gaat alleen de waarschuwing.
 const DAYS_AFTER_DUE_FOR_REMINDER = 7;
-const DAYS_BEFORE_GRACE_END_FOR_WARNING = 3;
+const DAYS_BEFORE_GRACE_END_FOR_WARNING = 7;
 // Inhalen na een storing: hooguit zoveel periodes per band per run.
 const MAX_PERIODS_PER_RUN = 3;
 
@@ -186,7 +189,8 @@ async function sendReminders(today: string) {
     .select("*")
     .eq("status", "unpaid")
     .is("reminder_sent_at", null)
-    .lte("due_date", addDaysStr(today, -DAYS_AFTER_DUE_FOR_REMINDER));
+    .lte("due_date", addDaysStr(today, -DAYS_AFTER_DUE_FOR_REMINDER))
+    .gt("grace_until", addDaysStr(today, DAYS_BEFORE_GRACE_END_FOR_WARNING));
 
   for (const periodPayment of (dueForReminder ?? []) as SubscriptionPayment[]) {
     const subscription = await getSubscription(periodPayment.subscription_id);

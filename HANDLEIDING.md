@@ -37,8 +37,8 @@ Voor bands die structureel op hetzelfde moment willen repeteren.
   meteen van jullie. Een week voor elke periode krijg je (en je bandleden) een **rekening per
   e-mail** met een betaallink. Geen automatische incasso.
 - Zolang je de rekeningen betaalt, blijft het tijdslot van jullie - nooit hoeven verlengen.
-- Betaal je een rekening niet, dan krijg je na 7 dagen een herinnering en daarna een laatste
-  waarschuwing. Is er na **14 dagen** nog niet betaald, dan vervalt de vaste plek en komt het
+- Betaal je een rekening niet, dan krijg je na 7 dagen een herinnering en na 14 dagen een
+  laatste waarschuwing. Is er na **21 dagen** nog niet betaald, dan vervalt de vaste plek en komt het
   dagdeel vrij voor een andere band.
 - **Kan een keer niet?** Via "Mijn boekingen" kun je:
   - een repetitie **annuleren**, tot **72 uur van tevoren**. Die keer wordt gekort op de

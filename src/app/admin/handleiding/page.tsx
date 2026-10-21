@@ -381,7 +381,7 @@ export default async function BeheerHandleidingPage() {
           <li>
             <strong>Rekeningen</strong> voor vaste plekken gaan een week voor elke periode van{" "}
             {config.periodWeeks} weken naar alle bandleden, met het tegoed van eerder geannuleerde
-            keren al verrekend. Niet betaald? Een herinnering na 7 dagen, een waarschuwing 3 dagen
+            keren al verrekend. Niet betaald? Een herinnering na 7 dagen, een waarschuwing 7 dagen
             voor het einde van de vervaltermijn, en daarna vervalt de vaste plek en komt het
             dagdeel vrij. Valt er niets te betalen, dan gaat er geen rekening uit.
           </li>

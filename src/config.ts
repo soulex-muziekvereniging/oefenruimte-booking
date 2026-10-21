@@ -36,7 +36,8 @@ export const config = {
   // Aantal dagen na de betaaldatum dat een band nog mag betalen voordat het recht op
   // het vaste tijdslot voor de rest van het jaar vervalt. Besluit bestuur 2026-09-11.
   // Standaardwaarde: instelbaar in beheer > Instellingen (zie src/lib/paymentTerms.ts).
-  subscriptionGraceDays: 14,
+  // Bestuur 21 okt 2026: 21 dagen (herinnering na 7, laatste waarschuwing na 14 dagen).
+  subscriptionGraceDays: 21,
   // Afmeldtermijn vaste plek (besluit bestuur 21 okt 2026): tot zoveel uur van tevoren kan
   // een band een repetitie annuleren (wordt verrekend) of verzetten; later of niet komen =
   // wel betalen. Standaardwaarde: instelbaar in beheer > Instellingen (src/lib/paymentTerms.ts).

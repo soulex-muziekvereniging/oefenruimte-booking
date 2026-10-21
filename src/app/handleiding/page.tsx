@@ -287,7 +287,7 @@ export default function HandleidingPage() {
           automatisch afgeschreven.
         </p>
         <p>
-          Niet betaald? Na 7 dagen komt er een herinnering en daarna een laatste waarschuwing. Is
+          Niet betaald? Na 7 dagen komt er een herinnering en een week voor het einde een laatste waarschuwing. Is
           er na {config.subscriptionGraceDays} dagen nog niet betaald, dan vervalt de vaste plek
           en komt het dagdeel vrij voor andere bands. Zeg je de vaste plek op, dan houd je de
           plek tot het einde van de betaalde periode; tegoed van geannuleerde keren betaalt het

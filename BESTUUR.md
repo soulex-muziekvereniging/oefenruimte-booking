@@ -30,8 +30,10 @@ oefenruimte boeken, zonder in te hoeven loggen. Twee soorten boekingen:
    bestuur vrijgeeft ("Deze keer vrijgeven") wordt net zo verrekend. Losse boekingen blijven
    48 uur.
 
-   Is een rekening na de **vervaltermijn** (standaard 14 dagen, instelbaar) nog niet betaald,
-   dan vervalt de vaste plek en komt het dagdeel vrij. **Opslagruimte** (ruimte 2, 3 en 4; 1 en 5 zijn van Soulex) kan erbij voor €15 per 4
+   Is een rekening na de **vervaltermijn** (standaard 21 dagen, instelbaar) nog niet betaald,
+   dan volgt: herinnering na 7 dagen, laatste waarschuwing 7 dagen voor het einde (bij 21
+   dagen dus na 14 dagen), en daarna vervalt de vaste plek en komt het dagdeel vrij.
+   **Opslagruimte** (ruimte 2, 3 en 4; 1 en 5 zijn van Soulex) kan erbij voor €15 per 4
    weken, altijd het volle bedrag, op dezelfde rekening; het bestuur kan in het admin-scherm
    per reservering een ruimte toekennen of weghalen. Opzeggen kan de band zelf via een unieke
    link in hun bevestigingsmail (geen inloggen nodig); het slot blijft dan van hen tot het

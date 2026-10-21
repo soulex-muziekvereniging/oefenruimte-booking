@@ -28,9 +28,9 @@ aangesproken.
     door sessionsPerPeriod), + altijd de volle opslag, - tegoed (keren geannuleerd nadat hun
     periode al gefactureerd was; `subscription_swaps.credited_in`, migratie 021). Factuurregel
     in `subscription_payments` (sessions_held, credit_cents e.a.). 0 euro = "waived".
-  - Geen automatische incasso. Herinnering (+7 dagen), waarschuwing, en de vaste plek
-    **vervalt** als er na de vervaltermijn nog niet betaald is (instelbaar 7-21 dagen,
-    standaard 14).
+  - Geen automatische incasso. Herinnering (+7 dagen), laatste waarschuwing (7 dagen voor
+    het einde), en de vaste plek **vervalt** als er na de vervaltermijn nog niet betaald is
+    (instelbaar 7-21 dagen, standaard 21: mails op dag 7 en 14).
   - **Annuleren en verzetten** van één keer door de band: tot de afmeldtermijn (instelbaar,
     standaard 72 uur, settings `payment_terms.cancelHours`); losse boekingen houden
     `cancellationCutoffHours` (48). Annuleren zonder maximum; rij in `subscription_swaps`
