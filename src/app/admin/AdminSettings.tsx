@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import TariffSettings from "./TariffSettings";
+import InvoicingSettings from "./InvoicingSettings";
 import PaymentTermsSettings from "./PaymentTermsSettings";
 import FiscalYearSettings from "./FiscalYearSettings";
 import WhatsappSettings from "./WhatsappSettings";
@@ -82,6 +83,8 @@ export default function AdminSettings() {
           {error}
         </div>
       )}
+
+      <InvoicingSettings />
 
       <TariffSettings />
 

@@ -41,7 +41,10 @@ oefenruimte boeken, zonder in te hoeven loggen. Twee soorten boekingen:
 
    Dit draait op één dagelijkse achtergrondtaak (Vercel Cron, `/api/cron/subscriptions`) die
    rekeningen klaarzet (met verrekening), herinneringen stuurt en vervallen tijdsloten
-   vrijgeeft. In het
+   vrijgeeft. Dat gebeurt pas als in beheer > Instellingen de schakelaar **Rekeningen vaste
+   plek** aan staat (standaard uit). Daar kies je ook **Factureren vanaf**: elke band krijgt
+   een rekening voor de eerste periode die op of na die datum begint; repetities daarvoor
+   regelen jullie zoals vóór het systeem. In het
    admin-scherm kan een bestuurslid een periode **kwijtschelden** (bijv. bij vakantie, geen
    betaling nodig maar tijdslot blijft staan) of de **coulance met 14 dagen verlengen** (bij
    een goed verhaal) — bewust handmatige hendels, geen automatische regels.

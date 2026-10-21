@@ -6,6 +6,7 @@ import { buildInvoice, invoiceDue, nextBillingPeriod, openCredits, sessionPriceC
 import { getActiveMemberEmails } from "@/lib/members";
 import { getGraceDays } from "@/lib/paymentTerms";
 import { getTariffs, type Tariffs } from "@/lib/tariffs";
+import { getInvoicing } from "@/lib/invoicing";
 import {
   sendPeriodPaymentRequestEmail,
   sendPeriodReminderEmail,
@@ -40,11 +41,17 @@ export async function GET(request: NextRequest) {
 
   const today = todayStr();
 
+  // Schakelaar in beheer > Instellingen: zolang die uit staat, gaat er niets naar de bands.
+  const invoicing = await getInvoicing();
+  if (!invoicing.enabled || !invoicing.fromDate) {
+    return NextResponse.json({ ok: true, skipped: "rekeningen staan uit" });
+  }
+
   const { data: active } = await supabase.from("subscriptions").select("*").eq("status", "active");
 
   const tariffs = await getTariffs();
   for (const subscription of (active ?? []) as Subscription[]) {
-    await invoiceUpcomingPeriods(subscription, today, tariffs);
+    await invoiceUpcomingPeriods(subscription, today, tariffs, invoicing.fromDate);
   }
   await retryUnsentInvoices();
 
@@ -65,7 +72,12 @@ async function trySend(label: string, fn: () => Promise<unknown>): Promise<boole
   }
 }
 
-async function invoiceUpcomingPeriods(subscription: Subscription, today: string, tariffs: Tariffs) {
+async function invoiceUpcomingPeriods(
+  subscription: Subscription,
+  today: string,
+  tariffs: Tariffs,
+  fromDate: string
+) {
   for (let i = 0; i < MAX_PERIODS_PER_RUN; i++) {
     const { data: payments } = await supabase
       .from("subscription_payments")
@@ -75,6 +87,24 @@ async function invoiceUpcomingPeriods(subscription: Subscription, today: string,
     const latestEnd = payments?.length ? payments[payments.length - 1].period_end : null;
 
     const period = nextBillingPeriod(subscription.start_date, latestEnd);
+
+    // Periode van vóór de start van de facturatie: zonder rekening of mail vastleggen, zodat
+    // de volgende periode aansluit.
+    if (period.start < fromDate) {
+      if (period.start > today) return; // komt later vanzelf aan de beurt
+      await supabase.from("subscription_payments").insert({
+        subscription_id: subscription.id,
+        period_start: period.start,
+        period_end: period.end,
+        amount_cents: 0,
+        due_date: today,
+        grace_until: today,
+        status: "waived",
+        admin_note: `Voor de start van de facturatie (vanaf ${fromDate})`,
+      });
+      continue;
+    }
+
     if (!invoiceDue(period.start, today)) return; // nog te vroeg
 
     const { data: swaps } = await supabase

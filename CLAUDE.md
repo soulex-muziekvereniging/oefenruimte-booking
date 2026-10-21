@@ -87,7 +87,8 @@ Ze hebben een eigen zalenplanner (VirtueelPlein MRBS, `deborghbudel.nl/mrbs`, ru
 - **Vercel** (team van de vereniging, Hobby). Push naar `main` = deploy. Hobby: elke cronjob
   draait hooguit 1x per dag, daarom aparte paden per tijdstip in `vercel.json`.
 - Instellingen die beheer zelf wijzigt staan in tabel `settings` (met log in
-  `settings_history`). Keys: `tariffs`, `whatsapp_templates`, `payment_terms` (graceDays, cancelDays), `borgh_email`,
+  `settings_history`). Keys: `tariffs`, `whatsapp_templates`, `payment_terms` (graceDays, cancelHours),
+  `invoicing` (enabled, fromDate: hoofdschakelaar rekeningen, standaard uit), `borgh_email`,
   `borgh_auto`, `borgh_mail_text`, `fiscal_year` (startmaand boekjaar), `join_request_recipients`
   (ontvangers "Lid worden"-aanvragen; leeg = tabel `notification_recipients`). `src/config.ts` bevat de standaardwaarden.
 - Beheerders loggen in met een eigen account (`admin_users`, HMAC-sessiecookie). Bands loggen

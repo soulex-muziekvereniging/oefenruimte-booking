@@ -350,6 +350,12 @@ export default async function BeheerHandleidingPage() {
       <Section id="instellingen" title="Instellingen" shot={{ src: "a09-instellingen.png", alt: "De instellingen" }}>
         <ul className="list-disc pl-5 space-y-1.5">
           <li>
+            <strong>Rekeningen vaste plek</strong>: de hoofdschakelaar. Zolang die uit staat, gaan
+            er geen rekeningen, herinneringen of vervalmeldingen naar de bands. Zet hem aan met de
+            datum <em>Factureren vanaf</em>: elke band krijgt een rekening voor de eerste periode
+            die op of na die datum begint.
+          </li>
+          <li>
             <strong>Tarieven</strong>: gelden meteen voor nieuwe boekingen; vink aan om ze ook bij
             lopende vaste reserveringen toe te passen (vanaf de volgende rekening). Alle
             beheerders krijgen een mail bij een wijziging.
