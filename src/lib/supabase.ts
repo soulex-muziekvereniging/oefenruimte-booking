@@ -61,7 +61,7 @@ export type Subscription = {
   active_until: string | null;
   // Bijgehuurde opslagruimte (zie config.storage), prijs zit in price_cents.
   storage_unit: string | null;
-  // Opgezegd: tot en met deze dag wordt nog achteraf afgerekend (migratie 019).
+  // Uit de periode van achteraf betalen (migratie 019); niet meer in gebruik.
   bill_until: string | null;
   created_at: string;
   updated_at: string;
@@ -88,6 +88,9 @@ export type SubscriptionPayment = {
   sessions_cancelled: number | null;
   session_price_cents: number | null;
   storage_cents: number | null;
+  // Verrekend tegoed van eerder geannuleerde keren (migratie 021).
+  credit_sessions: number | null;
+  credit_cents: number | null;
   created_at: string;
   updated_at: string;
 };
@@ -101,6 +104,8 @@ export type SubscriptionSwap = {
   new_dagdeel_id: string | null;
   // Door het beheer gedaan (migratie 018); telt niet mee voor de limieten van de band.
   by_admin?: boolean;
+  // Op welke rekening deze geannuleerde keer verrekend is (migratie 021).
+  credited_in?: string | null;
   created_at: string;
 };
 

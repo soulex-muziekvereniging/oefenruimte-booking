@@ -7,7 +7,7 @@ export type CalendarEntry = {
   date: string;
   dagdeelLabel: string;
   kind: "booking" | "subscription" | "moved" | "cancelled";
-  provisional?: boolean; // er staat een rekening open: onder voorbehoud van betaling
+  provisional?: boolean; // na de laatste betaalde periode: onder voorbehoud van betaling
   title: string; // tooltip, bv. "Vaste reservering (verplaatst van 7 okt)"
 };
 
@@ -33,12 +33,12 @@ const KIND_STYLE: Record<CalendarEntry["kind"], string> = {
 export default function BandCalendar({
   entries,
   graceDays,
-  cancelDays,
+  cancelHours,
   hasSubscription,
 }: {
   entries: CalendarEntry[];
   graceDays: number;
-  cancelDays: number;
+  cancelHours: number;
   hasSubscription: boolean;
 }) {
   const today = new Date();
@@ -139,18 +139,17 @@ export default function BandCalendar({
         {entries.some((e) => e.provisional) && (
           <span className="flex items-center gap-1">
             <span className="w-3 h-3 rounded bg-blue-100 opacity-60 border border-dashed border-blue-800 inline-block" />{" "}
-            onder voorbehoud (rekening staat open)
+            nog te betalen
           </span>
         )}
       </div>
       {hasSubscription && (
         <p className="text-xs text-gray-600 mt-2">
-          Jullie vaste repetities staan een jaar vooruit ingepland. Jullie betalen achteraf: na
-          elke periode van {config.periodWeeks} weken komt een rekening voor de keren dat jullie
-          kwamen. Annuleren kan tot {cancelDays} dagen van tevoren, dan betalen jullie die keer
-          niet. Is een rekening {graceDays} dagen na verzending nog niet betaald, dan vervallen
-          de komende repetities en komt het dagdeel vrij voor andere bands. Het tarief kan
-          wijzigen.
+          Jullie vaste repetities staan een jaar vooruit ingepland. Jullie betalen vooraf per{" "}
+          {config.periodWeeks} weken; de rekening komt een week voor elke periode. Annuleren kan
+          tot {cancelHours} uur van tevoren, die keer wordt gekort op de volgende rekening. Is een
+          rekening {graceDays} dagen na verzending nog niet betaald, dan vervallen de komende
+          repetities en komt het dagdeel vrij voor andere bands. Het tarief kan wijzigen.
         </p>
       )}
     </div>

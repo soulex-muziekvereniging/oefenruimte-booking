@@ -20,22 +20,27 @@ aangesproken.
   zelfgekozen startdatum, zonder einddatum.
   - "Om de week" telt vanaf de eigen startdatum van de band, niet vanaf weeknummers
     (`src/lib/schedule.ts`). Twee bands kunnen zo om en om hetzelfde dagdeel delen.
-  - **Achteraf betalen** (besluit bestuur okt 2026, `docs/PLAN-achteraf-betalen.md`): de
-    vaste plek is direct actief zonder betaling. Na elke periode van 4 weken (`periodWeeks`)
-    rekent de cron af (`src/lib/billing.ts`): gehouden keren x prijs per keer (= price_cents
-    min opslag, gedeeld door sessionsPerPeriod) + altijd de volle opslag. Factuurregel in
-    `subscription_payments.sessions_held` e.a. (migratie 019). 0 euro = "waived".
-  - Geen automatische incasso. Rekening na afloop, herinnering (+7 dagen), waarschuwing, en
-    de vaste plek **vervalt** als er na de vervaltermijn nog niet betaald is (instelbaar 7-21
-    dagen, standaard 14).
-  - **Annuleren** van één keer door de band: tot de afmeldtermijn (instelbaar 2-14 dagen,
-    standaard 7, settings `payment_terms.cancelDays`), geen maximum; rij in
-    `subscription_swaps` zonder nieuwe datum. Geannuleerd (band) en vrijgegeven (beheer,
-    `by_admin`) worden niet gerekend. Een al verzette keer kan de band niet annuleren.
+  - **Vooraf betalen met verrekening** (besluit bestuur 21 okt 2026,
+    `docs/PLAN-vooraf-met-verrekening.md`): de vaste plek is direct actief zonder betaling.
+    De cron zet de rekening voor een periode van 4 weken (`periodWeeks`) klaar
+    `subscriptionInvoiceDaysBefore` (7) dagen voor de periode (`src/lib/billing.ts`): alle
+    keren behalve wat al geannuleerd is, x prijs per keer (= price_cents min opslag, gedeeld
+    door sessionsPerPeriod), + altijd de volle opslag, - tegoed (keren geannuleerd nadat hun
+    periode al gefactureerd was; `subscription_swaps.credited_in`, migratie 021). Factuurregel
+    in `subscription_payments` (sessions_held, credit_cents e.a.). 0 euro = "waived".
+  - Geen automatische incasso. Herinnering (+7 dagen), waarschuwing, en de vaste plek
+    **vervalt** als er na de vervaltermijn nog niet betaald is (instelbaar 7-21 dagen,
+    standaard 14).
+  - **Annuleren en verzetten** van één keer door de band: tot de afmeldtermijn (instelbaar,
+    standaard 72 uur, settings `payment_terms.cancelHours`); losse boekingen houden
+    `cancellationCutoffHours` (48). Annuleren zonder maximum; rij in `subscription_swaps`
+    zonder nieuwe datum. Geannuleerd (band) en vrijgegeven (beheer, `by_admin`) worden niet
+    gerekend of verrekend. Een al verzette keer kan de band niet annuleren.
   - Verplaatsen: elk bandlid, tot 14 dagen later, 2x per periode (annuleringen tellen niet
     mee). Een verzette keer wordt gerekend. Beheer kan terugdraaien.
-  - Opzeggen: slot direct vrij (behalve een nog lopende vooruitbetaalde periode), laatste
-    rekening t/m `subscriptions.bill_until`.
+  - Opzeggen door de band: slot loopt door t/m de laatste betaalde periode. Door beheer:
+    direct vrij. Openstaand tegoed staat in de melding aan het bestuur (handmatig terug).
+    `subscriptions.bill_until` (migratie 019) wordt niet meer gebruikt.
   - Bands zien hun planning een jaar vooruit in de kalender.
 - **Opslagruimte**: ruimtes 2, 3 en 4 (1 en 5 zijn van Soulex), alleen bij een vaste plek, per
   periode van 4 weken, altijd het volle bedrag.

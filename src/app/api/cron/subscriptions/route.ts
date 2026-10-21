@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { todayStr } from "@/lib/date";
 import { addDaysStr } from "@/lib/periods";
-import { nextBillingPeriod, settle } from "@/lib/billing";
+import { buildInvoice, invoiceDue, nextBillingPeriod, openCredits, sessionPriceCents } from "@/lib/billing";
 import { getActiveMemberEmails } from "@/lib/members";
 import { getGraceDays } from "@/lib/paymentTerms";
 import { getTariffs, type Tariffs } from "@/lib/tariffs";
@@ -14,16 +14,16 @@ import {
   sendPeriodLapsedNotificationToOrg,
   sendSafely,
 } from "@/lib/email";
-import type { Subscription, SubscriptionPayment } from "@/lib/supabase";
+import type { Subscription, SubscriptionPayment, SubscriptionSwap } from "@/lib/supabase";
 
 // Eén dagelijkse huishoudtaak voor vaste reserveringen (Vercel Cron, zie vercel.json):
-// afgelopen periodes afrekenen + rekening mailen, herinneren, en tijdsloten vrijgeven als
-// er niet binnen de vervaltermijn betaald is. Draait bewust maar 1x per dag - dat is precies
-// genoeg voor dit model en past binnen de gratis Vercel Hobby-cronlimiet.
+// rekeningen klaarzetten + mailen, herinneren, en tijdsloten vrijgeven als er niet binnen de
+// vervaltermijn betaald is. Draait bewust maar 1x per dag - dat is precies genoeg voor dit
+// model en past binnen de gratis Vercel Hobby-cronlimiet.
 //
-// Achteraf betalen (besluit bestuur, okt 2026): pas na afloop van een periode van 4 weken
-// komt de rekening, voor de keren dat de band kwam (zie src/lib/billing.ts). Een opgezegde
-// vaste plek krijgt nog een laatste rekening tot en met bill_until.
+// Vooraf betalen met verrekening (besluit bestuur, 21 okt 2026): de rekening voor een
+// periode van 4 weken gaat een week voor de periode uit. Keren die geannuleerd zijn nadat
+// hun periode al gefactureerd was, worden op de volgende rekening gekort (src/lib/billing.ts).
 //
 // De *_sent_at-velden worden pas gezet nadat de mail echt verstuurd is. Mislukt een mail,
 // dan probeert de volgende run het gewoon opnieuw.
@@ -40,14 +40,11 @@ export async function GET(request: NextRequest) {
 
   const today = todayStr();
 
-  const { data: billable } = await supabase
-    .from("subscriptions")
-    .select("*")
-    .or("status.eq.active,and(status.eq.cancelled,bill_until.not.is.null)");
+  const { data: active } = await supabase.from("subscriptions").select("*").eq("status", "active");
 
   const tariffs = await getTariffs();
-  for (const subscription of (billable ?? []) as Subscription[]) {
-    await settleFinishedPeriods(subscription, today, tariffs);
+  for (const subscription of (active ?? []) as Subscription[]) {
+    await invoiceUpcomingPeriods(subscription, today, tariffs);
   }
   await retryUnsentInvoices();
 
@@ -68,29 +65,27 @@ async function trySend(label: string, fn: () => Promise<unknown>): Promise<boole
   }
 }
 
-async function settleFinishedPeriods(subscription: Subscription, today: string, tariffs: Tariffs) {
-  const billUntil = subscription.status === "active" ? null : subscription.bill_until;
-
+async function invoiceUpcomingPeriods(subscription: Subscription, today: string, tariffs: Tariffs) {
   for (let i = 0; i < MAX_PERIODS_PER_RUN; i++) {
-    const { data: latest } = await supabase
+    const { data: payments } = await supabase
       .from("subscription_payments")
-      .select("period_end")
+      .select("period_start, period_end, created_at, session_price_cents")
       .eq("subscription_id", subscription.id)
-      .order("period_start", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .order("period_start", { ascending: true });
+    const latestEnd = payments?.length ? payments[payments.length - 1].period_end : null;
 
-    const period = nextBillingPeriod(subscription.start_date, latest?.period_end ?? null, billUntil);
-    if (!period || today <= period.end) return; // niets meer af te rekenen, of nog bezig
+    const period = nextBillingPeriod(subscription.start_date, latestEnd);
+    if (!invoiceDue(period.start, today)) return; // nog te vroeg
 
     const { data: swaps } = await supabase
       .from("subscription_swaps")
-      .select("original_date, new_date")
-      .eq("subscription_id", subscription.id)
-      .gte("original_date", period.start)
-      .lte("original_date", period.end);
-    const s = settle(subscription, swaps ?? [], period.start, period.end, tariffs);
-    const nothingToPay = s.amountCents === 0;
+      .select("*")
+      .eq("subscription_id", subscription.id);
+    const allSwaps = (swaps ?? []) as SubscriptionSwap[];
+    const inPeriod = allSwaps.filter((w) => w.original_date >= period.start && w.original_date <= period.end);
+    const credits = openCredits(allSwaps, payments ?? [], sessionPriceCents(subscription, tariffs));
+    const inv = buildInvoice(subscription, inPeriod, period.start, period.end, tariffs, credits);
+    const nothingToPay = inv.amountCents === 0;
 
     const { data: periodPayment, error } = await supabase
       .from("subscription_payments")
@@ -98,15 +93,17 @@ async function settleFinishedPeriods(subscription: Subscription, today: string, 
         subscription_id: subscription.id,
         period_start: period.start,
         period_end: period.end,
-        amount_cents: s.amountCents,
-        sessions_held: s.held,
-        sessions_cancelled: s.cancelled,
-        session_price_cents: s.sessionPriceCents,
-        storage_cents: s.storageCents,
+        amount_cents: inv.amountCents,
+        sessions_held: inv.held,
+        sessions_cancelled: inv.cancelled,
+        session_price_cents: inv.sessionPriceCents,
+        storage_cents: inv.storageCents,
+        credit_sessions: inv.credits.length,
+        credit_cents: inv.creditCents,
         due_date: today,
         grace_until: addDaysStr(today, await getGraceDays()),
         status: nothingToPay ? "waived" : "unpaid",
-        admin_note: nothingToPay ? "Geen repetities in deze periode" : null,
+        admin_note: nothingToPay ? "Niets te betalen in deze periode (alles geannuleerd of verrekend)" : null,
       })
       .select()
       .single();
@@ -115,6 +112,12 @@ async function settleFinishedPeriods(subscription: Subscription, today: string, 
     if (error || !periodPayment) {
       console.error(`[cron] periode ${subscription.band_name} ${period.start} niet opgeslagen:`, error);
       return;
+    }
+    if (inv.credits.length > 0) {
+      await supabase
+        .from("subscription_swaps")
+        .update({ credited_in: periodPayment.id })
+        .in("id", inv.credits.map((c) => c.swapId));
     }
     if (!nothingToPay) await sendInvoice(subscription, periodPayment as SubscriptionPayment);
   }
@@ -130,14 +133,8 @@ async function retryUnsentInvoices() {
 
   for (const periodPayment of (unsent ?? []) as SubscriptionPayment[]) {
     const subscription = await getSubscription(periodPayment.subscription_id);
-    if (subscription && isBillable(subscription)) await sendInvoice(subscription, periodPayment);
+    if (subscription?.status === "active") await sendInvoice(subscription, periodPayment);
   }
-}
-
-// Een opgezegde vaste plek krijgt nog herinneringen voor de laatste rekening, maar vervalt
-// niet meer (er is geen vaste plek meer om vrij te geven).
-function isBillable(subscription: Subscription): boolean {
-  return subscription.status === "active" || (subscription.status === "cancelled" && !!subscription.bill_until);
 }
 
 async function sendInvoice(subscription: Subscription, periodPayment: SubscriptionPayment) {
@@ -163,7 +160,7 @@ async function sendReminders(today: string) {
 
   for (const periodPayment of (dueForReminder ?? []) as SubscriptionPayment[]) {
     const subscription = await getSubscription(periodPayment.subscription_id);
-    if (!subscription || !isBillable(subscription)) continue;
+    if (!subscription || subscription.status !== "active") continue;
 
     const bandEmails = await getActiveMemberEmails(subscription.band_name, subscription.contact_email);
     const sent = await trySend(`herinnering ${subscription.band_name}`, () =>

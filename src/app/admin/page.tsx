@@ -1182,8 +1182,7 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
                         {formatRhythmLabel(subscription)} · sinds{" "}
                         {formatShortDate(subscription.start_date)} ·{" "}
                         {formatPrice(subscription.price_cents)} per {config.periodWeeks} weken
-                        {subscription.storage_unit ? " (incl. opslag)" : ""} als ze elke keer
-                        komen, achteraf
+                        {subscription.storage_unit ? " (incl. opslag)" : ""}, vooraf
                       </p>
                       {(subscription.status === "active" ||
                         subscription.status === "pending_first_payment") && (

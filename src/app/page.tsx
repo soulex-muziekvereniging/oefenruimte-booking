@@ -352,9 +352,9 @@ export default function Home() {
                 )}
               </div>
               <p className="text-sm text-gray-700 mt-1">
-                Steeds hetzelfde dagdeel, het hele jaar door. Je betaalt achteraf per{" "}
-                {config.periodWeeks} weken, alleen voor de keren dat je kwam. Er wordt niets
-                automatisch afgeschreven.
+                Steeds hetzelfde dagdeel, het hele jaar door. Je betaalt per {config.periodWeeks}{" "}
+                weken vooraf; kun je een keer niet, dan annuleer je en wordt het verrekend. Er
+                wordt niets automatisch afgeschreven.
 
               </p>
               <div className="grid sm:grid-cols-2 gap-3 mt-4">

@@ -225,9 +225,9 @@ export default function HandleidingPage() {
         <p>
           Heb je een vaste plek, dan kun je een repetitie zelf <strong>annuleren</strong>: tik
           bij de repetitie op <strong>Annuleren</strong> en bevestig. Dat kan tot{" "}
-          {config.subscriptionCancelDays} dagen van tevoren, zo vaak als nodig. Die keer betalen
-          jullie niet en het dagdeel komt vrij voor andere bands. Later afzeggen of niet komen
-          wordt wel gerekend.
+          {config.subscriptionCancelHours} uur van tevoren, zo vaak als nodig. Die keer wordt
+          gekort op de volgende rekening en het dagdeel komt vrij voor andere bands. Later
+          afzeggen of niet komen wordt wel gerekend.
         </p>
         <p>Liever een ander moment? Dan verzet je de repetitie:</p>
         <ol className="list-decimal pl-5 space-y-1.5">
@@ -243,7 +243,7 @@ export default function HandleidingPage() {
         <p>
           Dat kan tot {config.subscriptionSwapMaxDaysLater} dagen later,{" "}
           {config.subscriptionMaxSwapsPerPeriod} keer per {config.periodWeeks} weken en tot{" "}
-          {config.cancellationCutoffHours} uur van tevoren. Een verzette keer wordt gewoon
+          {config.subscriptionCancelHours} uur van tevoren. Een verzette keer wordt gewoon
           gerekend. Elk bandlid mag verzetten en annuleren; een al verzette keer annuleren gaat
           via het bestuur.
         </p>
@@ -279,16 +279,19 @@ export default function HandleidingPage() {
           Een <strong>losse boeking</strong> betaal je meteen bij het boeken met iDEAL.
         </p>
         <p>
-          Een <strong>vaste plek</strong> betaal je <strong>achteraf</strong>. Na elke periode van{" "}
-          {config.periodWeeks} weken krijgen alle bandleden een rekening per e-mail voor de keren
-          dat jullie kwamen, met een betaalknop (iDEAL). Op tijd geannuleerde keren staan er niet
-          op; opslagruimte wel, altijd het volle bedrag. Er wordt niets automatisch afgeschreven.
+          Een <strong>vaste plek</strong> betaal je <strong>vooraf</strong>, per periode van{" "}
+          {config.periodWeeks} weken. Een week voor elke periode krijgen alle bandleden een
+          rekening per e-mail met een betaalknop (iDEAL). Keren die je al geannuleerd hebt, staan
+          er niet op; keren die je annuleert nadat de rekening er is, worden op de volgende
+          rekening gekort. Opslagruimte staat er altijd voor het volle bedrag op. Er wordt niets
+          automatisch afgeschreven.
         </p>
         <p>
           Niet betaald? Na 7 dagen komt er een herinnering en daarna een laatste waarschuwing. Is
           er na {config.subscriptionGraceDays} dagen nog niet betaald, dan vervalt de vaste plek
-          en komt het dagdeel vrij voor andere bands. Zeg je de vaste plek zelf op, dan krijg je
-          nog één laatste rekening voor de keren die nog niet afgerekend waren.
+          en komt het dagdeel vrij voor andere bands. Zeg je de vaste plek op, dan houd je de
+          plek tot het einde van de betaalde periode; tegoed van geannuleerde keren betaalt het
+          bestuur terug.
         </p>
         <p>Elke betaling wordt per e-mail bevestigd aan alle bandleden, met wie er betaald heeft.</p>
         <p>

@@ -247,18 +247,20 @@ export default async function BeheerHandleidingPage() {
             <strong>Laatste rekening</strong>: betaald, of open met het aantal keren en de uiterste
             betaaldatum. Bij een open rekening kun je <strong>uitstel geven</strong> (knop{" "}
             <em>Coulance +14d</em>) of <strong>kwijtschelden</strong> (hoeft niet betaald te worden,
-            de plek blijft). Bands betalen achteraf, alleen voor de keren dat ze kwamen.
+            de plek blijft). Bands betalen vooraf per periode; de rekening gaat een week van
+            tevoren uit.
           </li>
           <li><strong>Opslagruimte</strong> toewijzen of wijzigen; de prijs past zich aan vanaf de volgende rekening.</li>
           <li>
             <strong>Verplaatste en geannuleerde repetities</strong> zien en terugdraaien. Een
-            geannuleerde of vrijgegeven keer wordt niet gerekend; terugdraaien maakt hem weer
-            betaald.
+            geannuleerde of vrijgegeven keer wordt niet gerekend: stond hij al op een rekening,
+            dan wordt hij op de volgende rekening gekort.
           </li>
           <li>
-            <strong>Zeg op</strong>: de vaste reservering stopt en het dagdeel komt vrij; de keren
-            die nog niet afgerekend waren, komen op een laatste rekening. Bands kunnen ook zelf
-            opzeggen via hun bevestigingsmail.
+            <strong>Zeg op</strong>: de vaste reservering stopt en het dagdeel komt meteen vrij.
+            Bands kunnen ook zelf opzeggen via hun bevestigingsmail; dan loopt de plek door tot het
+            einde van de betaalde periode. Had de band nog tegoed van geannuleerde keren, dan staat
+            het bedrag in de melding aan het bestuur: dat betaal je handmatig terug.
           </li>
           <li>
             <em>Toon opgezegde/vervallen</em> laat ook gestopte reserveringen zien; die kun je daar
@@ -371,11 +373,11 @@ export default async function BeheerHandleidingPage() {
       <Section id="automatisch" title="Wat gaat vanzelf?">
         <ul className="list-disc pl-5 space-y-1.5">
           <li>
-            <strong>Rekeningen</strong> voor vaste plekken gaan na afloop van elke periode van{" "}
-            {config.periodWeeks} weken naar alle bandleden, voor de keren dat ze kwamen. Niet
-            betaald? Een herinnering na 7 dagen, een waarschuwing 3 dagen voor het einde van de
-            vervaltermijn, en daarna vervalt de vaste plek en komt het dagdeel vrij. Een periode
-            zonder repetities en opslag krijgt geen rekening.
+            <strong>Rekeningen</strong> voor vaste plekken gaan een week voor elke periode van{" "}
+            {config.periodWeeks} weken naar alle bandleden, met het tegoed van eerder geannuleerde
+            keren al verrekend. Niet betaald? Een herinnering na 7 dagen, een waarschuwing 3 dagen
+            voor het einde van de vervaltermijn, en daarna vervalt de vaste plek en komt het
+            dagdeel vrij. Valt er niets te betalen, dan gaat er geen rekening uit.
           </li>
           <li>
             <strong>Mails</strong>: alle bandleden krijgen een bericht bij elke wijziging in hun

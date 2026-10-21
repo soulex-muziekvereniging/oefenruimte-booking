@@ -2,12 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdminId, verifyAdminPassword } from "@/lib/adminAuth";
 import { supabase } from "@/lib/supabase";
 import {
-  CANCEL_MAX_DAYS,
-  CANCEL_MIN_DAYS,
+  CANCEL_HOUR_OPTIONS,
   getPaymentTerms,
   GRACE_MAX_DAYS,
   GRACE_MIN_DAYS,
-  parseCancelDays,
+  parseCancelHours,
   parseGraceDays,
   type PaymentTerms,
 } from "@/lib/paymentTerms";
@@ -17,8 +16,7 @@ function response(terms: PaymentTerms) {
     ...terms,
     min: GRACE_MIN_DAYS,
     max: GRACE_MAX_DAYS,
-    cancelMin: CANCEL_MIN_DAYS,
-    cancelMax: CANCEL_MAX_DAYS,
+    cancelOptions: CANCEL_HOUR_OPTIONS,
   });
 }
 
@@ -37,16 +35,16 @@ export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => ({}));
   const old = await getPaymentTerms();
   const graceDays = body.graceDays === undefined ? old.graceDays : parseGraceDays(body.graceDays);
-  const cancelDays = body.cancelDays === undefined ? old.cancelDays : parseCancelDays(body.cancelDays);
+  const cancelHours = body.cancelHours === undefined ? old.cancelHours : parseCancelHours(body.cancelHours);
   if (graceDays === null) {
     return NextResponse.json(
       { error: `Kies een vervaltermijn van ${GRACE_MIN_DAYS} tot ${GRACE_MAX_DAYS} dagen` },
       { status: 400 }
     );
   }
-  if (cancelDays === null) {
+  if (cancelHours === null) {
     return NextResponse.json(
-      { error: `Kies een afmeldtermijn van ${CANCEL_MIN_DAYS} tot ${CANCEL_MAX_DAYS} dagen` },
+      { error: `Kies een afmeldtermijn van ${CANCEL_HOUR_OPTIONS.join(", ")} uur` },
       { status: 400 }
     );
   }
@@ -56,7 +54,7 @@ export async function POST(request: NextRequest) {
     ? await supabase.from("admin_users").select("email").eq("id", adminId).maybeSingle()
     : { data: null };
   const changedBy = admin?.email ?? "onbekend";
-  const terms: PaymentTerms = { graceDays, cancelDays };
+  const terms: PaymentTerms = { graceDays, cancelHours };
 
   const { error } = await supabase.from("settings").upsert({
     key: "payment_terms",

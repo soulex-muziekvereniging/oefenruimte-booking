@@ -8,12 +8,13 @@ import { addDaysStr } from "@/lib/periods";
 import { occursOn, periodStartContaining } from "@/lib/schedule";
 import { getSlotsForRange } from "@/lib/slots";
 import { getActiveMemberEmails } from "@/lib/members";
+import { getCancelHours } from "@/lib/paymentTerms";
 import { sendSwapConfirmationEmail, sendSwapNotificationToOrg, sendSafely } from "@/lib/email";
 
 // Zelf één repetitie van een vaste reservering verplaatsen naar een ander vrij dagdeel:
 // vanaf nu tot config.subscriptionSwapMaxDaysLater dagen na de oorspronkelijke datum,
-// max. config.subscriptionMaxSwapsPerPeriod keer per betaalperiode, en alleen tot
-// config.cancellationCutoffHours uur van tevoren. Elk bandlid mag dit doen.
+// max. config.subscriptionMaxSwapsPerPeriod keer per betaalperiode, en alleen tot de
+// afmeldtermijn van tevoren (standaard 72 uur, settings payment_terms). Elk bandlid mag dit.
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -67,11 +68,12 @@ export async function POST(
     );
   }
 
+  const cutoffHours = await getCancelHours();
   const originalDagdeel = config.dagdelen.find((d) => d.id === subscription.dagdeel_id)!;
-  if (hoursUntilSlot(originalDate, `${originalDagdeel.startHour.toString().padStart(2, "0")}:00:00`) < config.cancellationCutoffHours) {
+  if (hoursUntilSlot(originalDate, `${originalDagdeel.startHour.toString().padStart(2, "0")}:00:00`) < cutoffHours) {
     return NextResponse.json(
       {
-        error: `Verplaatsen kan niet meer, dit moet uiterlijk ${config.cancellationCutoffHours} uur van tevoren. Neem contact op met ${config.organizationName}.`,
+        error: `Verplaatsen kan niet meer, dit moet uiterlijk ${cutoffHours} uur van tevoren. Neem contact op met ${config.organizationName}.`,
       },
       { status: 400 }
     );
@@ -93,10 +95,10 @@ export async function POST(
   const periodStart = periodStartContaining(subscription.start_date, periods ?? [], originalDate);
 
   const newDagdeel = config.dagdelen.find((d) => d.id === newDagdeelId)!;
-  if (hoursUntilSlot(newDate, `${newDagdeel.startHour.toString().padStart(2, "0")}:00:00`) < config.cancellationCutoffHours) {
+  if (hoursUntilSlot(newDate, `${newDagdeel.startHour.toString().padStart(2, "0")}:00:00`) < cutoffHours) {
     return NextResponse.json(
       {
-        error: `Het nieuwe moment moet ook uiterlijk ${config.cancellationCutoffHours} uur van tevoren vastgelegd worden.`,
+        error: `Het nieuwe moment moet ook uiterlijk ${cutoffHours} uur van tevoren vastgelegd worden.`,
       },
       { status: 400 }
     );

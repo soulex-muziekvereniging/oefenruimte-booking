@@ -44,14 +44,17 @@ type Occurrence = {
   canCancel: boolean;
 };
 
-// De lopende periode die na afloop afgerekend wordt.
-type RunningPeriod = {
+// De volgende rekening (nog niet verstuurd), zoals die er nu uit zou zien.
+type NextInvoice = {
   period_start: string;
   period_end: string;
+  invoiceDate: string;
   held: number;
   cancelled: number;
   sessionPriceCents: number;
   storageCents: number;
+  creditSessions: number;
+  creditCents: number;
   amountCents: number;
 };
 
@@ -68,7 +71,7 @@ type Subscription = {
   currentPeriod: SubscriptionPeriod | null;
   recentPeriods: SubscriptionPeriod[];
   occurrences: Occurrence[];
-  runningPeriod: RunningPeriod | null;
+  nextInvoice: NextInvoice | null;
   swapsAllowed: number;
 };
 
@@ -150,7 +153,7 @@ function OverzichtContent() {
   const [bandMembers, setBandMembers] = useState<string[]>([]);
   const [listUntil, setListUntil] = useState("");
   const [graceDays, setGraceDays] = useState<number>(config.subscriptionGraceDays);
-  const [cancelDays, setCancelDays] = useState<number>(config.subscriptionCancelDays);
+  const [cancelHours, setCancelHours] = useState<number>(config.subscriptionCancelHours);
   // Repetitie die geannuleerd gaat worden; pas na "Ja, annuleren" gebeurt het echt.
   const [cancelFor, setCancelFor] = useState<{ subscriptionId: string; date: string } | null>(null);
   const [cancelSubmitting, setCancelSubmitting] = useState(false);
@@ -187,7 +190,7 @@ function OverzichtContent() {
         setSubscriptions(data.subscriptions);
         setListUntil(data.listUntil ?? "");
         if (typeof data.graceDays === "number") setGraceDays(data.graceDays);
-        if (typeof data.cancelDays === "number") setCancelDays(data.cancelDays);
+        if (typeof data.cancelHours === "number") setCancelHours(data.cancelHours);
         setBandName(data.bandName);
         setBandMembers(data.bandMembers ?? []);
       })
@@ -261,7 +264,7 @@ function OverzichtContent() {
         slots: { dagdeelId: string; startTime: string; available: boolean }[];
       }[]) {
         for (const slot of day.slots) {
-          if (slot.available && hoursUntilSlot(day.date, slot.startTime) >= config.cancellationCutoffHours) {
+          if (slot.available && hoursUntilSlot(day.date, slot.startTime) >= cancelHours) {
             options.push({ date: day.date, dagdeelId: slot.dagdeelId, dagdeelLabel: dagdeelLabelFor(slot.dagdeelId) });
           }
         }
@@ -360,7 +363,7 @@ function OverzichtContent() {
                 kind: "subscription" as const,
                 provisional: occ.provisional,
                 title: occ.provisional
-                  ? "Vaste reservering (onder voorbehoud: er staat een rekening open)"
+                  ? "Vaste reservering (onder voorbehoud van betaling)"
                   : "Vaste reservering",
               }
         )
@@ -375,7 +378,7 @@ function OverzichtContent() {
         <BandCalendar
           entries={calendarEntries}
           graceDays={graceDays}
-          cancelDays={cancelDays}
+          cancelHours={cancelHours}
           hasSubscription={subscriptions.some((s) => s.status === "active")}
         />
       )}
@@ -392,12 +395,12 @@ function OverzichtContent() {
                 <p className="text-sm text-gray-600">
                   {config.subscriptionPricing[s.frequency].label} op{" "}
                   {formatWeekdayDagdeel(s).toLowerCase()}
-                  {s.runningPeriod
-                    ? ` · ${formatPrice(s.runningPeriod.sessionPriceCents)} per keer${
-                        s.runningPeriod.storageCents
-                          ? ` + ${formatPrice(s.runningPeriod.storageCents)} opslag`
+                  {s.nextInvoice
+                    ? ` · ${formatPrice(s.nextInvoice.sessionPriceCents)} per keer${
+                        s.nextInvoice.storageCents
+                          ? ` + ${formatPrice(s.nextInvoice.storageCents)} opslag`
                           : ""
-                      }, achteraf per ${config.periodWeeks} weken`
+                      }, vooraf per ${config.periodWeeks} weken`
                     : ` · ${formatPrice(s.price_cents)} per ${config.periodWeeks} weken`}
                 </p>
                 <p className="text-sm text-gray-500 mb-2">
@@ -415,7 +418,7 @@ function OverzichtContent() {
                         <p className="text-sm text-amber-800 mb-2">
                           Rekening {formatPeriod(s.currentPeriod)}
                           {typeof s.currentPeriod.sessions_held === "number"
-                            ? ` (${s.currentPeriod.sessions_held}× gerepeteerd)`
+                            ? ` (${s.currentPeriod.sessions_held}× repetitie)`
                             : ""}
                           : {formatPrice(s.currentPeriod.amount_cents)}. Betaal vóór{" "}
                           {new Date(s.currentPeriod.grace_until + "T00:00:00").toLocaleDateString("nl-NL", { day: "numeric", month: "long" })}{" "}
@@ -432,20 +435,19 @@ function OverzichtContent() {
                   </div>
                 )}
 
-                {s.status === "active" && s.runningPeriod && (
+                {s.status === "active" && s.nextInvoice && (
                   <div className="mb-3 p-3 bg-gray-50 border border-gray-200 rounded-lg text-sm">
                     <p className="font-medium text-gray-700">
-                      Lopende periode {formatPeriod(s.runningPeriod)}
+                      Volgende rekening: periode {formatPeriod(s.nextInvoice)}
                     </p>
                     <p className="text-gray-600">
-                      {s.runningPeriod.held}× repetitie
-                      {s.runningPeriod.cancelled > 0
-                        ? `, ${s.runningPeriod.cancelled}× geannuleerd`
-                        : ""}
-                      {s.runningPeriod.storageCents ? " + opslag" : ""} ={" "}
-                      {formatPrice(s.runningPeriod.amountCents)}. De rekening komt na{" "}
-                      {formatShortDate(s.runningPeriod.period_end)}; annuleren tot {cancelDays}{" "}
-                      dagen van tevoren maakt hem lager.
+                      {s.nextInvoice.held}× repetitie
+                      {s.nextInvoice.storageCents ? " + opslag" : ""}
+                      {s.nextInvoice.creditSessions > 0
+                        ? ` - ${s.nextInvoice.creditSessions}× geannuleerd (verrekend)`
+                        : ""}{" "}
+                      = {formatPrice(s.nextInvoice.amountCents)}. Komt rond{" "}
+                      {formatShortDate(s.nextInvoice.invoiceDate)} per e-mail.
                     </p>
                   </div>
                 )}
@@ -492,9 +494,10 @@ function OverzichtContent() {
                       <span className="block text-xs font-normal text-gray-500">
                         Kan een keer niet? Verzet de repetitie naar een ander vrij moment, tot{" "}
                         {config.subscriptionSwapMaxDaysLater} dagen later ({s.swapsAllowed}× per{" "}
-                        {config.periodWeeks} weken), of annuleer tot {cancelDays} dagen van
-                        tevoren: dan betalen jullie die keer niet. Later afzeggen of niet komen
-                        wordt wel gerekend. Vragen: mail {config.organizationEmail}.
+                        {config.periodWeeks} weken), of annuleer de repetitie: die keer wordt
+                        dan gekort op de volgende rekening. Allebei tot {cancelHours} uur van
+                        tevoren; later afzeggen of niet komen wordt wel gerekend. Vragen: mail{" "}
+                        {config.organizationEmail}.
                       </span>
                     </p>
                     <ul className="space-y-1.5">
@@ -554,7 +557,7 @@ function OverzichtContent() {
                       <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-lg">
                         <p className="text-sm text-red-900">
                           Repetitie op <strong>{formatDate(cancelFor.date)}</strong> annuleren? Deze
-                          keer betalen jullie niet en het dagdeel komt vrij voor andere bands. Dit
+                          keer wordt gekort op de volgende rekening en het dagdeel komt vrij voor andere bands. Dit
                           kan niet ongedaan gemaakt worden; alle bandleden krijgen een mail.
                         </p>
                         <div className="flex flex-wrap gap-2 mt-2">

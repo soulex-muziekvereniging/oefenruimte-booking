@@ -6,16 +6,17 @@ import { verifyMagicLinkToken } from "@/lib/magicLink";
 import { hoursUntilSlot } from "@/lib/date";
 import { occursOn, periodStartContaining } from "@/lib/schedule";
 import { getActiveMemberEmails } from "@/lib/members";
-import { getCancelDays } from "@/lib/paymentTerms";
+import { getCancelHours } from "@/lib/paymentTerms";
 import {
   sendRepetitionCancelledEmail,
   sendRepetitionCancelledNotificationToOrg,
   sendSafely,
 } from "@/lib/email";
 
-// Eén repetitie van een vaste plek annuleren (achteraf betalen, besluit bestuur okt 2026):
-// tot de afmeldtermijn van tevoren (instelbaar, settings payment_terms), zonder maximum.
-// Een geannuleerde keer hoeft niet betaald te worden en het dagdeel komt vrij voor anderen.
+// Eén repetitie van een vaste plek annuleren (besluit bestuur 21 okt 2026): tot de
+// afmeldtermijn van tevoren (standaard 72 uur, settings payment_terms), zonder maximum.
+// Het dagdeel komt vrij voor anderen. Stond de keer al op een rekening, dan wordt hij op de
+// volgende rekening gekort (src/lib/billing.ts); anders komt hij er gewoon niet op.
 // Opgeslagen als rij in subscription_swaps zonder nieuwe datum (net als "vrijgeven" door
 // het beheer, maar met by_admin = false). Een al verzette keer kan hier niet geannuleerd
 // worden; dan mailt de band het bestuur.
@@ -67,12 +68,12 @@ export async function POST(
     );
   }
 
-  const cancelDays = await getCancelDays();
+  const cancelHours = await getCancelHours();
   const dagdeel = config.dagdelen.find((d) => d.id === subscription.dagdeel_id)!;
-  if (hoursUntilSlot(date, `${String(dagdeel.startHour).padStart(2, "0")}:00:00`) < cancelDays * 24) {
+  if (hoursUntilSlot(date, `${String(dagdeel.startHour).padStart(2, "0")}:00:00`) < cancelHours) {
     return NextResponse.json(
       {
-        error: `Annuleren kan tot ${cancelDays} dagen van tevoren. Deze keer wordt dus gewoon gerekend; verzetten kan misschien nog wel.`,
+        error: `Annuleren kan tot ${cancelHours} uur van tevoren. Deze keer wordt dus gewoon gerekend.`,
       },
       { status: 400 }
     );

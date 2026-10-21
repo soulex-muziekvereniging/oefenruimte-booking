@@ -123,14 +123,14 @@ export default function SubscriptionSection({
     <div className="max-w-lg mx-auto mt-10 bg-white rounded-lg border border-gray-200 p-4 sm:p-6">
       <h2 className="text-lg font-semibold mb-1">Vaste reservering</h2>
       <p className="text-sm text-gray-600 mb-2">
-        Claim hetzelfde dagdeel, elke week of om de week. Je betaalt achteraf: na elke{" "}
-        {config.periodWeeks} weken krijg je een rekening per e-mail voor de keren dat je kwam (
+        Claim hetzelfde dagdeel, elke week of om de week. Je betaalt vooraf: een week voor elke
+        periode van {config.periodWeeks} weken krijg je een rekening per e-mail (
         {euro(periodPrice(frequency) / pricing.sessionsPerPeriod)} per keer). Er wordt niets
         automatisch afgeschreven.
       </p>
       <ul className="text-sm text-gray-600 mb-4 list-disc pl-5 space-y-0.5">
         <li>Het tijdslot blijft van jullie zolang je de rekeningen betaalt - nooit hoeven verlengen</li>
-        <li>Kan een keer niet? Annuleer op tijd (zie de afmeldtermijn in de bevestigingsmail), dan betaal je die keer niet</li>
+        <li>Kan een keer niet? Annuleer tot {config.subscriptionCancelHours} uur van tevoren, dan wordt die keer verrekend op de volgende rekening</li>
         <li>
           Of verzet de repetitie: {config.subscriptionMaxSwapsPerPeriod}× per {config.periodWeeks} weken
           naar een ander vrij moment
@@ -305,7 +305,7 @@ export default function SubscriptionSection({
         >
           {submitting
             ? "Even geduld..."
-            : `Vaste plek aanvragen (${euro(totalCents)} per ${config.periodWeeks} weken, achteraf) →`}
+            : `Vaste plek aanvragen (${euro(totalCents)} per ${config.periodWeeks} weken) →`}
         </button>
       </form>
     </div>

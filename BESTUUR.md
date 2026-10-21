@@ -18,31 +18,30 @@ oefenruimte boeken, zonder in te hoeven loggen. Twee soorten boekingen:
    "Om de week" telt vanaf de eigen startdatum van de band (geen weeknummers), zodat twee
    bands een dagdeel om en om kunnen delen.
 
-   **Achteraf betalen** (besluit bestuur, oktober 2026): bij het aanvragen betaalt de band
-   niets, de vaste plek is meteen actief. Na elke periode van 4 weken krijgt de band (en alle
-   bekende bandleden) een rekening per e-mail voor de keren dat ze kwamen. Er is **geen
-   automatische incasso**. Een band kan een repetitie zelf **annuleren** tot de
-   **afmeldtermijn** (standaard 7 dagen van tevoren, instelbaar onder Instellingen), zonder
-   maximum: die keer wordt niet gerekend en het dagdeel komt vrij. Later afzeggen of niet
-   komen wordt wel gerekend. **Verzetten** naar elk vrij dagdeel tot 14 dagen later kan
-   2x per 4 weken; een verzette keer wordt gewoon gerekend. Een keer die het bestuur
-   vrijgeeft ("Deze keer vrijgeven") wordt ook niet gerekend.
+   **Vooraf betalen met verrekening** (besluit bestuur, 21 oktober 2026): bij het aanvragen
+   betaalt de band niets, de vaste plek is meteen actief. Een week voor elke periode van 4
+   weken krijgt de band (en alle bekende bandleden) een rekening per e-mail. Er is **geen
+   automatische incasso**. Een band kan een repetitie zelf **annuleren** of **verzetten** tot
+   de **afmeldtermijn** (standaard 72 uur van tevoren, instelbaar onder Instellingen).
+   Annuleren kan zo vaak als nodig: was de rekening voor die periode nog niet verstuurd, dan
+   komt de keer er niet op; anders wordt hij **gekort op de volgende rekening**. Later
+   afzeggen of niet komen wordt wel gerekend. Verzetten (naar elk vrij dagdeel tot 14 dagen
+   later) kan 2x per 4 weken; een verzette keer wordt gewoon gerekend. Een keer die het
+   bestuur vrijgeeft ("Deze keer vrijgeven") wordt net zo verrekend. Losse boekingen blijven
+   48 uur.
 
    Is een rekening na de **vervaltermijn** (standaard 14 dagen, instelbaar) nog niet betaald,
-   dan vervalt de vaste plek en komt het dagdeel vrij. Let op: de keren tussen de laatste
-   rekening en het vervallen staan dan op geen enkele rekening; dat handelt het bestuur zelf
-   af. **Opslagruimte** (ruimte 2, 3 en 4; 1 en 5 zijn van Soulex) kan erbij voor €15 per 4
+   dan vervalt de vaste plek en komt het dagdeel vrij. **Opslagruimte** (ruimte 2, 3 en 4; 1 en 5 zijn van Soulex) kan erbij voor €15 per 4
    weken, altijd het volle bedrag, op dezelfde rekening; het bestuur kan in het admin-scherm
    per reservering een ruimte toekennen of weghalen. Opzeggen kan de band zelf via een unieke
-   link in hun bevestigingsmail (geen inloggen nodig). Het slot komt dan direct vrij en de
-   band krijgt nog één laatste rekening voor de keren die nog niet afgerekend waren. Bij
-   opzeggen via het admin-scherm gaat dat net zo.
-
-   Periodes die nog vooruitbetaald zijn (van vóór oktober 2026) lopen gewoon af; de eerste
-   rekening achteraf is voor de periode daarna.
+   link in hun bevestigingsmail (geen inloggen nodig); het slot blijft dan van hen tot het
+   einde van de laatst betaalde periode. Opzeggen via het admin-scherm geeft het slot direct
+   vrij. Heeft de band nog **tegoed** van geannuleerde keren dat nog niet verrekend is, dan
+   staat het bedrag in de melding aan het bestuur; dat betaal je **handmatig terug**.
 
    Dit draait op één dagelijkse achtergrondtaak (Vercel Cron, `/api/cron/subscriptions`) die
-   afgelopen periodes afrekent, herinneringen stuurt en vervallen tijdsloten vrijgeeft. In het
+   rekeningen klaarzet (met verrekening), herinneringen stuurt en vervallen tijdsloten
+   vrijgeeft. In het
    admin-scherm kan een bestuurslid een periode **kwijtschelden** (bijv. bij vakantie, geen
    betaling nodig maar tijdslot blijft staan) of de **coulance met 14 dagen verlengen** (bij
    een goed verhaal) — bewust handmatige hendels, geen automatische regels.

@@ -29,8 +29,8 @@ function Confirmed({ subscriptionId }: { subscriptionId: string | null }) {
         <h2 className="text-2xl font-bold mb-2">Vaste reservering bevestigd!</h2>
         <p className="text-gray-600 mb-6">
           Het tijdslot is van jullie. Je ontvangt een bevestigingsmail met alle details en
-          een opzeglink. Jullie betalen achteraf: na elke 4 weken komt er een rekening per
-          e-mail voor de keren dat jullie kwamen. Er wordt niets automatisch afgeschreven.
+          een opzeglink. Jullie betalen vooraf per 4 weken: een week voor elke periode komt er
+          een rekening per e-mail. Er wordt niets automatisch afgeschreven.
           Verzetten of annuleren doe je via &quot;Mijn boekingen&quot;.
         </p>
         {subscriptionId && (

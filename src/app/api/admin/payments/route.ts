@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
     .from("subscription_payments")
     .select(
       // "*" zodat admin_note meekomt zodra migratie 017 is uitgevoerd (en niets breekt daarvoor)
-      "*, subscriptions(band_name, weekday, dagdeel_id, frequency, status, bill_until)"
+      "*, subscriptions(band_name, weekday, dagdeel_id, frequency, status)"
     )
     .gte("period_start", addDaysStr(from, -120))
     .lt("period_start", addDaysStr(to, 120));
@@ -83,14 +83,12 @@ export async function GET(request: NextRequest) {
       dagdeel_id: string;
       frequency: "weekly" | "biweekly";
       status: string;
-      bill_until: string | null;
     } | null;
-    // Opgezegd met een laatste rekening (bill_until): die staat gewoon open.
-    const ended = sub?.status === "lapsed" || (sub?.status === "cancelled" && !sub.bill_until);
+    const ended = sub?.status === "lapsed" || sub?.status === "cancelled";
     const sessions =
       typeof p.sessions_held !== "number"
         ? ""
-        : ` · ${p.sessions_held}× gerepeteerd${p.sessions_cancelled ? `, ${p.sessions_cancelled}× geannuleerd` : ""}${p.storage_cents ? ", opslag" : ""}`;
+        : ` · ${p.sessions_held}×${p.sessions_cancelled ? ` (${p.sessions_cancelled}× al geannuleerd)` : ""}${p.storage_cents ? ", opslag" : ""}${p.credit_sessions ? `, ${p.credit_sessions}× verrekend` : ""}`;
     rows.push({
       id: p.id,
       kind: "periode",

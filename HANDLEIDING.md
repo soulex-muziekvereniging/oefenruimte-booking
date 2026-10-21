@@ -28,29 +28,31 @@ Vraag hier toegang aan").
 
 Voor bands die structureel op hetzelfde moment willen repeteren.
 
-- Kies **elke week** of **om de week**. Je betaalt **€30 per keer** dat je komt (€120 per
-  4 weken als je elke week komt, €60 bij om de week).
+- Kies **elke week** (**€120 per 4 weken**) of **om de week** (**€60 per 4 weken**). Dat is
+  steeds **€30 per keer**.
 - Kies zelf de **eerste datum** en het dagdeel. De site laat meteen zien of het vrij is en wat
   de eerste keren zijn. Om de week telt vanaf jullie eigen startdatum; twee bands kunnen zo
   hetzelfde dagdeel om en om delen.
-- Je betaalt **achteraf**. Bij het aanvragen betaal je niets; de vaste plek is meteen van
-  jullie. Na elke periode van 4 weken krijg je (en je bandleden) een **rekening per e-mail**
-  voor de keren dat jullie kwamen, met een betaallink. Geen automatische incasso.
+- Je betaalt **vooraf per 4 weken**. Bij het aanvragen betaal je niets; de vaste plek is
+  meteen van jullie. Een week voor elke periode krijg je (en je bandleden) een **rekening per
+  e-mail** met een betaallink. Geen automatische incasso.
 - Zolang je de rekeningen betaalt, blijft het tijdslot van jullie - nooit hoeven verlengen.
 - Betaal je een rekening niet, dan krijg je na 7 dagen een herinnering en daarna een laatste
   waarschuwing. Is er na **14 dagen** nog niet betaald, dan vervalt de vaste plek en komt het
   dagdeel vrij voor een andere band.
 - **Kan een keer niet?** Via "Mijn boekingen" kun je:
-  - een repetitie **annuleren**, tot **7 dagen van tevoren**. Die keer betaal je niet, en het
-    dagdeel komt vrij voor andere bands. Er is geen maximum. Later afzeggen of gewoon niet
-    komen wordt wel gerekend.
+  - een repetitie **annuleren**, tot **72 uur van tevoren**. Die keer wordt gekort op de
+    volgende rekening (of komt er niet op, als die nog niet verstuurd is), en het dagdeel komt
+    vrij voor andere bands. Er is geen maximum. Later afzeggen of gewoon niet komen wordt wel
+    gerekend.
   - een repetitie **verzetten** naar elk vrij dagdeel, tot **14 dagen later**, maximaal
-    **2 keer per 4 weken**. Een verzette keer wordt gewoon gerekend.
+    **2 keer per 4 weken**, ook tot 72 uur van tevoren. Een verzette keer wordt gewoon gerekend.
   Elk bandlid kan dat. Moet het anders, mail dan naar beheer@soulex.nl.
 - **Opslagruimte bijhuren** kan met een vinkje bij het aanvragen: **€15 per 4 weken**
   (altijd het volle bedrag), op dezelfde rekening. Er zijn er 3 (vol is vol).
-- Opzeggen kan altijd zelf via de link in je bevestigingsmail. Het tijdslot komt dan meteen
-  vrij. Voor de keren die nog niet afgerekend zijn, krijg je nog één laatste rekening.
+- Opzeggen kan altijd zelf via de link in je bevestigingsmail. Wat al betaald is, blijft van
+  jullie: het tijdslot loopt door tot het einde van de betaalde periode. Hebben jullie nog
+  tegoed van geannuleerde keren, dan betaalt het bestuur dat terug.
 - Tarieven zijn voorlopig; het bestuur stelt ze nog definitief vast.
 
 ## "Mijn boekingen" — je eigen overzicht inzien
