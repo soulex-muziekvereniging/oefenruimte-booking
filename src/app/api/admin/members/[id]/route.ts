@@ -1,7 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAdminPassword } from "@/lib/adminAuth";
 import { supabase } from "@/lib/supabase";
-import { cleanPhone, isValidPhone, PHONE_REQUIRED_ERROR } from "@/lib/memberPhones";
+import {
+  cleanPhone,
+  EMAIL_INVALID_ERROR,
+  isValidEmail,
+  isValidPhone,
+  PHONE_REQUIRED_ERROR,
+} from "@/lib/memberPhones";
+import { todayStr } from "@/lib/date";
 
 export async function PATCH(
   request: NextRequest,
@@ -12,7 +19,7 @@ export async function PATCH(
   if (authError) return authError;
 
   const body = await request.json().catch(() => ({}));
-  const update: { active?: boolean; phone?: string | null; updated_at: string } = {
+  const update: { active?: boolean; phone?: string | null; email?: string; updated_at: string } = {
     updated_at: new Date().toISOString(),
   };
 
@@ -25,9 +32,23 @@ export async function PATCH(
     }
   }
 
-  if (update.active === undefined && !("phone" in update)) {
+  if ("email" in body) {
+    const email = typeof body.email === "string" ? body.email.toLowerCase().trim() : "";
+    update.email = email;
+    if (!isValidEmail(email)) {
+      return NextResponse.json({ error: EMAIL_INVALID_ERROR }, { status: 400 });
+    }
+  }
+
+  if (update.active === undefined && !("phone" in update) && !("email" in update)) {
     return NextResponse.json({ error: "Niets om bij te werken" }, { status: 400 });
   }
+
+  const { data: before } = await supabase
+    .from("members")
+    .select("email, phone")
+    .eq("id", id)
+    .maybeSingle();
 
   const { data, error } = await supabase
     .from("members")
@@ -37,7 +58,32 @@ export async function PATCH(
     .single();
 
   if (error || !data) {
+    if (error?.code === "23505") {
+      return NextResponse.json({ error: "Dit e-mailadres staat al op de ledenlijst" }, { status: 409 });
+    }
     return NextResponse.json({ error: "Kon lid niet bijwerken" }, { status: 500 });
+  }
+
+  // Is dit lid ook de contactpersoon van een vaste plek of een komende boeking? Dan daar het
+  // nieuwe adres/nummer ook invullen: de rekeningen en bevestigingen gaan altijd ook naar de
+  // contactpersoon, en het oude adres mag daar niet blijven hangen.
+  if (before) {
+    const contact: { contact_email?: string; contact_phone?: string | null } = {};
+    if (update.email && update.email !== before.email) contact.contact_email = update.email;
+    if ("phone" in update && update.phone !== before.phone) contact.contact_phone = update.phone;
+    if (Object.keys(contact).length > 0) {
+      await supabase
+        .from("subscriptions")
+        .update({ ...contact, updated_at: new Date().toISOString() })
+        .ilike("contact_email", before.email)
+        .in("status", ["active", "pending_first_payment"]);
+      await supabase
+        .from("bookings")
+        .update(contact)
+        .ilike("contact_email", before.email)
+        .eq("status", "confirmed")
+        .gte("slot_date", todayStr());
+    }
   }
 
   return NextResponse.json(data);

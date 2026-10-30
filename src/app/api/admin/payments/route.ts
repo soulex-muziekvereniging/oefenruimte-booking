@@ -32,6 +32,10 @@ export type PaymentRow = {
   paidBy: string | null;
   note: string | null; // opmerking van het beheer (handmatig betaald, kwijtgescholden)
   canSettle: boolean; // nog af te handelen: handmatig betaald of kwijtschelden kan
+  // Wanneer de mails over deze periode naar de band zijn gegaan (alleen vaste reserveringen).
+  invoiceSentAt: string | null;
+  reminderSentAt: string | null;
+  warningSentAt: string | null;
 };
 
 function amsterdamDate(iso: string): string {
@@ -112,6 +116,9 @@ export async function GET(request: NextRequest) {
       paidBy: p.paid_by,
       note: (p as { admin_note?: string | null }).admin_note ?? null,
       canSettle: p.status === "unpaid",
+      invoiceSentAt: p.invoice_sent_at ?? null,
+      reminderSentAt: p.reminder_sent_at ?? null,
+      warningSentAt: p.warning_sent_at ?? null,
     });
   }
 
@@ -145,6 +152,9 @@ export async function GET(request: NextRequest) {
       paidBy: b.paid_by,
       note: null,
       canSettle: false,
+      invoiceSentAt: null,
+      reminderSentAt: null,
+      warningSentAt: null,
     });
   }
 

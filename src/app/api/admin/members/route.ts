@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAdminPassword } from "@/lib/adminAuth";
 import { supabase } from "@/lib/supabase";
-import { cleanPhone, isValidPhone, PHONE_REQUIRED_ERROR } from "@/lib/memberPhones";
+import {
+  cleanPhone,
+  EMAIL_INVALID_ERROR,
+  isValidEmail,
+  isValidPhone,
+  PHONE_REQUIRED_ERROR,
+} from "@/lib/memberPhones";
 
 export async function GET(request: NextRequest) {
   const authError = await verifyAdminPassword(request);
@@ -36,6 +42,10 @@ export async function POST(request: NextRequest) {
 
   if (!isValidPhone(phone)) {
     return NextResponse.json({ error: PHONE_REQUIRED_ERROR }, { status: 400 });
+  }
+
+  if (!isValidEmail(email.toLowerCase().trim())) {
+    return NextResponse.json({ error: EMAIL_INVALID_ERROR }, { status: 400 });
   }
 
   const { data, error } = await supabase

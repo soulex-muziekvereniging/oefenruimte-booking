@@ -10,3 +10,11 @@ export function isValidPhone(phone: string | null): phone is string {
 }
 
 export const PHONE_REQUIRED_ERROR = "Vul een geldig telefoonnummer in (minstens 10 cijfers)";
+
+// E-mailadres van een lid. Eén ongeldig adres laat de hele mail aan de band mislukken
+// (Resend weigert dan alles), dus streng aan de voordeur.
+export function isValidEmail(email: string): boolean {
+  return /^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+$/.test(email);
+}
+
+export const EMAIL_INVALID_ERROR = "Vul een geldig e-mailadres in";

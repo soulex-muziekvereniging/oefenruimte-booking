@@ -211,8 +211,9 @@ export default async function BeheerHandleidingPage() {
             band; alle bandleden zien dan hetzelfde en krijgen dezelfde mails.
           </li>
           <li>
-            Telefoonnummer aanpassen met <em>wijzig</em>, iemand tijdelijk uitzetten met{" "}
-            <em>Actief lid</em>, of verwijderen.
+            E-mailadres of telefoonnummer aanpassen met <em>wijzig e-mail/telefoon</em>. Is dit lid
+            de contactpersoon van een vaste plek of een komende boeking, dan wordt het nieuwe adres
+            daar ook ingevuld. Iemand tijdelijk uitzetten met <em>Actief lid</em>, of verwijderen.
           </li>
         </ul>
       </Section>
@@ -302,6 +303,14 @@ export default async function BeheerHandleidingPage() {
           online betaalde losse boekingen, met band, bedrag, status en wie er betaald heeft.
         </p>
         <ul className="list-disc pl-5 space-y-1.5">
+          <li>
+            <strong>Mails aan de bands</strong> (bovenaan): wanneer de site voor het laatst heeft
+            gecontroleerd (elke ochtend rond 7:00), hoeveel rekeningen, herinneringen en
+            waarschuwingen er toen zijn verstuurd en of er iets mislukt is. Onder{" "}
+            <em>Verstuurde mails bekijken</em> staat per mail naar welke adressen hij ging. Bij elke
+            periode staat ook wanneer de rekening is verstuurd. Mislukt er een, dan probeert de site
+            het elke ochtend opnieuw; meestal is een e-mailadres bij Leden dan fout.
+          </li>
           <li>
             <strong>Download (Excel)</strong> voor de jaarafrekening of de kascommissie. Bij een nieuw
             boekjaar begint het overzicht leeg; oudere jaren blijven op te vragen.

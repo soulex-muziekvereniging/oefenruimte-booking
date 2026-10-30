@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import MailLogPanel from "./MailLogPanel";
 
 type PaymentRow = {
   id: string;
@@ -16,7 +17,29 @@ type PaymentRow = {
   paidBy: string | null;
   note: string | null;
   canSettle: boolean;
+  invoiceSentAt: string | null;
+  reminderSentAt: string | null;
+  warningSentAt: string | null;
 };
+
+// Rekening van een vaste reservering nog niet bij de band (mail mislukt of nog niet aan de beurt).
+const unsent = (r: PaymentRow) => r.kind === "periode" && r.canSettle && !r.invoiceSentAt;
+
+// Welke mails er over deze periode naar de band zijn gegaan.
+function MailSent({ r }: { r: PaymentRow }) {
+  if (r.kind !== "periode") return null;
+  if (unsent(r)) {
+    return <span className="block text-xs text-red-700 mt-0.5">✉ rekening nog niet verstuurd</span>;
+  }
+  if (!r.invoiceSentAt) return null;
+  return (
+    <span className="block text-xs text-gray-500 mt-0.5">
+      ✉ rekening {shortDate(r.invoiceSentAt)}
+      {r.reminderSentAt && ` · herinnering ${shortDate(r.reminderSentAt)}`}
+      {r.warningSentAt && ` · waarschuwing ${shortDate(r.warningSentAt)}`}
+    </span>
+  );
+}
 
 type Filter = "alles" | "open" | "betaald";
 
@@ -209,6 +232,8 @@ export default function PaymentsTab() {
         meer innen? Gebruik de knoppen bij de regel. Uitstel geven doe je bij Abonnementen.
       </p>
 
+      <MailLogPanel unsentCount={(rows ?? []).filter(unsent).length} />
+
       <div className="flex flex-wrap items-center gap-2 mb-4">
         {filters.map((f) => (
           <button
@@ -293,6 +318,7 @@ export default function PaymentsTab() {
                         </span>
                       )}
                       {r.note && <span className="block text-xs text-gray-500 mt-0.5">{r.note}</span>}
+                      <MailSent r={r} />
                       {r.canSettle && (
                         <span className="flex flex-wrap gap-1 mt-1">
                           <button
@@ -351,6 +377,7 @@ export default function PaymentsTab() {
                   </span>
                 </p>
                 {r.note && <p className="text-xs text-gray-500 mt-1">{r.note}</p>}
+                <MailSent r={r} />
                 {r.canSettle && (
                   <div className="flex gap-2 mt-2">
                     <button

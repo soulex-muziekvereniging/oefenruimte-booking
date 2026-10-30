@@ -150,7 +150,10 @@ export default function AdminPage() {
   const [newMemberEmail, setNewMemberEmail] = useState("");
   const [newMemberPhone, setNewMemberPhone] = useState("");
   const [newPhoneByBand, setNewPhoneByBand] = useState<Record<string, string>>({});
-  const [editingPhone, setEditingPhone] = useState<{ id: string; value: string } | null>(null);
+  const [editingMember, setEditingMember] = useState<{ id: string; email: string; phone: string } | null>(
+    null
+  );
+  const [savingMember, setSavingMember] = useState(false);
   const [addingMember, setAddingMember] = useState(false);
   const [togglingMember, setTogglingMember] = useState<string | null>(null);
   const [deletingMember, setDeletingMember] = useState<string | null>(null);
@@ -535,19 +538,39 @@ export default function AdminPage() {
     setTogglingMember(null);
   }
 
-  async function handleSavePhone(member: Member, phone: string) {
+  // Alleen wat echt veranderd is opsturen: zo blokkeert een lid zonder telefoonnummer het
+  // aanpassen van alleen het e-mailadres niet.
+  async function handleSaveMember(member: Member, email: string, phone: string) {
+    const change: { email?: string; phone?: string } = {};
+    if (email.trim().toLowerCase() !== member.email.toLowerCase()) change.email = email;
+    if (phone.trim() !== (member.phone ?? "")) change.phone = phone;
+    if (Object.keys(change).length === 0) {
+      setEditingMember(null);
+      return;
+    }
+    if (
+      change.email &&
+      !confirm(
+        `E-mailadres wijzigen van ${member.email} naar ${change.email.trim().toLowerCase()}?\n\n` +
+          "Dit lid logt voortaan in met het nieuwe adres, en rekeningen en bevestigingen gaan daarheen."
+      )
+    ) {
+      return;
+    }
     setMemberError("");
+    setSavingMember(true);
     const res = await fetch(`/api/admin/members/${member.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ phone }),
+      body: JSON.stringify(change),
     });
+    setSavingMember(false);
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      setMemberError(data.error || "Kon telefoonnummer niet opslaan");
+      setMemberError(data.error || "Kon de wijziging niet opslaan");
       return;
     }
-    setEditingPhone(null);
+    setEditingMember(null);
     await fetchMembers();
   }
 
@@ -1479,37 +1502,54 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
                           className="flex items-center justify-between gap-2 pl-3 border-l-2 border-gray-100"
                         >
                           <div className="min-w-0">
-                            <p className="text-sm text-gray-600 truncate">{member.email}</p>
-                            {editingPhone?.id === member.id ? (
+                            {editingMember?.id === member.id ? (
                               <form
-                                className="flex gap-1 mt-1"
+                                className="flex flex-wrap gap-1"
                                 onSubmit={(e) => {
                                   e.preventDefault();
-                                  handleSavePhone(member, editingPhone.value);
+                                  handleSaveMember(member, editingMember.email, editingMember.phone);
                                 }}
                               >
                                 <input
-                                  type="tel"
+                                  type="email"
+                                  required
                                   autoFocus
-                                  value={editingPhone.value}
+                                  aria-label="E-mailadres"
+                                  value={editingMember.email}
                                   onChange={(e) =>
-                                    setEditingPhone({ id: member.id, value: e.target.value })
+                                    setEditingMember({ ...editingMember, email: e.target.value })
+                                  }
+                                  placeholder="E-mailadres"
+                                  className="w-56 max-w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                                />
+                                <input
+                                  type="tel"
+                                  aria-label="Telefoonnummer"
+                                  value={editingMember.phone}
+                                  onChange={(e) =>
+                                    setEditingMember({ ...editingMember, phone: e.target.value })
                                   }
                                   placeholder="Telefoonnummer"
                                   className="w-36 px-2 py-1 border border-gray-300 rounded text-sm"
                                 />
-                                <button type="submit" className="px-2 py-1 bg-blue-600 text-white rounded text-xs">
-                                  Opslaan
+                                <button
+                                  type="submit"
+                                  disabled={savingMember}
+                                  className="px-2 py-1 bg-blue-600 text-white rounded text-xs disabled:opacity-50"
+                                >
+                                  {savingMember ? "Opslaan..." : "Opslaan"}
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={() => setEditingPhone(null)}
+                                  onClick={() => setEditingMember(null)}
                                   className="px-2 py-1 text-gray-500 text-xs"
                                 >
                                   Annuleer
                                 </button>
                               </form>
                             ) : (
+                              <>
+                              <p className="text-sm text-gray-600 truncate">{member.email}</p>
                               <p className="text-sm text-gray-500">
                                 {member.phone ? (
                                   <>
@@ -1537,13 +1577,18 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
                                 )}{" "}
                                 <button
                                   onClick={() =>
-                                    setEditingPhone({ id: member.id, value: member.phone ?? "" })
+                                    setEditingMember({
+                                      id: member.id,
+                                      email: member.email,
+                                      phone: member.phone ?? "",
+                                    })
                                   }
                                   className="text-xs text-blue-600 hover:text-blue-700"
                                 >
-                                  wijzig
+                                  wijzig e-mail/telefoon
                                 </button>
                               </p>
+                              </>
                             )}
                           </div>
                           <div className="flex items-center gap-2 shrink-0">

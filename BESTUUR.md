@@ -73,6 +73,13 @@ Bij een nieuw boekjaar begint het overzicht vanzelf leeg; er wordt niets verwijd
 jaren blijven op te vragen, de administratie moet een aantal jaren bewaard blijven). In welke
 maand het boekjaar begint, stel je in onder Instellingen (standaard januari).
 
+**Zijn de rekeningen verstuurd?** Bovenaan de tab staat *Mails aan de bands*: wanneer de site
+voor het laatst heeft gecontroleerd (elke ochtend rond 7:00), hoeveel mails er toen uit zijn
+gegaan en of er iets mislukt is, met per mail de adressen. Bij elke periode staat wanneer de
+rekening, herinnering en waarschuwing verstuurd zijn. Een mislukte rekening probeert de site
+elke ochtend opnieuw; meestal klopt dan een e-mailadres bij Leden niet (aan te passen met
+*wijzig e-mail/telefoon*).
+
 **Als een betaling niet via de site loopt**, gebruik je de knoppen bij de regel (filter
 "Af te handelen"):
 - **Handmatig betaald**: contant of per overboeking betaald. Je vult in hoe; de band krijgt
