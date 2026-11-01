@@ -124,34 +124,46 @@ export async function GET(request: NextRequest) {
 
   // Losse boekingen worden bij het boeken betaald (beheer-boekingen zonder betaling tellen
   // niet mee).
+  // Plus boekingen die het beheer heeft ingepland met betaalverzoek (payment_status,
+  // migratie 022): die tellen in het jaar van betalen, of zolang ze open staan van aanmaken.
   const { data: bookings, error: bookingsError } = await supabase
     .from("bookings")
-    .select("id, band_name, slot_date, slot_start_time, price_cents, status, paid_by, created_at")
-    .not("mollie_payment_id", "is", null)
+    .select(
+      "id, band_name, slot_date, slot_start_time, price_cents, status, paid_by, created_at, payment_status, paid_at, admin_note"
+    )
+    .or("mollie_payment_id.not.is.null,payment_status.not.is.null")
     .in("status", ["confirmed", "cancelled"])
-    .gte("created_at", `${addDaysStr(from, -1)}T00:00:00Z`)
+    .gte("created_at", `${addDaysStr(from, -120)}T00:00:00Z`)
     .lt("created_at", `${addDaysStr(to, 1)}T00:00:00Z`);
   if (bookingsError) {
     return NextResponse.json({ error: "Kon de betalingen niet laden" }, { status: 500 });
   }
 
   for (const b of bookings ?? []) {
-    const date = amsterdamDate(b.created_at);
+    const date = amsterdamDate(b.paid_at ?? b.created_at);
     if (!inYear(date)) continue;
+    const open = b.payment_status === "open";
     rows.push({
       id: b.id,
       kind: "los",
       band: b.band_name,
-      description: `Losse boeking ${shortDate(b.slot_date)}, ${b.slot_start_time.slice(0, 5)}`,
+      description: `Losse boeking ${shortDate(b.slot_date)}, ${b.slot_start_time.slice(0, 5)}${b.payment_status ? " (ingepland door beheer)" : ""}`,
       amountCents: b.price_cents,
-      status: b.status === "cancelled" ? "geannuleerd" : "betaald",
+      status:
+        b.status === "cancelled"
+          ? "geannuleerd"
+          : open
+            ? "open"
+            : b.payment_status === "waived"
+              ? "kwijtgescholden"
+              : "betaald",
       date,
       dueDate: null,
       graceUntil: null,
-      paidAt: b.created_at,
+      paidAt: b.paid_at ?? b.created_at,
       paidBy: b.paid_by,
-      note: null,
-      canSettle: false,
+      note: b.admin_note ?? null,
+      canSettle: open && b.status === "confirmed",
       invoiceSentAt: null,
       reminderSentAt: null,
       warningSentAt: null,

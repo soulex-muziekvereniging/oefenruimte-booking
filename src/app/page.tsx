@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { useTariffs } from "./useTariffs";
+import { useMaxWeeksAhead } from "./useMaxWeeksAhead";
 import { config } from "@/config";
 import { toLocalDateStr, hoursUntilSlot } from "@/lib/date";
 import SubscriptionSection from "./SubscriptionSection";
@@ -62,6 +63,7 @@ function formatFullDate(dateStr: string): string {
 export default function Home() {
   const [mode, setMode] = useState<"once" | "subscription" | "join" | null>(null);
   const tariffs = useTariffs();
+  const maxWeeksAhead = useMaxWeeksAhead();
   const [storageFree, setStorageFree] = useState<number | null>(null);
   useEffect(() => {
     fetch("/api/storage")
@@ -100,7 +102,7 @@ export default function Home() {
   const canGoPrev = weekStart > getWeekStart(today);
 
   const maxDate = new Date(today);
-  maxDate.setDate(maxDate.getDate() + config.maxWeeksAhead * 7);
+  maxDate.setDate(maxDate.getDate() + maxWeeksAhead * 7);
   const canGoNext = new Date(weekEndStr + "T00:00:00") < maxDate;
 
   const maxDateStr = formatDateStr(maxDate);

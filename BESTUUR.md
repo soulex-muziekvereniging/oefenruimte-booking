@@ -87,6 +87,12 @@ elke ochtend opnieuw; meestal klopt dan een e-mailadres bij Leden niet (aan te p
 - **Kwijtschelden**: niet meer innen, met een reden. Die reden staat in het overzicht en in
   de export.
 
+**Zelf een losse boeking inplannen** (Boekingen beheren > + Toevoegen) kan ook verder vooruit
+dan leden zelf mogen. Kies daarbij of de band nog moet betalen: dan krijgt de band een
+betaalknop in de bevestigingsmail (en bij Mijn boekingen), en staat de boeking onder
+Betalingen als "open" tot hij betaald is. Hoe ver leden zelf vooruit kunnen boeken, stel je in
+onder Instellingen > Vooruit boeken.
+
 Een afgebroken online betaling hoef je niet op te ruimen: na 15 minuten vervalt die vanzelf
 en komt het dagdeel weer vrij. Vervalt een vaste reservering terwijl er nog een rekening open
 stond, dan staat die als **vervallen**: telt niet meer als "open", maar blijft zichtbaar tot

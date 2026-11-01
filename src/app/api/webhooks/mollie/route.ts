@@ -20,11 +20,18 @@ export async function POST(request: NextRequest) {
 
   const payment = (await mollie.payments.get(paymentId)) as {
     status: string;
-    metadata: { bookingId: string };
+    metadata: { bookingId: string; kind?: string };
     details?: { consumerName?: string | null; cardHolder?: string | null } | null;
   };
   const paidBy = payerName(payment);
   const bookingId = payment.metadata.bookingId;
+
+  // Betaling via de betaallink van een boeking die het beheer heeft ingepland: de boeking
+  // staat al vast, alleen de betaling afronden.
+  if (payment.metadata.kind === "request") {
+    if (payment.status === "paid") await handleRequestPaid(bookingId, paymentId, paidBy);
+    return NextResponse.json({ received: true });
+  }
 
   if (payment.status === "paid") {
     // Alleen bijwerken als de boeking nog "pending" is - anders overschrijft een
@@ -110,6 +117,62 @@ async function handleLatePayment(bookingId: string, paymentId: string, paidBy: s
     sendAdminAlertToOrg(
       `te late betaling van ${booking.band_name}`,
       `${booking.band_name} (${booking.contact_email}) betaalde voor ${booking.slot_date} ${booking.slot_start_time.slice(0, 5)}, maar pas nadat de reservering was verlopen en het slot inmiddels bezet was. ` +
+        (refunded
+          ? "Het bedrag is automatisch teruggestort via Mollie."
+          : `Automatisch terugstorten lukte niet - stort handmatig terug via Mollie (betaling ${paymentId}).`)
+    )
+  );
+}
+
+// Betaalverzoek van het beheer is betaald. Alleen bijwerken als het nog openstaat; is de
+// boeking intussen geannuleerd, kwijtgescholden of al (handmatig) betaald, dan het geld
+// terugstorten en het bestuur inlichten.
+async function handleRequestPaid(bookingId: string, paymentId: string, paidBy: string | null) {
+  const now = new Date().toISOString();
+  const { data: booking } = await supabase
+    .from("bookings")
+    .update({
+      payment_status: "paid",
+      mollie_payment_id: paymentId,
+      paid_by: paidBy,
+      paid_at: now,
+      updated_at: now,
+    })
+    .eq("id", bookingId)
+    .eq("status", "confirmed")
+    .eq("payment_status", "open")
+    .select()
+    .maybeSingle();
+
+  if (booking) {
+    const bandEmails = await getActiveMemberEmails(booking.band_name, booking.contact_email);
+    await sendSafely("bevestiging betaling (betaalverzoek)", () =>
+      sendConfirmationEmail(booking, bandEmails, paidBy)
+    );
+    return;
+  }
+
+  const { data: current } = await supabase
+    .from("bookings")
+    .select("*")
+    .eq("id", bookingId)
+    .maybeSingle();
+  if (!current || current.mollie_payment_id === paymentId) return; // dubbele webhook
+
+  let refunded = false;
+  try {
+    await mollie.paymentRefunds.create({
+      paymentId,
+      amount: { currency: "EUR", value: (current.price_cents / 100).toFixed(2) },
+    });
+    refunded = true;
+  } catch (err) {
+    console.error(`Terugbetaling van betaling ${paymentId} mislukt:`, err);
+  }
+  await sendSafely("melding betaling niet nodig", () =>
+    sendAdminAlertToOrg(
+      `betaling van ${current.band_name} was niet (meer) nodig`,
+      `${current.band_name} betaalde voor ${current.slot_date} ${current.slot_start_time.slice(0, 5)}, maar de boeking was al geannuleerd, betaald of kwijtgescholden. ` +
         (refunded
           ? "Het bedrag is automatisch teruggestort via Mollie."
           : `Automatisch terugstorten lukte niet - stort handmatig terug via Mollie (betaling ${paymentId}).`)

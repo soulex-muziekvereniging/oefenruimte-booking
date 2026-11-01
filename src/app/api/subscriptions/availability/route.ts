@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { expireStalePendingSubscriptions } from "@/lib/expire";
 import { findSubscriptionConflict } from "@/lib/slots";
 import { checkStartDate, conflictMessage, parseSubscriptionInput } from "@/lib/subscriptionRequest";
+import { getMaxWeeksAhead } from "@/lib/bookingHorizon";
 import { occurrencesBetween, weekdayOf } from "@/lib/schedule";
 import { addDaysStr } from "@/lib/periods";
 
@@ -15,7 +16,7 @@ export async function GET(request: NextRequest) {
   }
   const input = parsed.value;
 
-  const startError = checkStartDate(input);
+  const startError = checkStartDate(input, { maxWeeksAhead: await getMaxWeeksAhead() });
   if (startError) {
     return NextResponse.json({ available: false, message: startError });
   }

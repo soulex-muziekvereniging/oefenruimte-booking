@@ -12,6 +12,8 @@ type Booking = {
   contact_name: string;
   paid_by: string | null;
   paidOnline: boolean;
+  payUrl: string | null;
+  settledByBoard: boolean;
   slot_date: string;
   slot_start_time: string;
   slot_end_time: string;
@@ -692,12 +694,24 @@ function OverzichtContent() {
                   {b.status === "confirmed" ? "Bevestigd" : "In afwachting"} · geboekt door{" "}
                   {b.contact_name}
                   {b.status === "confirmed" &&
-                    (b.paid_by
-                      ? ` · betaald door ${b.paid_by}`
-                      : b.paidOnline
-                        ? " · betaald"
-                        : " · toegevoegd door het bestuur")}
+                    (b.payUrl
+                      ? " · nog te betalen"
+                      : b.paid_by
+                        ? ` · betaald door ${b.paid_by}`
+                        : b.paidOnline
+                          ? " · betaald"
+                          : b.settledByBoard
+                            ? " · hoeft niet betaald te worden"
+                            : " · toegevoegd door het bestuur")}
                 </p>
+                {b.payUrl && (
+                  <a
+                    href={b.payUrl}
+                    className="inline-block mb-3 mr-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
+                  >
+                    Betalen — {formatPrice(b.price_cents)}
+                  </a>
+                )}
                 {b.status === "confirmed" &&
                   (hoursUntilSlot(b.slot_date, b.slot_start_time) >=
                   config.cancellationCutoffHours ? (

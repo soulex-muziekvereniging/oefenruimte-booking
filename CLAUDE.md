@@ -14,7 +14,11 @@ aangesproken.
 
 - **Dagdelen**: ochtend 9-13, middag 14-18, avond 19-23 (`config.dagdelen`). Alles wordt per
   dagdeel geboekt.
-- **Los boeken**: per dagdeel, vooraf betalen via Mollie, maximaal `maxWeeksAhead` weken vooruit.
+- **Los boeken**: per dagdeel, vooraf betalen via Mollie, zo ver vooruit als ingesteld (settings
+  `booking_horizon`, standaard `maxWeeksAhead`; geldt ook voor de startdatum van een vaste plek).
+  Beheer kan een losse boeking zelf inplannen (ook verder vooruit), met of zonder
+  betaalverzoek: `bookings.payment_status` open/paid/waived (migratie 022), betaallink
+  `/boeking/betalen?token=` (Mollie-betaling pas bij klikken, webhook `kind: "request"`).
   Annuleren tot `cancellationCutoffHours` vooraf, met automatische terugbetaling.
 - **Vaste plek** (tabel `subscriptions`): elke week of om de week hetzelfde dagdeel, vanaf een
   zelfgekozen startdatum, zonder einddatum.
@@ -89,7 +93,7 @@ Ze hebben een eigen zalenplanner (VirtueelPlein MRBS, `deborghbudel.nl/mrbs`, ru
 - Instellingen die beheer zelf wijzigt staan in tabel `settings` (met log in
   `settings_history`). Keys: `tariffs`, `whatsapp_templates`, `payment_terms` (graceDays, cancelHours),
   `invoicing` (enabled, fromDate: hoofdschakelaar rekeningen, standaard uit), `borgh_email`,
-  `borgh_auto`, `borgh_mail_text`, `fiscal_year` (startmaand boekjaar), `mail_log` (verzendlog van de
+  `borgh_auto`, `borgh_mail_text`, `fiscal_year` (startmaand boekjaar), `booking_horizon` (weeks), `mail_log` (verzendlog van de
   cron, `src/lib/mailLog.ts`, geschreven door de cron), `join_request_recipients`
   (ontvangers "Lid worden"-aanvragen; leeg = tabel `notification_recipients`). `src/config.ts` bevat de standaardwaarden.
 - Beheerders loggen in met een eigen account (`admin_users`, HMAC-sessiecookie). Bands loggen

@@ -132,7 +132,7 @@ export default function HandleidingPage() {
           <li>
             Je ziet de week. <span className="text-green-800">Groen</span> is vrij,{" "}
             <span className="text-red-700">rood</span> is bezet. Met de pijltjes of &quot;Ga naar
-            datum&quot; blader je verder (tot {config.maxWeeksAhead} weken vooruit).
+            datum&quot; blader je verder, zo ver vooruit als het bestuur de agenda heeft opengezet.
           </li>
           <li>Tik op een vrij dagdeel. Onderin verschijnt het formulier.</li>
           <li>

@@ -257,6 +257,8 @@ export default function AdminPage() {
     storageUnit: "",
     dagdeelId: config.dagdelen[0].id,
     recurrence: "once" as "once" | "weekly" | "biweekly",
+    // Alleen bij eenmalig: moet de band nog betalen (betaallink per mail)?
+    payment: "request" as "request" | "none",
   });
   const [addingBooking, setAddingBooking] = useState(false);
   const [addBookingError, setAddBookingError] = useState("");
@@ -691,7 +693,7 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
               frequency: addBookingForm.recurrence,
               storageUnit: addBookingForm.storageUnit,
             }
-          : { slotDate: addBookingForm.slotDate }),
+          : { slotDate: addBookingForm.slotDate, payment: addBookingForm.payment }),
       }),
     });
     const data = await res.json();
@@ -711,6 +713,7 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
       storageUnit: "",
       dagdeelId: config.dagdelen[0].id,
       recurrence: "once",
+      payment: "request",
     });
     setShowAddBooking(false);
     setAddingBooking(false);
@@ -1677,8 +1680,8 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
         blok voor de contactgegevens, om te bellen of te WhatsAppen, een vaste repetitie deze ene
         keer te verplaatsen of vrij te geven, een verplaatsing terug te draaien of een losse
         boeking te annuleren (met terugbetaling). Met{" "}
-        <strong>+ Toevoegen</strong> zet je er zelf een boeking of vaste reservering in, zonder
-        online betaling - bijvoorbeeld bij een afspraak of contante betaling.
+        <strong>+ Toevoegen</strong> zet je er zelf een boeking of vaste reservering in. Bij een
+        losse boeking kies je of de band nog moet betalen (betaallink per mail) of niet.
       </p>
 
       {showAddBooking && (
@@ -1687,8 +1690,8 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
           className="bg-white rounded-lg border border-gray-200 p-4 mb-6 space-y-3"
         >
           <p className="text-xs text-gray-500">
-            Voor het overzetten van een bestaande afspraak: komt direct als bevestigd (of, bij
-            een herhaling, als actieve vaste reservering) te staan - geen betaling nodig.
+            Staat direct vast (bij een herhaling als actieve vaste reservering, die gewoon de
+            rekeningen krijgt). Je kunt ook verder vooruit plannen dan leden zelf mogen.
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <input
@@ -1759,6 +1762,34 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
                 </option>
               ))}
             </select>
+            {addBookingForm.recurrence === "once" && (
+              <fieldset className="sm:col-span-2 text-sm space-y-1">
+                <legend className="font-medium text-gray-700 mb-1">Betaling</legend>
+                <label className="flex items-start gap-2">
+                  <input
+                    type="radio"
+                    name="payment"
+                    checked={addBookingForm.payment === "request"}
+                    onChange={() => setAddBookingForm((f) => ({ ...f, payment: "request" }))}
+                    className="mt-1"
+                  />
+                  <span>
+                    Band moet nog betalen: de bevestigingsmail krijgt een betaallink. Je ziet hem
+                    onder Betalingen tot hij betaald is.
+                  </span>
+                </label>
+                <label className="flex items-start gap-2">
+                  <input
+                    type="radio"
+                    name="payment"
+                    checked={addBookingForm.payment === "none"}
+                    onChange={() => setAddBookingForm((f) => ({ ...f, payment: "none" }))}
+                    className="mt-1"
+                  />
+                  <span>Al geregeld of niet nodig (bijv. contant betaald of een oude afspraak)</span>
+                </label>
+              </fieldset>
+            )}
             {addBookingForm.recurrence !== "once" && (
                   <select
                     value={addBookingForm.storageUnit}

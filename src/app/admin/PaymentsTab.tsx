@@ -143,11 +143,19 @@ export default function PaymentsTab() {
       body = { reason };
     }
     setBusyId(r.id);
-    const res = await fetch(`/api/admin/subscription-payments/${r.id}/${action}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
+    // Periode van een vaste plek of betaalverzoek van een losse boeking.
+    const res =
+      r.kind === "periode"
+        ? await fetch(`/api/admin/subscription-payments/${r.id}/${action}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          })
+        : await fetch(`/api/admin/bookings/${r.id}/settle`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action, ...body }),
+          });
     const data = await res.json().catch(() => ({}));
     setBusyId(null);
     if (!res.ok) {

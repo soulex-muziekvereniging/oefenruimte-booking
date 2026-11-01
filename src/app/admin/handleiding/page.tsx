@@ -171,11 +171,18 @@ export default async function BeheerHandleidingPage() {
         shot={{ src: "a03-toevoegen.png", alt: "Het formulier om zelf een boeking toe te voegen" }}
       >
         <p>
-          Met <strong>+ Toevoegen</strong> zet je er zelf een boeking in, zonder online betaling:
-          bijvoorbeeld een afspraak, contante betaling of het overzetten van een bestaande band.
+          Met <strong>+ Toevoegen</strong> zet je er zelf een boeking in: bijvoorbeeld voor iemand
+          die verder vooruit wil dan leden zelf mogen, een afspraak of het overzetten van een
+          bestaande band.
         </p>
         <ul className="list-disc pl-5 space-y-1.5">
           <li>Kies <em>eenmalig</em>, <em>elke week</em> of <em>om de week</em>, de datum en het dagdeel.</li>
+          <li>
+            Bij een eenmalige boeking kies je de <strong>betaling</strong>: <em>band moet nog
+            betalen</em> (de bevestigingsmail krijgt een betaalknop, en de boeking staat onder
+            Betalingen tot hij betaald is) of <em>al geregeld of niet nodig</em>. Bij een vaste
+            reservering komen de rekeningen vanzelf.
+          </li>
           <li>Bij een vaste reservering kun je meteen een opslagruimte toewijzen.</li>
           <li>De band krijgt een bevestiging per mail.</li>
         </ul>
@@ -358,6 +365,11 @@ export default async function BeheerHandleidingPage() {
 
       <Section id="instellingen" title="Instellingen" shot={{ src: "a09-instellingen.png", alt: "De instellingen" }}>
         <ul className="list-disc pl-5 space-y-1.5">
+          <li>
+            <strong>Vooruit boeken</strong>: hoe ver vooruit leden zelf kunnen boeken of een vaste
+            plek kunnen laten starten (1, 2 of 3 maanden of een half jaar). Als beheer kun je
+            altijd verder vooruit plannen.
+          </li>
           <li>
             <strong>Rekeningen vaste plek</strong>: de hoofdschakelaar. Zolang die uit staat, gaan
             er geen rekeningen, herinneringen of vervalmeldingen naar de bands. Zet hem aan met de

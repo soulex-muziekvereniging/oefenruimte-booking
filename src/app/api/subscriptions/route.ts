@@ -12,6 +12,7 @@ import {
   sendSubscriptionNotificationToOrg,
 } from "@/lib/email";
 import { checkStartDate, conflictMessage, parseSubscriptionInput } from "@/lib/subscriptionRequest";
+import { getMaxWeeksAhead } from "@/lib/bookingHorizon";
 import { getFreeStorageUnits, getOccupiedStorageUnits } from "@/lib/storage";
 
 export async function POST(request: NextRequest) {
@@ -28,7 +29,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: parsed.error }, { status: 400 });
   }
   const { startDate, dagdeelId, frequency } = parsed.value;
-  const startError = checkStartDate(parsed.value);
+  const startError = checkStartDate(parsed.value, { maxWeeksAhead: await getMaxWeeksAhead() });
   if (startError) {
     return NextResponse.json({ error: startError }, { status: 400 });
   }

@@ -6,6 +6,7 @@ import { config } from "@/config";
 import { expireStalePendingBookings } from "@/lib/expire";
 import { getSlotsForRange } from "@/lib/slots";
 import { slotStartInstant, nowInAmsterdam, toLocalDateStr } from "@/lib/date";
+import { getMaxWeeksAhead } from "@/lib/bookingHorizon";
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
@@ -42,14 +43,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Ongeldig tijdslot" }, { status: 400 });
   }
 
+  const maxWeeksAhead = await getMaxWeeksAhead();
   const latest = nowInAmsterdam();
-  latest.setDate(latest.getDate() + config.maxWeeksAhead * 7);
+  latest.setDate(latest.getDate() + maxWeeksAhead * 7);
   if (slotStartInstant(slotDate, slotStartTime).getTime() <= Date.now()) {
     return NextResponse.json({ error: "Dit tijdslot is al begonnen of voorbij" }, { status: 400 });
   }
   if (slotDate > toLocalDateStr(latest)) {
     return NextResponse.json(
-      { error: `Je kunt maximaal ${config.maxWeeksAhead} weken vooruit boeken` },
+      { error: `Je kunt maximaal ${maxWeeksAhead} weken vooruit boeken` },
       { status: 400 }
     );
   }

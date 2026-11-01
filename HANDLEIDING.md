@@ -17,7 +17,9 @@ Vraag hier toegang aan").
 - Er zijn drie dagdelen per dag: **Ochtend** (09:00–13:00), **Middag** (14:00–18:00),
   **Avond** (19:00–23:00).
 - Prijs: **€40,00** per dagdeel.
-- Je kunt maximaal **4 weken vooruit** boeken.
+- Je kunt zo ver vooruit boeken als het bestuur heeft ingesteld (standaard 4 weken).
+- Heeft het bestuur een boeking voor je ingepland en moet je nog betalen? Dan staat er een
+  betaalknop in de bevestigingsmail en bij **Mijn boekingen**.
 - Na het invullen van je gegevens word je doorgestuurd naar Mollie om direct te betalen
   (iDEAL e.d.). Zodra de betaling binnen is, krijg je een bevestigingsmail met een link om
   eventueel te annuleren.

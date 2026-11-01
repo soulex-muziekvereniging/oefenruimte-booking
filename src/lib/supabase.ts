@@ -35,6 +35,13 @@ export type Booking = {
   mollie_payment_id: string | null;
   cancel_token: string;
   paid_by: string | null;
+  // Betaalverzoek bij een boeking die het beheer met de hand inplant (migratie 022):
+  // leeg = gewone boeking; open | paid | waived.
+  payment_status?: "open" | "paid" | "waived" | null;
+  pay_token?: string;
+  pending_payment_id?: string | null;
+  paid_at?: string | null;
+  admin_note?: string | null;
   created_at: string;
   updated_at: string;
 };

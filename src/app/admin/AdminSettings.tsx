@@ -5,6 +5,7 @@ import TariffSettings from "./TariffSettings";
 import InvoicingSettings from "./InvoicingSettings";
 import PaymentTermsSettings from "./PaymentTermsSettings";
 import FiscalYearSettings from "./FiscalYearSettings";
+import BookingHorizonSettings from "./BookingHorizonSettings";
 import WhatsappSettings from "./WhatsappSettings";
 
 type Recipient = { id: string; email: string };
@@ -89,6 +90,8 @@ export default function AdminSettings() {
       <TariffSettings />
 
       <PaymentTermsSettings />
+
+      <BookingHorizonSettings />
 
       <FiscalYearSettings />
 

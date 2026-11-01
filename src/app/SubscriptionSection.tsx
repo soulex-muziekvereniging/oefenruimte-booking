@@ -5,6 +5,7 @@ import { config } from "@/config";
 import { toLocalDateStr } from "@/lib/date";
 import MembershipRequestPrompt from "./MembershipRequestPrompt";
 import { useTariffs } from "./useTariffs";
+import { useMaxWeeksAhead } from "./useMaxWeeksAhead";
 
 type Frequency = keyof typeof config.subscriptionPricing;
 
@@ -35,9 +36,10 @@ export default function SubscriptionSection({
   initialFrequency?: Frequency;
 }) {
   const today = toLocalDateStr(new Date());
+  const maxWeeksAhead = useMaxWeeksAhead();
   const maxStart = (() => {
     const d = new Date();
-    d.setDate(d.getDate() + config.maxWeeksAhead * 7);
+    d.setDate(d.getDate() + maxWeeksAhead * 7);
     return toLocalDateStr(d);
   })();
 

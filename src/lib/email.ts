@@ -116,11 +116,18 @@ function invoiceTable(p: SubscriptionPayment): string {
   return `<table style="border-collapse: collapse; width: 100%; margin: 16px 0;">${rows.join("")}</table>`;
 }
 
+// Betaallink voor een losse boeking met betaalverzoek (beheer heeft hem ingepland).
+export function payBookingUrl(booking: Booking): string {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL!;
+  return `${appUrl}/boeking/betalen?token=${booking.pay_token}&direct=1`;
+}
+
 export async function sendConfirmationEmail(
   booking: Booking,
   extraRecipients: string[] = [],
   paidBy: string | null = null
 ) {
+  const payDue = booking.payment_status === "open" && !!booking.pay_token;
   const appUrl = process.env.NEXT_PUBLIC_APP_URL!;
   const cancelUrl = `${appUrl}/booking/cancel?id=${booking.id}&token=${booking.cancel_token}`;
   const recipients = Array.from(
@@ -163,11 +170,18 @@ export async function sendConfirmationEmail(
               : ""
           }
           <tr>
-            <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">Betaald</td>
+            <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">${payDue ? "Nog te betalen" : "Betaald"}</td>
             <td style="padding: 8px; border: 1px solid #ddd;">${formatPrice(booking.price_cents)}</td>
           </tr>
         </table>
-
+${
+  payDue
+    ? `
+        <p>De ruimte staat voor jullie vast. Wil je het bedrag betalen via onderstaande knop?</p>
+        <p><a href="${payBookingUrl(booking)}" style="display:inline-block;padding:10px 20px;background:#175670;color:#fff;border-radius:6px;text-decoration:none;">Betalen — ${formatPrice(booking.price_cents)}</a></p>
+        ${ONE_PAYMENT_NOTE}`
+    : ""
+}
         <p>Moet je annuleren? Dat kan tot uiterlijk ${config.cancellationCutoffHours} uur van tevoren via onderstaande link:</p>
         <p><a href="${cancelUrl}">Boeking annuleren</a></p>
 

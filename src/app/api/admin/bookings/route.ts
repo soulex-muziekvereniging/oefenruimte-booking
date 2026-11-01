@@ -27,14 +27,17 @@ export async function GET(request: NextRequest) {
   return NextResponse.json(data);
 }
 
-// Handmatig een losse boeking toevoegen (bv. een afspraak van vóór dit systeem
-// overzetten) - komt direct als "confirmed" binnen, geen Mollie-betaling nodig.
+// Handmatig een losse boeking toevoegen. Komt direct als "confirmed" binnen, ook verder
+// vooruit dan leden zelf mogen boeken. { payment: "request" }: de band moet nog betalen en
+// krijgt een betaallink in de bevestigingsmail (payment_status "open", migratie 022).
+// Anders is de betaling al geregeld of niet nodig (bv. een afspraak van vóór dit systeem).
 export async function POST(request: NextRequest) {
   const authError = await verifyAdminPassword(request);
   if (authError) return authError;
 
   const body = await request.json();
   const { bandName, contactName, contactEmail, contactPhone, slotDate, dagdeelId } = body;
+  const requestPayment = body.payment === "request";
 
   if (!bandName || !contactName || !contactEmail || !slotDate || !dagdeelId) {
     return NextResponse.json({ error: "Vul alle verplichte velden in" }, { status: 400 });
@@ -67,6 +70,7 @@ export async function POST(request: NextRequest) {
       slot_end_time: endTime,
       price_cents: (await getTariffs()).singleCents,
       status: "confirmed",
+      ...(requestPayment ? { payment_status: "open" } : {}),
     })
     .select()
     .single();

@@ -29,8 +29,13 @@ export function parseSubscriptionInput(
 }
 
 // Bands mogen starten vanaf het eerstvolgende nog niet begonnen dagdeel, tot maxWeeksAhead
-// weken vooruit. De beheerder mag verder vooruit (bestaande afspraken overzetten).
-export function checkStartDate(input: SubscriptionInput, opts: { admin?: boolean } = {}): string | null {
+// weken vooruit (instelbaar, src/lib/bookingHorizon.ts). De beheerder mag verder vooruit
+// (bestaande afspraken overzetten).
+export function checkStartDate(
+  input: SubscriptionInput,
+  opts: { admin?: boolean; maxWeeksAhead?: number } = {}
+): string | null {
+  const maxWeeksAhead = opts.maxWeeksAhead ?? config.maxWeeksAhead;
   const dagdeel = config.dagdelen.find((d) => d.id === input.dagdeelId)!;
   const start = `${dagdeel.startHour.toString().padStart(2, "0")}:00`;
 
@@ -41,9 +46,9 @@ export function checkStartDate(input: SubscriptionInput, opts: { admin?: boolean
     return "Deze startdatum is al begonnen of voorbij";
   }
   const latest = nowInAmsterdam();
-  latest.setDate(latest.getDate() + config.maxWeeksAhead * 7);
+  latest.setDate(latest.getDate() + maxWeeksAhead * 7);
   if (input.startDate > toLocalDateStr(latest)) {
-    return `De startdatum mag maximaal ${config.maxWeeksAhead} weken vooruit liggen`;
+    return `De startdatum mag maximaal ${maxWeeksAhead} weken vooruit liggen`;
   }
   return null;
 }

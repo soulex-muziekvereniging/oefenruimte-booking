@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
   const { data: bookings } = await supabase
     .from("bookings")
     .select(
-      "id, band_name, contact_name, contact_email, slot_date, slot_start_time, slot_end_time, price_cents, status, cancel_token, paid_by, mollie_payment_id"
+      "id, band_name, contact_name, contact_email, slot_date, slot_start_time, slot_end_time, price_cents, status, cancel_token, paid_by, mollie_payment_id, payment_status, pay_token"
     )
     .or(ownerFilter)
     .in("status", ["pending", "confirmed"])
@@ -215,9 +215,15 @@ export async function GET(request: NextRequest) {
   }
 
   return NextResponse.json({
-    bookings: (bookings ?? []).map(({ mollie_payment_id, ...b }) => ({
+    bookings: (bookings ?? []).map(({ mollie_payment_id, payment_status, pay_token, ...b }) => ({
       ...b,
       paidOnline: !!mollie_payment_id,
+      // Door het beheer ingepland met betaalverzoek en nog niet betaald.
+      payUrl:
+        payment_status === "open" && b.status === "confirmed"
+          ? `/boeking/betalen?token=${pay_token}&direct=1`
+          : null,
+      settledByBoard: payment_status === "waived",
     })),
     subscriptions: subscriptionsWithPeriod,
     listUntil,
