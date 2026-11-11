@@ -35,7 +35,11 @@ oefenruimte boeken, zonder in te hoeven loggen. Twee soorten boekingen:
    dagen dus na 14 dagen), en daarna vervalt de vaste plek en komt het dagdeel vrij.
    **Opslagruimte** (ruimte 2, 3 en 4; 1 en 5 zijn van Soulex) kan erbij voor €15 per 4
    weken, altijd het volle bedrag, op dezelfde rekening; het bestuur kan in het admin-scherm
-   per reservering een ruimte toekennen of weghalen. Opzeggen kan de band zelf via een unieke
+   per reservering een ruimte toekennen of weghalen. **Korting** (bijv. halve prijs voor een
+   band die korter repeteert) zet het bestuur per vaste plek aan of uit met een percentage en
+   een reden; die geldt voor de repetities (niet voor de opslag) vanaf de volgende rekening, en
+   desgewenst ook voor een al verstuurde rekening die nog openstaat (de band krijgt dan een
+   aangepaste rekening). Opzeggen kan de band zelf via een unieke
    link in hun bevestigingsmail (geen inloggen nodig); het slot blijft dan van hen tot het
    einde van de laatst betaalde periode. Opzeggen via het admin-scherm geeft het slot direct
    vrij. Heeft de band nog **tegoed** van geannuleerde keren dat nog niet verrekend is, dan

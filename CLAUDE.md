@@ -46,6 +46,12 @@ aangesproken.
     direct vrij. Openstaand tegoed staat in de melding aan het bestuur (handmatig terug).
     `subscriptions.bill_until` (migratie 019) wordt niet meer gebruikt.
   - Bands zien hun planning een jaar vooruit in de kalender.
+  - **Korting** per vaste plek (bijv. halve prijs voor een korte repetitie): beheer zet hem
+    aan/uit met een percentage en reden (`subscriptions.discount_percent`/`discount_note`,
+    migratie 023, `/api/admin/subscriptions/[id]/discount`). Alleen op de repetities, niet op
+    de opslag. Zit verwerkt in `price_cents`, dus de facturatie hoeft er niets van te weten;
+    een tariefwijziging "op bestaande plekken" houdt de korting. Optioneel wordt een al
+    verstuurde, onbetaalde rekening herberekend en krijgt de band een aangepaste rekening.
 - **Opslagruimte**: ruimtes 2, 3 en 4 (1 en 5 zijn van Soulex), alleen bij een vaste plek, per
   periode van 4 weken, altijd het volle bedrag.
 - **Alleen leden** kunnen boeken. Nieuwe bands tekenen eerst een contract en betalen borg

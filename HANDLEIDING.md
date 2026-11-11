@@ -55,6 +55,8 @@ Voor bands die structureel op hetzelfde moment willen repeteren.
 - Opzeggen kan altijd zelf via de link in je bevestigingsmail. Wat al betaald is, blijft van
   jullie: het tijdslot loopt door tot het einde van de betaalde periode. Hebben jullie nog
   tegoed van geannuleerde keren, dan betaalt het bestuur dat terug.
+- Repetitie je korter dan een heel dagdeel en is daar korting voor afgesproken, dan zet het
+  bestuur die bij jullie vaste plek. Je ziet het lagere bedrag gewoon op de rekening.
 - Tarieven zijn voorlopig; het bestuur stelt ze nog definitief vast.
 
 ## "Mijn boekingen" — je eigen overzicht inzien

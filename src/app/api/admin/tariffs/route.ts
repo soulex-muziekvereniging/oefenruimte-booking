@@ -63,10 +63,12 @@ export async function POST(request: NextRequest) {
   if (body.applyToExisting === true) {
     const { data: subs } = await supabase
       .from("subscriptions")
-      .select("id, frequency, storage_unit, price_cents")
+      // "*" zodat discount_percent meekomt zodra migratie 023 is uitgevoerd (en niets breekt daarvoor)
+      .select("*")
       .in("status", ["active", "pending_first_payment"]);
     for (const sub of subs ?? []) {
-      const newPrice = subscriptionPrice(tariffs, sub.frequency, !!sub.storage_unit);
+      // Een korting op een vaste plek blijft staan bij een nieuw tarief.
+      const newPrice = subscriptionPrice(tariffs, sub.frequency, !!sub.storage_unit, sub.discount_percent ?? 0);
       if (newPrice === sub.price_cents) continue;
       const { error: updateError } = await supabase
         .from("subscriptions")

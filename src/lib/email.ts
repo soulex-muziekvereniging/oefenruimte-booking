@@ -546,18 +546,22 @@ export async function sendPeriodPaymentConfirmationEmail(
 export async function sendPeriodPaymentRequestEmail(
   subscription: Subscription,
   periodPayment: SubscriptionPayment,
-  extraRecipients: string[] = []
+  extraRecipients: string[] = [],
+  // Gezet als het bedrag van een al verstuurde rekening is aangepast (bijv. korting):
+  // de uitleg die erbij moet. Dezelfde betaallink blijft geldig, met het nieuwe bedrag.
+  correction: string | null = null
 ) {
   const recipients = Array.from(new Set([subscription.contact_email, ...extraRecipients]));
 
   await send({
     from: `${config.organizationName} <${config.senderEmail}>`,
     to: recipients,
-    subject: `Rekening oefenruimte ${subscription.band_name}: ${formatPeriod(periodPayment)}`,
+    subject: `${correction ? "Aangepaste rekening" : "Rekening"} oefenruimte ${subscription.band_name}: ${formatPeriod(periodPayment)}`,
     html: `
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2>Rekening voor de komende periode</h2>
+        <h2>${correction ? "Aangepaste rekening" : "Rekening voor de komende periode"}</h2>
         <p>Hoi ${subscription.contact_name},</p>
+        ${correction ? `<p>${escapeHtml(correction)} Deze rekening vervangt de vorige; betaal alleen het bedrag hieronder.</p>` : ""}
         <p>Hier is de rekening van <strong>${subscription.band_name}</strong> voor
         ${formatWeekdayDagdeel(subscription)} in de periode ${formatPeriod(periodPayment)}.</p>
         ${invoiceTable(periodPayment)}

@@ -73,6 +73,9 @@ type Subscription = {
   start_date: string;
   storage_unit: string | null;
   price_cents: number;
+  // Korting op de repetities in procent (migratie 023), al verwerkt in price_cents.
+  discount_percent?: number;
+  discount_note?: string | null;
   status: "pending_first_payment" | "active" | "lapsed" | "cancelled";
   active_until: string | null;
   currentPeriod: SubscriptionPeriod | null;
@@ -163,6 +166,14 @@ export default function AdminPage() {
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [subscriptionsLoading, setSubscriptionsLoading] = useState(false);
   const [cancellingSubscription, setCancellingSubscription] = useState<string | null>(null);
+  const [editingDiscount, setEditingDiscount] = useState<{
+    id: string;
+    on: boolean;
+    percent: string;
+    note: string;
+    applyToOpen: boolean;
+  } | null>(null);
+  const [savingDiscount, setSavingDiscount] = useState(false);
   const [showInactiveSubscriptions, setShowInactiveSubscriptions] = useState(false);
   const [deletingSubscriptions, setDeletingSubscriptions] = useState(false);
   const [swaps, setSwaps] = useState<SubscriptionSwap[]>([]);
@@ -417,6 +428,39 @@ export default function AdminPage() {
       const data = await res.json().catch(() => ({}));
       alert(data.error || "Opslaan is niet gelukt");
     }
+    await fetchSubscriptions();
+  }
+
+  async function handleSaveDiscount(subscription: Subscription) {
+    if (!editingDiscount) return;
+    const percent = editingDiscount.on ? Number(editingDiscount.percent) : 0;
+    if (!Number.isInteger(percent) || percent < 0 || percent > 100) {
+      alert("Kies een korting van 0 tot 100%");
+      return;
+    }
+    setSavingDiscount(true);
+    const res = await fetch(`/api/admin/subscriptions/${subscription.id}/discount`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        percent,
+        note: editingDiscount.note,
+        applyToOpen: editingDiscount.applyToOpen,
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+    setSavingDiscount(false);
+    if (!res.ok) {
+      alert(data.error || "Opslaan is niet gelukt");
+      return;
+    }
+    const lines = [
+      `${subscription.band_name}: voortaan ${formatPrice(data.priceCents)} per ${config.periodWeeks} weken.`,
+      ...(data.adjusted ?? []).map((l: string) => `Rekening aangepast: ${l}`),
+      ...(data.skipped ?? []).map((l: string) => `Niet aangepast: ${l}`),
+    ];
+    alert(lines.join("\n"));
+    setEditingDiscount(null);
     await fetchSubscriptions();
   }
 
@@ -1197,6 +1241,7 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
                       <p className="text-sm text-gray-600 truncate">
                         {formatRhythmLabel(subscription)}
                         {subscription.storage_unit ? ` · opslag ${subscription.storage_unit}` : ""}
+                        {subscription.discount_percent ? ` · ${subscription.discount_percent}% korting` : ""}
                         {keysLabel(subscription.band_name)}
                       </p>
                     </div>
@@ -1237,6 +1282,115 @@ Toch annuleren zonder automatisch terugstorten? (Stort dan zelf terug via het Mo
                           </select>
                         </label>
                       )}
+                      {(subscription.status === "active" ||
+                        subscription.status === "pending_first_payment") &&
+                        (editingDiscount?.id === subscription.id ? (
+                          <form
+                            className="mt-2 p-3 bg-gray-50 border border-gray-200 rounded text-sm space-y-2"
+                            onSubmit={(e) => {
+                              e.preventDefault();
+                              handleSaveDiscount(subscription);
+                            }}
+                          >
+                            <label className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                checked={editingDiscount.on}
+                                onChange={(e) =>
+                                  setEditingDiscount({ ...editingDiscount, on: e.target.checked })
+                                }
+                              />
+                              Korting op de repetities
+                            </label>
+                            {editingDiscount.on && (
+                              <div className="flex flex-wrap items-center gap-2">
+                                <input
+                                  type="number"
+                                  min={1}
+                                  max={100}
+                                  step={1}
+                                  required
+                                  aria-label="Korting in procent"
+                                  value={editingDiscount.percent}
+                                  onChange={(e) =>
+                                    setEditingDiscount({ ...editingDiscount, percent: e.target.value })
+                                  }
+                                  className="w-20 px-2 py-1 border border-gray-300 rounded"
+                                />
+                                %
+                                <input
+                                  type="text"
+                                  maxLength={120}
+                                  aria-label="Reden"
+                                  value={editingDiscount.note}
+                                  onChange={(e) =>
+                                    setEditingDiscount({ ...editingDiscount, note: e.target.value })
+                                  }
+                                  placeholder="Reden, bijv. korte repetitie (1,5 uur)"
+                                  className="flex-1 min-w-48 px-2 py-1 border border-gray-300 rounded"
+                                />
+                              </div>
+                            )}
+                            <p className="text-xs text-gray-500">
+                              Geldt voor de repetities, niet voor de opslag, vanaf de volgende
+                              rekening. De reden staat in de mail aan de band.
+                            </p>
+                            {subscription.currentPeriod?.status === "unpaid" && (
+                              <label className="flex items-start gap-2">
+                                <input
+                                  type="checkbox"
+                                  className="mt-0.5"
+                                  checked={editingDiscount.applyToOpen}
+                                  onChange={(e) =>
+                                    setEditingDiscount({ ...editingDiscount, applyToOpen: e.target.checked })
+                                  }
+                                />
+                                <span>
+                                  Ook de openstaande rekening aanpassen (de band krijgt een
+                                  aangepaste rekening; de betaallink blijft dezelfde)
+                                </span>
+                              </label>
+                            )}
+                            <div className="flex gap-2">
+                              <button
+                                type="submit"
+                                disabled={savingDiscount}
+                                className="px-3 py-1 bg-blue-600 text-white rounded text-xs disabled:opacity-50"
+                              >
+                                {savingDiscount ? "Opslaan..." : "Opslaan"}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setEditingDiscount(null)}
+                                className="px-3 py-1 text-gray-500 text-xs"
+                              >
+                                Annuleer
+                              </button>
+                            </div>
+                          </form>
+                        ) : (
+                          <p className="flex items-center gap-2 text-sm text-gray-600 mt-1">
+                            🏷️ Korting:{" "}
+                            {subscription.discount_percent
+                              ? `${subscription.discount_percent}%${subscription.discount_note ? ` (${subscription.discount_note})` : ""}`
+                              : "geen"}
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setEditingDiscount({
+                                  id: subscription.id,
+                                  on: !!subscription.discount_percent,
+                                  percent: String(subscription.discount_percent || 50),
+                                  note: subscription.discount_note ?? "",
+                                  applyToOpen: true,
+                                })
+                              }
+                              className="text-blue-600 hover:underline text-xs"
+                            >
+                              wijzig
+                            </button>
+                          </p>
+                        ))}
                       {(() => {
                         const today = toLocalDateStr(new Date());
                         const upcoming = swaps

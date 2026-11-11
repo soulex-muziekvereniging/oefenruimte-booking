@@ -60,3 +60,22 @@ export async function saveMailRun(run: { at: string; skipped?: string }, newEntr
     console.error("[mail-log] opslaan mislukt:", err);
   }
 }
+
+// Losse mail buiten de cron om (bijv. een aangepaste rekening vanuit het beheer) aan de
+// verzendlog toevoegen, zonder de gegevens van de laatste cronrun te veranderen.
+export async function appendMailLog(newEntries: MailLogEntry[]) {
+  if (newEntries.length === 0) return;
+  try {
+    const old = await getMailLog();
+    const value: MailLog = {
+      lastRun: old.lastRun,
+      entries: [...newEntries.slice().reverse(), ...old.entries].slice(0, MAX_ENTRIES),
+    };
+    const { error } = await supabase
+      .from("settings")
+      .upsert({ key: KEY, value, updated_at: new Date().toISOString(), updated_by: "beheer" });
+    if (error) console.error("[mail-log] opslaan mislukt:", error);
+  } catch (err) {
+    console.error("[mail-log] opslaan mislukt:", err);
+  }
+}

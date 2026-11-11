@@ -68,6 +68,9 @@ export type Subscription = {
   active_until: string | null;
   // Bijgehuurde opslagruimte (zie config.storage), prijs zit in price_cents.
   storage_unit: string | null;
+  // Korting op de repetities in procent (migratie 023), al verwerkt in price_cents.
+  discount_percent?: number;
+  discount_note?: string | null;
   // Uit de periode van achteraf betalen (migratie 019); niet meer in gebruik.
   bill_until: string | null;
   created_at: string;
